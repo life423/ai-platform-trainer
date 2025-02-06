@@ -1,11 +1,10 @@
-# ai_platform_trainer/entities/player_play.py
+# file: ai_platform_trainer/entities/player_play.py
 
 import pygame
 import logging
 import random
 from typing import List
 from ai_platform_trainer.entities.missile import Missile
-
 
 class PlayerPlay:
     def __init__(self, screen_width: int, screen_height: int):
@@ -16,6 +15,28 @@ class PlayerPlay:
         self.position = {"x": screen_width // 4, "y": screen_height // 2}
         self.step = 5
         self.missiles: List[Missile] = []
+
+    @property
+    def x(self) -> int:
+        """
+        Allows environment or other code to get/set player's x-position.
+        """
+        return self.position["x"]
+
+    @x.setter
+    def x(self, value: int):
+        self.position["x"] = value
+
+    @property
+    def y(self) -> int:
+        """
+        Allows environment or other code to get/set player's y-position.
+        """
+        return self.position["y"]
+
+    @y.setter
+    def y(self, value: int):
+        self.position["y"] = value
 
     def reset(self) -> None:
         self.position = {"x": self.screen_width // 4, "y": self.screen_height // 2}
@@ -40,6 +61,7 @@ class PlayerPlay:
             self.position["x"] = self.screen_width
         elif self.position["x"] > self.screen_width:
             self.position["x"] = -self.size
+
         if self.position["y"] < -self.size:
             self.position["y"] = self.screen_height
         elif self.position["y"] > self.screen_height:
@@ -48,16 +70,15 @@ class PlayerPlay:
         return True
 
     def shoot_missile(self) -> None:
-        # Shoot only if no missile is active, or allow multiple—up to you
+        # Shoot only if no missile is active (or tweak logic if you want multiple missiles)
         if len(self.missiles) == 0:
             missile_start_x = self.position["x"] + self.size // 2
             missile_start_y = self.position["y"] + self.size // 2
 
             birth_time = pygame.time.get_ticks()
-            # Random lifespan from 0.5–1.5s to match training
+            # Random lifespan from 0.5–1.5s
             random_lifespan = random.randint(500, 1500)
 
-            # Create a new missile object with random lifespan
             missile = Missile(
                 x=missile_start_x,
                 y=missile_start_y,
@@ -75,7 +96,6 @@ class PlayerPlay:
         current_time = pygame.time.get_ticks()
         for missile in self.missiles[:]:
             missile.update()
-
             # Remove if it expires or goes off-screen
             if current_time - missile.birth_time >= missile.lifespan:
                 self.missiles.remove(missile)

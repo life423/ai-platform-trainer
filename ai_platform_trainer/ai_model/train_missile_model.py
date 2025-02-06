@@ -125,7 +125,7 @@ def train_model(filename):
         print(f"Removed old file at '{model_path}'.")
 
     # 5) Save the newly trained model
-    torch.save(model.state_dict(), model_path)
+    torch.save(model.state_dict(), "models/missile_model.pth")
     print(f"Saved new model to '{model_path}'.")
 
 

@@ -1,4 +1,4 @@
-# ai_platform_trainer/entities/enemy_play.py
+# file: ai_platform_trainer/entities/enemy_play.py
 
 import torch
 import math
@@ -28,6 +28,28 @@ class EnemyPlay:
         self.surface = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
         self.surface.fill((*self.color, 255))
 
+    @property
+    def x(self) -> float:
+        """
+        Allows environment or other code to get/set enemy's x-position.
+        """
+        return self.pos["x"]
+
+    @x.setter
+    def x(self, value: float):
+        self.pos["x"] = value
+
+    @property
+    def y(self) -> float:
+        """
+        Allows environment or other code to get/set enemy's y-position.
+        """
+        return self.pos["y"]
+
+    @y.setter
+    def y(self, value: float):
+        self.pos["y"] = value
+
     def wrap_position(self, x: float, y: float) -> Tuple[float, float]:
         if x < -self.size:
             x = self.screen_width
@@ -47,9 +69,7 @@ class EnemyPlay:
 
         # Example movement logic
         # Replace with your actual AI movement logic
-        dist = math.sqrt(
-            (player_x - self.pos["x"]) ** 2 + (player_y - self.pos["y"]) ** 2
-        )
+        dist = math.sqrt((player_x - self.pos["x"]) ** 2 + (player_y - self.pos["y"]) ** 2)
         state = torch.tensor(
             [[player_x, player_y, self.pos["x"], self.pos["y"], dist]],
             dtype=torch.float32,

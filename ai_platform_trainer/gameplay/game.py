@@ -70,23 +70,25 @@ class Game:
         self.play_mode_manager: Optional[PlayModeManager] = None
         self.training_mode_manager: Optional[TrainingMode] = None
 
-        # Missile model
+        # Missile model (loaded once at startup)
         self.missile_model = None
         self._load_missile_model_once()
 
         logging.info("Game initialized.")
 
     def _load_missile_model_once(self) -> None:
+        """
+        Looks for 'models/missile_model.pth' and, if found, loads the
+        model weights into a SimpleMissileModel instance.
+        """
         missile_model_path = "models/missile_model.pth"
         if os.path.isfile(missile_model_path):
-            logging.info(
-                f"Found missile model at '{missile_model_path}'. Loading once..."
-            )
+            logging.info(f"Found missile model at '{missile_model_path}'. Loading once...")
             try:
                 model = SimpleMissileModel()
-                model.load_state_dict(
-                    torch.load(missile_model_path, map_location="cpu")
-                )
+                # Best practice: load only state_dict, with weights_only=True
+                state_dict = torch.load(missile_model_path, map_location="cpu", weights_only=True)
+                model.load_state_dict(state_dict)
                 model.eval()
                 self.missile_model = model
             except Exception as e:
@@ -96,7 +98,9 @@ class Game:
             logging.warning(f"No missile model found at '{missile_model_path}'.")
 
     def run(self) -> None:
-        """Main game loop. Depending on mode, update either training or play manager, then render."""
+        """
+        Main game loop. Depending on mode, update either training or play manager, then render.
+        """
         while self.running:
             self.handle_events()
 
@@ -125,7 +129,9 @@ class Game:
         logging.info("Game loop exited.")
 
     def start_game(self, mode: str) -> None:
-        """Initialize game in 'train' or 'play' mode, set up environment, managers, etc."""
+        """
+        Initialize game in 'train' or 'play' mode, set up environment, managers, etc.
+        """
         self.mode = mode
         logging.info(f"Starting game in '{mode}' mode.")
 
@@ -161,6 +167,9 @@ class Game:
         self.menu_active = False
 
     def _init_play_mode(self) -> Tuple[PlayerPlay, EnemyPlay]:
+        """
+        Dynamically imports EnemyMovementModel to handle enemy AI during 'play' mode.
+        """
         from ai_platform_trainer.ai_model.model_definition.enemy_movement_model import (
             EnemyMovementModel,
         )
@@ -169,13 +178,16 @@ class Game:
         model_path = config.MODEL_PATH
         if os.path.isfile(model_path):
             try:
-                model.load_state_dict(torch.load(model_path, map_location="cpu"))
+                # Best practice: load only state_dict
+                state_dict = torch.load(model_path, map_location="cpu", weights_only=True)
+                model.load_state_dict(state_dict)
                 model.eval()
                 logging.info("Enemy AI model loaded for play mode.")
             except Exception as e:
                 logging.error(f"Failed to load enemy model: {e}")
         else:
             logging.warning(f"No enemy model found at '{model_path}'. Using default.")
+
         player = PlayerPlay(self.screen_width, self.screen_height)
         enemy = EnemyPlay(self.screen_width, self.screen_height, model)
         return player, enemy
@@ -225,7 +237,9 @@ class Game:
         self.menu = Menu(self.screen_width, self.screen_height)
 
     def reset_game_state(self) -> None:
-        """Clear entities and data logger if returning to menu or toggling resolution."""
+        """
+        Clear entities and data logger if returning to menu or toggling resolution.
+        """
         self.player = None
         self.enemy = None
         self.data_logger = None
