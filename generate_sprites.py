@@ -21,30 +21,37 @@ SPRITE_SIZES = {
     "player": (64, 64),
     "enemy": (64, 64),
     "missile": (32, 48),
-    "explosion": (64, 64)
+    "explosion": (64, 64),
+    "wall_h": (128, 32),      # Horizontal wall
+    "wall_v": (32, 128)       # Vertical wall
 }
 
 # Define color palettes
 COLORS = {
     "player": {
-        "body": (30, 144, 255),    # Dodger blue
+        "body": (30, 144, 255),     # Dodger blue
         "highlight": (135, 206, 250),  # Light sky blue
-        "shadow": (0, 0, 139)      # Dark blue
+        "shadow": (0, 0, 139)       # Dark blue
     },
     "enemy": {
         "body": (220, 20, 60),      # Crimson red
         "highlight": (255, 99, 71),  # Tomato red
-        "shadow": (139, 0, 0)        # Dark red
+        "shadow": (139, 0, 0)       # Dark red
     },
     "missile": {
         "body": (255, 215, 0),      # Gold
         "highlight": (255, 255, 0),  # Yellow
-        "trail": (255, 69, 0)        # Red-orange
+        "trail": (255, 69, 0)       # Red-orange
     },
     "explosion": {
         "outer": (255, 69, 0),      # Red-orange
         "middle": (255, 165, 0),    # Orange
         "inner": (255, 255, 0)      # Yellow
+    },
+    "wall": {
+        "body": (128, 128, 128),    # Gray
+        "edge": (64, 64, 64),       # Dark gray
+        "highlight": (192, 192, 192)  # Light gray
     }
 }
 
@@ -274,6 +281,82 @@ def create_explosion_sprite(size, frame_index, total_frames=4):
     return surface
 
 
+def create_wall_sprite(size, orientation="horizontal"):
+    """
+    Create a wall obstacle sprite.
+
+    Args:
+        size: Tuple of (width, height) for the sprite
+        orientation: "horizontal" or "vertical" wall
+
+    Returns:
+        Pygame surface with the sprite
+    """
+    width, height = size
+    surface = pygame.Surface(size, pygame.SRCALPHA)
+    
+    # Fill with base color
+    pygame.draw.rect(
+        surface,
+        COLORS["wall"]["body"],
+        pygame.Rect(0, 0, width, height)
+    )
+    
+    # Add edge
+    edge_width = max(2, min(width, height) // 8)
+    pygame.draw.rect(
+        surface,
+        COLORS["wall"]["edge"],
+        pygame.Rect(0, 0, width, height),
+        edge_width
+    )
+    
+    # Add some detail - either horizontal or vertical lines
+    if orientation == "horizontal":
+        # Horizontal wall gets vertical dividers
+        for x in range(width // 16, width, width // 4):
+            pygame.draw.line(
+                surface,
+                COLORS["wall"]["edge"],
+                (x, 0),
+                (x, height),
+                max(1, edge_width // 2)
+            )
+    else:
+        # Vertical wall gets horizontal dividers
+        for y in range(height // 16, height, height // 4):
+            pygame.draw.line(
+                surface,
+                COLORS["wall"]["edge"],
+                (0, y),
+                (width, y),
+                max(1, edge_width // 2)
+            )
+    
+    # Add highlight on one edge for 3D effect
+    if orientation == "horizontal":
+        # Top edge highlight for horizontal wall
+        pygame.draw.line(
+            surface,
+            COLORS["wall"]["highlight"],
+            (edge_width // 2, edge_width // 2),
+            (width - edge_width // 2, edge_width // 2),
+            max(1, edge_width // 2)
+        )
+    else:
+        # Left edge highlight for vertical wall
+        pygame.draw.line(
+            surface,
+            COLORS["wall"]["highlight"],
+            (edge_width // 2, edge_width // 2),
+            (edge_width // 2, height - edge_width // 2),
+            max(1, edge_width // 2)
+        )
+        
+    return surface
+
+
+
 def save_sprite(surface, name):
     """
     Save a sprite surface to a file.
@@ -282,7 +365,27 @@ def save_sprite(surface, name):
         surface: Pygame surface to save
         name: Filename (without extension)
     """
-    path = os.path.join(SPRITES_DIR, f"{name}.png")
+    # Determine the appropriate subdirectory based on sprite name
+    if name.startswith("player"):
+        subdir = "player"
+    elif name.startswith("enemy"):
+        subdir = "enemies"
+    elif name.startswith("missile"):
+        subdir = "weapons"
+    elif name.startswith("explosion"):
+        subdir = "effects"
+    elif name.startswith("wall"):
+        subdir = "obstacles"
+    else:
+        subdir = ""  # Root sprites directory
+        
+    # Create the target directory if it doesn't exist
+    target_dir = os.path.join(SPRITES_DIR, subdir)
+    os.makedirs(target_dir, exist_ok=True)
+    
+    # Create the full path and save
+    filename = name.split('_')[-1] if '_' in name else name
+    path = os.path.join(target_dir, f"{filename}.png")
     pygame.image.save(surface, path)
     print(f"Saved sprite: {path}")
 
@@ -307,6 +410,13 @@ def generate_all_sprites():
     for i in range(4):
         explosion = create_explosion_sprite(SPRITE_SIZES["explosion"], i, 4)
         save_sprite(explosion, f"explosion_{i}")
+        
+    # Generate wall sprites (horizontal and vertical)
+    wall_h = create_wall_sprite(SPRITE_SIZES["wall_h"], "horizontal")
+    save_sprite(wall_h, "wall_h")
+    
+    wall_v = create_wall_sprite(SPRITE_SIZES["wall_v"], "vertical")
+    save_sprite(wall_v, "wall_v")
 
     print("All sprites generated successfully!")
 

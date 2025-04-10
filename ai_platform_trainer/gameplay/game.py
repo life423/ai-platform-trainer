@@ -11,7 +11,6 @@ from ai_platform_trainer.core.logging_config import setup_logging
 from config_manager import load_settings, save_settings
 
 # Gameplay imports
-from ai_platform_trainer.gameplay.collisions import handle_missile_collisions
 from ai_platform_trainer.gameplay.config import config
 from ai_platform_trainer.gameplay.menu import Menu
 from ai_platform_trainer.gameplay.renderer import Renderer
@@ -36,6 +35,8 @@ from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.enemy_training import EnemyTrain
 from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.entities.player_training import PlayerTraining
+from ai_platform_trainer.entities.obstacle import ObstacleManager
+from ai_platform_trainer.gameplay.enemy_manager import EnemyManager
 from ai_platform_trainer.gameplay.modes.training_mode import TrainingMode
 
 
@@ -68,7 +69,9 @@ class Game:
 
         # 4) Entities and managers
         self.player: Optional[PlayerPlay] = None
-        self.enemy: Optional[EnemyPlay] = None
+        self.enemy: Optional[EnemyPlay] = None  # For backward compatibility
+        self.enemy_manager: Optional[EnemyManager] = None
+        self.obstacle_manager = ObstacleManager()
         self.data_logger: Optional[DataLogger] = None
         self.training_mode_manager: Optional[TrainingMode] = None  # For train mode
 
@@ -154,26 +157,46 @@ class Game:
             raise e
 
         player = PlayerPlay(self.screen_width, self.screen_height)
-        enemy = EnemyPlay(self.screen_width, self.screen_height, model)
-
-        # Check for RL model and try to load if available
-        rl_model_path = "models/enemy_rl/final_model.zip"
-        if os.path.exists(rl_model_path):
-            try:
-                success = enemy.load_rl_model(rl_model_path)
-                if success:
-                    logging.info("Using reinforcement learning model for enemy behavior")
-                else:
-                    logging.warning("RL model exists but couldn't be loaded.")
-                    logging.warning("Falling back to neural network.")
-            except Exception as e:
-                logging.error(f"Error loading RL model: {e}.")
-                logging.error("Using neural network instead.")
-        else:
-            logging.info("No RL model found, using traditional neural network")
-
-        logging.info("Initialized PlayerPlay and EnemyPlay for play mode.")
+        
+        # Create the enemy manager with multiple enemies
+        self.enemy_manager = EnemyManager(self.screen_width, self.screen_height, model)
+        # Get the primary enemy for backward compatibility
+        enemy = self.enemy_manager.primary_enemy
+        
+        # Set up obstacles
+        self._setup_obstacles()
+        
+        logging.info("Initialized PlayerPlay and EnemyManager for play mode.")
         return player, enemy
+        
+    def _setup_obstacles(self) -> None:
+        """
+        Initialize wall obstacles in the game.
+        """
+        # Clear any existing obstacles
+        self.obstacle_manager.clear()
+        
+        # Add horizontal wall in the center
+        self.obstacle_manager.add_horizontal_wall(
+            self.screen_width // 4,
+            self.screen_height // 2,
+            self.screen_width // 2
+        )
+        
+        # Add vertical walls on left and right sides
+        self.obstacle_manager.add_vertical_wall(
+            self.screen_width // 5,
+            self.screen_height // 5,
+            self.screen_height // 5
+        )
+        
+        self.obstacle_manager.add_vertical_wall(
+            4 * self.screen_width // 5,
+            3 * self.screen_height // 5,
+            self.screen_height // 5
+        )
+        
+        logging.info("Created obstacle walls for the game.")
 
     def handle_events(self) -> None:
         for event in pygame.event.get():
@@ -260,27 +283,42 @@ class Game:
             self.running = False
             return
 
-        if self.enemy:
+        # Update enemy manager instead of single enemy
+        if self.enemy_manager:
             try:
-                self.enemy.update_movement(
+                self.enemy_manager.update(
                     self.player.position["x"],
                     self.player.position["y"],
                     self.player.step,
-                    current_time,
+                    current_time
                 )
             except Exception as e:
                 logging.error(f"Error updating enemy movement: {e}")
                 self.running = False
                 return
-
-        # Check if player & enemy overlap
-        if self.check_collision():
+                
+        # Update obstacles
+        self.obstacle_manager.update()
+        
+        # Check for player-enemy collisions
+        player_rect = pygame.Rect(
+            self.player.position["x"],
+            self.player.position["y"],
+            self.player.size,
+            self.player.size
+        )
+        
+        collision, enemy = self.enemy_manager.check_collision_with_player(player_rect)
+        if collision:
             logging.info("Collision detected between player and enemy.")
-            if self.enemy:
-                self.enemy.hide()
             self.is_respawning = True
             self.respawn_timer = current_time + self.respawn_delay
             logging.info("Player-Enemy collision in play mode.")
+            
+        # Check for player-obstacle collisions
+        obstacle_collision, _ = self.obstacle_manager.check_collision(player_rect)
+        if obstacle_collision:
+            logging.debug("Player collided with obstacle.")
 
         # Update missile AI
         if self.missile_model and self.player and self.player.missiles:
@@ -310,15 +348,42 @@ class Game:
         return player_rect.colliderect(enemy_rect)
 
     def check_missile_collisions(self) -> None:
-        if not self.enemy or not self.player:
+        """
+        Check for collisions between missiles and enemies or obstacles.
+        This is an updated version that works with multiple enemies and obstacles.
+        """
+        if not self.enemy_manager or not self.player:
             return
 
-        def respawn_callback() -> None:
-            self.is_respawning = True
-            self.respawn_timer = pygame.time.get_ticks() + self.respawn_delay
-            logging.info("Missile-Enemy collision in play mode, enemy will respawn.")
+        current_time = pygame.time.get_ticks()
 
-        handle_missile_collisions(self.player, self.enemy, respawn_callback)
+        # Check each missile
+        for missile in self.player.missiles[:]:  # Copy to avoid modification during iteration
+            if not missile.active:
+                continue
+
+            # Create a rect for the missile
+            missile_rect = pygame.Rect(
+                missile.position["x"],
+                missile.position["y"],
+                missile.size,
+                missile.size
+            )
+
+            # Check collision with enemies
+            hit, _ = self.enemy_manager.handle_missile_collision(
+                missile_rect, 
+                current_time
+            )
+            
+            if hit:
+                missile.active = False
+                continue  # Don't check obstacles if we already hit an enemy
+                
+            # Check collision with obstacles
+            obstacle_hit, _ = self.obstacle_manager.check_collision(missile_rect)
+            if obstacle_hit:
+                missile.active = False
 
     def handle_respawn(self, current_time: int) -> None:
         if (
@@ -332,6 +397,7 @@ class Game:
     def reset_game_state(self) -> None:
         self.player = None
         self.enemy = None
+        self.enemy_manager = None
         self.data_logger = None
         self.is_respawning = False
         self.respawn_timer = 0

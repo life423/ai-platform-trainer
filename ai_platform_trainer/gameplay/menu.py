@@ -54,6 +54,10 @@ class Menu:
             else:
                 # Return the chosen option in lowercase (e.g., "play", "train", "exit")
                 return chosen.lower()
+        # Handle ESC key to exit the game from main menu
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            # Return "exit" to tell the game to exit
+            return "exit"
 
         # Handle arrow keys / WASD for navigating menu options
         if event.type == pygame.KEYDOWN:
