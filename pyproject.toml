@@ -1,8 +1,108 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel", "build"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "ai_platform_trainer"
 version = "0.1.0"
-dependencies = [
-  "pygame",
-  "noise",
-  "torch"
+description = "A game environment for training and evaluating AI agents through reinforcement learning"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "AI Platform Developer Team"}
 ]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.19.0",
+    "pygame>=2.1.0",
+    "torch>=1.9.0",
+    "gymnasium>=0.28.0",
+    "stable-baselines3>=1.6.0",
+    "noise>=1.2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.1.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pre-commit>=3.0.0",
+]
+docs = [
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "nbsphinx>=0.8.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/ai-platform-trainer"
+"Bug Tracker" = "https://github.com/yourusername/ai-platform-trainer/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+skip_glob = ["**/build/**", "**/dist/**", "**/.venv/**"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pygame.*",
+    "noise.*",
+    "gymnasium.*",
+    "stable_baselines3.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "--cov=src/ai_platform_trainer"
+testpaths = ["tests"]
+python_files = "test_*.py"

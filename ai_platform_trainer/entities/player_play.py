@@ -53,8 +53,8 @@ class PlayerPlay:
             missile_start_y = self.position["y"] + self.size // 2
 
             birth_time = pygame.time.get_ticks()
-            # Random lifespan from 2-4.67s (2/3 of previous value)
-            random_lifespan = random.randint(2000, 4666)
+            # Random lifespan from 8-12s (significantly increased to allow longer travel distance)
+            random_lifespan = random.randint(8000, 12000)
             missile_speed = 5.0
 
             # Determine initial velocity based on enemy position if available
@@ -82,7 +82,7 @@ class PlayerPlay:
                 lifespan=random_lifespan,
             )
             self.missiles.append(missile)
-            logging.info("Play mode: Shot a missile with reduced travel distance.")
+            logging.info("Play mode: Shot a missile with increased travel distance.")
         else:
             logging.debug("Attempted to shoot missile, but one is already active.")
 

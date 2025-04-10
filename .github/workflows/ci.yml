@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Run pre-commit hooks
+      uses: pre-commit/action@v3.0.0
+
+  test-cpu:
+    name: Test (CPU)
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Run tests
+      run: |
+        pytest -v tests/
+    
+    - name: Generate coverage report
+      run: |
+        pytest --cov=src/ai_platform_trainer tests/ --cov-report=xml
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  # Only run GPU tests on self-hosted runners with GPU capabilities
+  # Commented out as this requires specific self-hosted runner setup
+  # test-gpu:
+  #   name: Test (GPU)
+  #   runs-on: [self-hosted, gpu]
+  #   needs: lint
+  #   if: false  # Disabled by default
+  #   
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   
+  #   - name: Set up Python
+  #     uses: actions/setup-python@v4
+  #     with:
+  #       python-version: '3.9'
+  #   
+  #   - name: Install dependencies with GPU support
+  #     run: |
+  #       python -m pip install --upgrade pip
+  #       pip install -e ".[dev]"
+  #   
+  #   - name: Verify GPU availability
+  #     run: |
+  #       python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+  #       python -c "import torch; print(f'GPU count: {torch.cuda.device_count()}')"
+  #   
+  #   - name: Run GPU tests
+  #     run: |
+  #       pytest -v tests/ -m "gpu"
+
+  # Additional job for packaging
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: test-cpu
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build wheel
+    
+    - name: Build package
+      run: |
+        python -m build
+    
+    - name: Archive build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist
+        path: dist/

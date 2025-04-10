@@ -1,3 +1,0 @@
-@echo off
-echo Running all tests with pytest...
-venv\Scripts\activate && python -m pytest tests/ -v

@@ -1,123 +1,129 @@
 # AI Platform Trainer
 
-A game environment for training and evaluating AI agents through reinforcement learning.
+An enterprise-grade platform for training and evaluating AI agents using reinforcement learning in a game environment.
 
 ## Overview
 
-AI Platform Trainer provides a framework for training AI-controlled entities in a simulated game environment. The platform features:
-
-- Neural network-based enemy AI
-- Reinforcement learning integration
-- Real-time visualization of training progress
-- Custom sprite rendering system
-
-## Getting Started
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/ai-platform-trainer.git
-cd ai-platform-trainer
-```
-
-2. Install requirements:
-```bash
-pip install -r requirements.txt
-```
-
-3. Generate sprites:
-```bash
-python generate_sprites.py
-```
-
-### Running the Game
-
-To start the game in play mode:
-```bash
-python -m ai_platform_trainer.main
-```
-
-## Training the AI
-
-### Training Neural Network Model
-
-To train the traditional neural network model:
-```bash
-python -m ai_platform_trainer.ai_model.train_missile_model
-```
-
-### Training Reinforcement Learning Model
-
-To train the RL model:
-```bash
-python train_enemy_rl_model.py --timesteps 100000 --headless
-```
-
-Options:
-- `--timesteps`: Number of training steps (default: 500000)
-- `--headless`: Run without visualization for faster training
-- `--save-path`: Directory to save model checkpoints (default: models/enemy_rl)
-- `--log-path`: Directory to save logs and visualizations (default: logs/enemy_rl)
-
-### Monitoring Training Progress
-
-Training visualizations are saved to the logs directory and include:
-- Learning curves
-- Reward plots
-- Behavioral metrics
-- Performance dashboards
-
-## Code Structure
-
-- `ai_platform_trainer/`
-  - `ai_model/`: Neural network and RL model definitions
-    - `training_monitor.py`: Training visualization dashboard
-    - `enemy_rl_agent.py`: RL environment for enemy training
-    - `train_enemy_rl.py`: RL training implementation
-  - `core/`: Core engine components 
-  - `entities/`: Game entity definitions
-  - `gameplay/`: Game logic and mechanics
-    - `ai/`: AI controllers
-      - `enemy_ai_controller.py`: Enemy movement AI
-    - `renderer.py`: Sprite-based rendering
-  - `utils/`: Utility functions
-    - `sprite_manager.py`: Sprite loading and rendering
+AI Platform Trainer is a 2D platformer game environment designed for training and evaluating AI agents using deep reinforcement learning. The platform includes a neural network-based enemy AI, reinforcement learning training capabilities, real-time visualizations, and a high-performance C++/CUDA backend for accelerated training.
 
 ## Features
 
-### Sprite Rendering System
+- **Game Environment**: A 2D game environment built with PyGame where entities can interact
+- **Neural Network Models**: Pre-trained models for missile trajectory prediction and enemy movement
+- **Reinforcement Learning**: GPU-accelerated reinforcement learning using PPO for training enemy behaviors
+- **C++/CUDA Integration**: High-performance physics simulation with Python bindings
+- **Visualizations**: Real-time training visualizations and performance metrics
+- **Cross-platform**: Support for both CPU and GPU environments with automatic detection
 
-The platform now includes a sprite rendering system that:
-- Loads PNG sprite assets from the assets/sprites directory
-- Falls back to procedurally generated sprites if assets aren't available
-- Supports animations and particle effects
-- Handles entity rotation and scaling
+## Directory Structure
 
-### Advanced Enemy AI
+```
+ai_platform_trainer/
+├── src/                       # All source code
+│   └── ai_platform_trainer/   # Main package
+│       ├── core/              # Core engine components
+│       ├── ml/                # Machine learning components
+│       │   ├── models/        # Neural network definitions
+│       │   ├── training/      # Training pipelines
+│       │   ├── rl/            # Reinforcement learning
+│       │   └── inference/     # Model inference
+│       ├── physics/           # Physics engine (with C++ bindings)
+│       ├── entities/          # Game entities
+│       ├── rendering/         # Visualization and rendering
+│       └── utils/             # Utility functions
+├── tests/                     # Test suite
+├── docs/                      # Documentation
+├── scripts/                   # Utility scripts
+├── assets/                    # Game assets
+└── deployment/                # Deployment configurations
+```
 
-The enemy AI has been enhanced to prevent freezing behavior:
-- Multi-strategy approach using both neural networks and reinforcement learning
-- Position history tracking to detect and escape from stuck conditions
-- Movement smoothing for more natural behavior
-- Automatic fallback behaviors when primary AI strategies fail
+## Requirements
 
-### Training Visualization
+- Python 3.8 or newer
+- PyTorch 1.8.0 or newer
+- CUDA Toolkit 10.2+ (optional, for GPU acceleration)
+- CMake 3.10+ (for building C++ extensions)
 
-The training monitoring system provides:
-- Real-time training metrics
-- Visual dashboards of agent performance
-- Animation of behavioral patterns
-- Exportable reports and charts
+## Installation
 
-## Troubleshooting
+### CPU Environment
 
-If the enemy appears to freeze or behave erratically:
-1. Check that the model files exist in the models directory
-2. Try generating a new reinforcement learning model with `python train_enemy_rl_model.py`
-3. Ensure pygame is properly installed and rendering correctly
-4. Check the logs for any error messages
+```bash
+# Create a conda environment
+conda env create -f environment-cpu.yml
+conda activate ai-platform-cpu
+
+# Install the package
+pip install -e .
+```
+
+### GPU Environment (recommended for training)
+
+```bash
+# Create a conda environment with CUDA support
+conda env create -f environment-gpu.yml
+conda activate ai-platform-gpu
+
+# Install the package
+pip install -e .
+
+# Build the C++ extensions
+cd src/ai_platform_trainer/physics/cpp
+python setup.py build_ext --inplace
+```
+
+## Usage
+
+### Running the Game
+
+```bash
+# Run the game in play mode
+python -m src.ai_platform_trainer.main
+```
+
+### Training Models
+
+#### Training the Missile Model
+
+```bash
+# Train the missile trajectory prediction model
+python -m src.ai_platform_trainer.ml.training.train_missile_model --epochs 100 --batch-size 32
+```
+
+#### Training the Enemy RL Agent
+
+```bash
+# Train the enemy agent using reinforcement learning
+python -m src.ai_platform_trainer.ml.rl.train_enemy_rl --timesteps 1000000 --save-freq 10000
+```
+
+## Documentation
+
+For more detailed information, refer to:
+
+- [Project Structure](docs/design/project_structure.md): Details on code organization
+- [Refactoring Next Steps](docs/refactoring_next_steps.md): Future improvements
+
+## Development
+
+To set up a development environment:
+
+1. Install development dependencies
+```bash
+pip install -e ".[dev]"
+```
+
+2. Install pre-commit hooks
+```bash
+pre-commit install
+```
+
+3. Run tests
+```bash
+python -m pytest
+```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+[Insert license information]
