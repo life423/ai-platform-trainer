@@ -1,97 +1,77 @@
+"""
+Renderer module for AI Platform Trainer.
+
+This handles drawing all game entities to the screen.
+"""
 import pygame
 import logging
+from typing import Dict, Optional, List
 
-# Import sprite manager for entity rendering
+# Import sprite manager and background manager
 from ai_platform_trainer.utils.sprite_manager import SpriteManager
 
 
 class Renderer:
-    def __init__(self, screen: pygame.Surface) -> None:
+    """Handles rendering of all game entities."""
+
+    def __init__(self, screen: pygame.Surface):
         """
-        Initialize the Renderer.
+        Initialize the renderer.
 
         Args:
-            screen: Pygame display surface
+            screen: The pygame Surface to render to
         """
         self.screen = screen
-        self.BACKGROUND_COLOR = (135, 206, 235)  # Light blue
-
-        # Initialize sprite manager
+        
+        # Initialize sprite and background managers
         self.sprite_manager = SpriteManager()
+        
+        # Text rendering setup
+        self.font = pygame.font.Font(None, 24)
+        self.score_font = pygame.font.Font(None, 36)
 
-        # Optional effects
-        self.enable_effects = True
-        self.frame_count = 0
-        self.particle_effects = []
-
-    def render(self, menu, player, enemy, menu_active: bool) -> None:
+    def render(self, menu, player, enemy, menu_active):
         """
-        Render the game elements on the screen.
-
+        Legacy render method for backward compatibility.
+        
         Args:
-            menu: Menu instance
-            player: Player instance
-            enemy: Enemy instance
-            menu_active: Boolean indicating if the menu is active
+            menu: The menu object
+            player: The player object
+            enemy: The enemy object
+            menu_active: Whether the menu is active
         """
-        try:
-            # Clear screen with background color
-            self.screen.fill(self.BACKGROUND_COLOR)
-
-            # Update frame counter for animations
-            self.frame_count += 1
-
-            if menu_active:
-                # Draw menu
-                menu.draw(self.screen)
-                logging.debug("Menu rendered.")
-            else:
-                # Render game elements
-                self._render_game(player, enemy)
-                logging.debug("Game elements rendered.")
-
-            # Update display
-            pygame.display.flip()
-            logging.debug("Frame updated on display.")
-
-        except Exception as e:
-            logging.error(f"Error during rendering: {e}")
-
-    def _render_game(self, player, enemy) -> None:
-        """
-        Render the game elements during gameplay.
-
-        Args:
-            player: Player instance
-            enemy: Enemy instance
-        """
-        # Draw player with sprite
-        if hasattr(player, 'position') and hasattr(player, 'size'):
-            self._render_player(player)
-
+        # If menu is active, let the menu handle rendering
+        if menu_active:
+            return
+        
+        # Clear screen with sky blue
+        self.screen.fill((135, 206, 235))
+        
+        # Render entities
+        if player:
+            self.render_player(player)
+            
             # Render player missiles
-            if hasattr(player, 'missiles'):
-                for missile in player.missiles:
-                    self._render_missile(missile)
+            for missile in player.missiles:
+                if missile.active:
+                    self.render_missile(missile)
+        
+        if enemy and enemy.visible:
+            self.render_enemy(enemy)
 
-        # Draw enemy with sprite
-        if hasattr(enemy, 'pos') and hasattr(enemy, 'size') and enemy.visible:
-            self._render_enemy(enemy)
-
-        # Render particle effects if enabled
-        if self.enable_effects:
-            self._update_and_render_effects()
-
-    def _render_player(self, player) -> None:
+    def render_player(self, player):
         """
         Render the player entity with sprites.
-
+        
         Args:
-            player: Player instance
+            player: Player entity to render
         """
+        if not hasattr(player, 'position') or not hasattr(player, 'size'):
+            return
+            
         # Determine sprite size
         size = (player.size, player.size)
-
+        
         # Render the player sprite
         self.sprite_manager.render(
             screen=self.screen,
@@ -99,132 +79,109 @@ class Renderer:
             position=player.position,
             size=size
         )
-
-    def _render_enemy(self, enemy) -> None:
+        
+    def render_enemy(self, enemy):
         """
         Render the enemy entity with sprites.
-
+        
         Args:
-            enemy: Enemy instance
+            enemy: Enemy entity to render
         """
+        if not hasattr(enemy, 'pos') or not hasattr(enemy, 'size') or not enemy.visible:
+            return
+            
         # Determine sprite size
         size = (enemy.size, enemy.size)
-
-        # Check if the enemy is fading in
+        
+        # Determine transparency/alpha if enemy has a fade_in property
         alpha = 255
-        if hasattr(enemy, 'fading_in') and enemy.fading_in:
-            alpha = enemy.fade_alpha
-
+        if hasattr(enemy, 'fade_in') and enemy.fade_in:
+            current_time = pygame.time.get_ticks()
+            # Calculate fade over 500ms
+            if current_time - enemy.fade_start_time < 500:
+                alpha = int(255 * (current_time - enemy.fade_start_time) / 500)
+        
         # Render the enemy sprite
         sprite = self.sprite_manager.load_sprite("enemy", size)
         sprite.set_alpha(alpha)
         self.screen.blit(sprite, (enemy.pos["x"], enemy.pos["y"]))
-
-    def _render_missile(self, missile) -> None:
+        
+    def render_missile(self, missile):
         """
         Render a missile entity with sprites.
-
+        
         Args:
-            missile: Missile instance
+            missile: Missile entity to render
         """
-        if hasattr(missile, 'position') and hasattr(missile, 'size'):
-            # Determine sprite size - make it a bit more elongated
-            width = missile.size
-            height = int(missile.size * 1.5)
-            size = (width, height)
-
-            # Calculate rotation angle based on direction
-            rotation = 0
-            if hasattr(missile, 'direction'):
-                # Convert direction to angle in degrees
-                dx, dy = missile.direction
-                if dx != 0 or dy != 0:
-                    import math
-                    angle_rad = math.atan2(dy, dx)
-                    rotation = math.degrees(angle_rad) + 90  # Adjust so 0 points up
-
-            # Render the missile sprite with rotation
-            self.sprite_manager.render(
-                screen=self.screen,
-                entity_type="missile",
-                position=missile.position,
-                size=size,
-                rotation=rotation
-            )
-
-            # Add a trail effect if effects are enabled
-            if self.enable_effects and self.frame_count % 2 == 0:
-                self._add_missile_trail(missile)
-
-    def _add_missile_trail(self, missile) -> None:
-        """
-        Add a particle effect trail behind a missile.
-
-        Args:
-            missile: Missile instance
-        """
-        if not hasattr(missile, 'position'):
+        if not hasattr(missile, 'position') or not hasattr(missile, 'size') or not missile.active:
             return
+            
+        # Determine sprite size - make it a bit more elongated
+        width = missile.size
+        height = missile.size * 1.5
+        size = (width, int(height))
+        
+        # Calculate rotation angle - missiles point in their movement direction
+        angle = 0
+        if hasattr(missile, 'direction'):
+            # In radians, convert to degrees for pygame
+            angle = -missile.direction * 180 / 3.14159
+        
+        # Render the missile sprite with rotation
+        self.sprite_manager.render(
+            screen=self.screen,
+            entity_type="missile",
+            position=missile.position,
+            size=size,
+            rotation=angle
+        )
 
-        # Create a small particle effect behind the missile
-        x = missile.position["x"] + missile.size // 2
-        y = missile.position["y"] + missile.size // 2
-
-        # Trail particles
-        import random
-        for _ in range(2):
-            # Random offset
-            offset_x = random.randint(-3, 3)
-            offset_y = random.randint(-3, 3)
-
-            # Random size
-            size = random.randint(2, 5)
-
-            # Random lifetime
-            lifetime = random.randint(5, 15)
-
-            # Create particle
-            particle = {
-                'x': x + offset_x,
-                'y': y + offset_y,
-                'size': size,
-                'color': (255, 255, 200, 200),  # Yellow-ish with alpha
-                'lifetime': lifetime,
-                'max_lifetime': lifetime
-            }
-
-            self.particle_effects.append(particle)
-
-    def _update_and_render_effects(self) -> None:
-        """Update and render all particle effects."""
-        # Update particles
-        updated_particles = []
-        for particle in self.particle_effects:
-            # Decrease lifetime
-            particle['lifetime'] -= 1
-
-            # Skip dead particles
-            if particle['lifetime'] <= 0:
-                continue
-
-            # Calculate alpha based on remaining lifetime
-            alpha = int(255 * (particle['lifetime'] / particle['max_lifetime']))
-            color = list(particle['color'])
-            if len(color) > 3:
-                color[3] = min(color[3], alpha)
-            else:
-                color.append(alpha)
-
-            # Draw particle
-            pygame.draw.circle(
-                self.screen,
-                color,
-                (int(particle['x']), int(particle['y'])),
-                particle['size']
-            )
-
-            # Keep particle for next frame
-            updated_particles.append(particle)
-
-        # Replace particle list with updated one
-        self.particle_effects = updated_particles
+    def render_obstacle(self, obstacle):
+        """
+        Render an obstacle (wall) with sprites.
+        
+        Args:
+            obstacle: Obstacle entity to render
+        """
+        if not hasattr(obstacle, 'position') or not hasattr(obstacle, 'width') or not obstacle.visible:
+            return
+            
+        # Determine sprite size
+        size = (obstacle.width, obstacle.height)
+        
+        # Determine sprite type based on orientation
+        sprite_name = obstacle.sprite_name if hasattr(obstacle, 'sprite_name') else "wall_h"
+        
+        # Render the obstacle sprite
+        self.sprite_manager.render(
+            screen=self.screen,
+            entity_type=sprite_name,
+            position=obstacle.position,
+            size=size
+        )
+        
+    def render_score(self, score: int):
+        """
+        Render the player's score.
+        
+        Args:
+            score: Player's current score
+        """
+        score_text = self.score_font.render(f"Score: {score}", True, (255, 255, 255))
+        self.screen.blit(score_text, (20, 20))
+        
+    def render_game_over(self):
+        """Render the game over screen."""
+        game_over_text = self.score_font.render("GAME OVER", True, (255, 0, 0))
+        text_rect = game_over_text.get_rect(center=(
+            self.screen.get_width() // 2,
+            self.screen.get_height() // 2
+        ))
+        self.screen.blit(game_over_text, text_rect)
+        
+        restart_text = self.font.render("Press R to restart or ESC to exit", True, (255, 255, 255))
+        restart_rect = restart_text.get_rect(center=(
+            self.screen.get_width() // 2,
+            self.screen.get_height() // 2 + 50
+        ))
+        self.screen.blit(restart_text, restart_rect)

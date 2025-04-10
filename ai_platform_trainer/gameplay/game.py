@@ -14,10 +14,7 @@ from config_manager import load_settings, save_settings
 from ai_platform_trainer.gameplay.config import config
 from ai_platform_trainer.gameplay.menu import Menu
 from ai_platform_trainer.gameplay.renderer import Renderer
-from ai_platform_trainer.gameplay.spawner import (
-    spawn_entities,
-    respawn_enemy_with_fade_in,
-)
+from ai_platform_trainer.gameplay.spawner import spawn_entities
 from ai_platform_trainer.gameplay.display_manager import (
     init_pygame_display,
     toggle_fullscreen_display,
@@ -115,7 +112,8 @@ class Game:
                 self.menu.draw(self.screen)
             else:
                 self.update(current_time)
-                self.renderer.render(self.menu, self.player, self.enemy, self.menu_active)
+                # Use render instead of the old renderer.render
+                self.render(current_time)
 
             pygame.display.flip()
             self.clock.tick(config.FRAME_RATE)
@@ -126,6 +124,38 @@ class Game:
 
         pygame.quit()
         logging.info("Game loop exited and Pygame quit.")
+        
+    def render(self, current_time: int) -> None:
+        """Render the game state to the screen."""
+        # Clear the screen with background color
+        self.screen.fill((135, 206, 235))  # Light blue background
+        
+        # Render obstacles first (so they appear behind other entities)
+        if hasattr(self, 'obstacle_manager') and self.obstacle_manager:
+            for obstacle in self.obstacle_manager.get_visible_obstacles():
+                self.renderer.render_obstacle(obstacle)
+        
+        # Render player and missiles
+        if self.player:
+            self.renderer.render_player(self.player)
+            
+            # Render player missiles
+            for missile in self.player.missiles:
+                if missile.active:
+                    self.renderer.render_missile(missile)
+        
+        # Render enemies
+        if self.enemy_manager:
+            for enemy in self.enemy_manager.enemies:
+                if enemy.visible:
+                    self.renderer.render_enemy(enemy)
+        elif self.enemy and self.enemy.visible:
+            # Legacy rendering for single enemy
+            self.renderer.render_enemy(self.enemy)
+            
+        # Render UI elements if needed
+        if hasattr(self, 'menu') and self.menu_active:
+            self.menu.draw(self.screen)
 
     def start_game(self, mode: str) -> None:
         self.mode = mode
@@ -143,7 +173,17 @@ class Game:
         else:  # "play"
             self.player, self.enemy = self._init_play_mode()
             self.player.reset()
-            spawn_entities(self)
+            
+            # Instead of spawning a single enemy, spawn multiple enemies
+            if self.enemy_manager:
+                player_pos = {"x": self.player.position["x"], "y": self.player.position["y"]}
+                # Spawn 3 enemies
+                self.enemy_manager.spawn_enemies(3, player_pos)
+                # For compatibility, use the primary enemy
+                self.enemy = self.enemy_manager.primary_enemy
+            else:
+                # Fallback to old spawning method if enemy_manager not available
+                spawn_entities(self)
 
     def _init_play_mode(self) -> Tuple[PlayerPlay, EnemyPlay]:
         # Load the traditional neural network model
@@ -219,7 +259,13 @@ class Game:
                         logging.info("Escape key pressed. Exiting game.")
                         self.running = False
                     elif event.key == pygame.K_SPACE and self.player:
-                        self.player.shoot_missile(self.enemy.pos)
+                        # If we have multiple enemies, try to shoot at the closest one
+                        if self.enemy_manager and len(self.enemy_manager.enemies) > 0:
+                            target_pos = self._get_closest_enemy_position()
+                            self.player.shoot_missile(target_pos)
+                        else:
+                            # Fallback to shooting at the primary enemy
+                            self.player.shoot_missile(self.enemy.pos)
                     elif event.key == pygame.K_m:
                         logging.info("M key pressed. Returning to menu.")
                         self.menu_active = True
@@ -230,6 +276,34 @@ class Game:
                     selected_action = self.menu.handle_menu_events(event)
                     if selected_action:
                         self.check_menu_selection(selected_action)
+    
+    def _get_closest_enemy_position(self) -> dict:
+        """Find the closest visible enemy to target with missiles."""
+        if not self.enemy_manager or not self.player:
+            # Fallback to primary enemy position
+            return self.enemy.pos if self.enemy else {"x": 0, "y": 0}
+            
+        closest_dist = float('inf')
+        closest_pos = {"x": 0, "y": 0}
+        
+        for enemy in self.enemy_manager.enemies:
+            if not enemy.visible:
+                continue
+                
+            # Calculate distance to this enemy
+            dx = enemy.pos["x"] - self.player.position["x"]
+            dy = enemy.pos["y"] - self.player.position["y"]
+            dist = math.sqrt(dx * dx + dy * dy)
+            
+            if dist < closest_dist:
+                closest_dist = dist
+                closest_pos = enemy.pos
+                
+        # If no visible enemies found, use primary enemy as fallback
+        if closest_dist == float('inf') and self.enemy:
+            return self.enemy.pos
+            
+        return closest_pos
 
     def check_menu_selection(self, selected_action: str) -> None:
         if selected_action == "exit":
@@ -329,8 +403,12 @@ class Game:
                 self._missile_input,
                 self.missile_model
             )
+            
+        # Check missile collisions
+        self.check_missile_collisions()
 
     def check_collision(self) -> bool:
+        """Legacy collision checker method."""
         if not (self.player and self.enemy):
             return False
         player_rect = pygame.Rect(
@@ -392,7 +470,8 @@ class Game:
             and self.enemy
             and self.player
         ):
-            respawn_enemy_with_fade_in(self, current_time)
+            # The enemy manager now handles its own respawning
+            self.is_respawning = False
 
     def reset_game_state(self) -> None:
         self.player = None

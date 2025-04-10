@@ -66,6 +66,8 @@ class Game:
         # Entities and managers
         self.player = None
         self.enemy = None
+        self.enemy_manager = None  # Added for compatibility with new code
+        self.obstacle_manager = None  # Added for compatibility with new code
         self.data_logger = None
         self.training_mode_manager = None
 

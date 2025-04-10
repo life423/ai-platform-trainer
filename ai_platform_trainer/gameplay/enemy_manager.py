@@ -7,6 +7,7 @@ including spawning, updating, and collision detection.
 import random
 import logging
 import math
+import os
 import pygame
 from typing import List, Dict, Optional, Tuple
 
@@ -67,7 +68,7 @@ class EnemyManager:
         
         # Try to load RL model if available
         rl_model_path = "models/enemy_rl/final_model.zip"
-        if pygame.os.path.exists(rl_model_path):
+        if os.path.exists(rl_model_path):
             try:
                 success = enemy.load_rl_model(rl_model_path)
                 if success:
