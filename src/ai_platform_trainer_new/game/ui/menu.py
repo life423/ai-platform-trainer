@@ -50,6 +50,8 @@ class Menu:
                 self.selected_index = (self.selected_index + 1) % len(self.options)
             elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                 return self.options[self.selected_index][1]
+            elif event.key == pygame.K_ESCAPE:
+                return "exit"  # Allow ESC to exit from menu
         
         elif event.type == pygame.MOUSEMOTION:
             # Update selection based on mouse position
@@ -105,7 +107,8 @@ class Menu:
         # Instructions
         instructions = [
             "Use UP/DOWN arrows or mouse to navigate",
-            "Press ENTER/SPACE or click to select"
+            "Press ENTER/SPACE or click to select",
+            "Press ESC to exit"
         ]
         
         instruction_y = self.screen_height - 100
