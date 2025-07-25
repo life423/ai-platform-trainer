@@ -80,12 +80,32 @@ class EnemyPlay:
         if not self.visible:
             return
 
-        if self.use_rl and self.rl_model:
-            # Use reinforcement learning model if available
-            self._update_with_rl(player_x, player_y, player_speed)
-        else:
-            # Use neural network model
-            self._update_with_nn(player_x, player_y, player_speed)
+        # TEMPORARY: Use simple chase behavior for debugging
+        dx = player_x - self.pos["x"]
+        dy = player_y - self.pos["y"]
+        
+        # Normalize and scale movement
+        distance = math.sqrt(dx * dx + dy * dy)
+        if distance > 1:  # Avoid division by zero
+            move_x = (dx / distance) * self.speed
+            move_y = (dy / distance) * self.speed
+            
+            # Update position
+            self.pos["x"] += move_x
+            self.pos["y"] += move_y
+            
+            logging.debug(f"Enemy chasing: moving ({move_x:.2f}, {move_y:.2f}) toward player at ({player_x:.0f}, {player_y:.0f})")
+            
+            # Wrap around screen edges
+            self._wrap_position()
+        
+        # OLD CODE:
+        # if self.use_rl and self.rl_model:
+        #     # Use reinforcement learning model if available
+        #     self._update_with_rl(player_x, player_y, player_speed)
+        # else:
+        #     # Use neural network model
+        #     self._update_with_nn(player_x, player_y, player_speed)
 
         # Update fade-in effect if active
         if self.fading_in:
@@ -127,14 +147,25 @@ class EnemyPlay:
         # Get model prediction
         with torch.no_grad():
             movement = self.model(model_input).squeeze(0)
+            logging.debug(f"Neural network output: [{movement[0].item():.3f}, {movement[1].item():.3f}]")
             
         # Apply movement (scale from [-1,1] to actual pixels)
         move_x = movement[0].item() * self.speed
         move_y = movement[1].item() * self.speed
+        logging.debug(f"Scaled movement: dx={move_x:.3f}, dy={move_y:.3f}")
+        
+        # Debug: Log enemy movement
+        if abs(move_x) > 0.1 or abs(move_y) > 0.1:
+            logging.debug(f"Enemy moving: dx={move_x:.2f}, dy={move_y:.2f}, toward player at ({player_x:.0f},{player_y:.0f})")
         
         # Update position
+        old_x, old_y = self.pos["x"], self.pos["y"]
         self.pos["x"] += move_x
         self.pos["y"] += move_y
+        
+        # Debug: Log position change
+        if abs(move_x) > 0.1 or abs(move_y) > 0.1:
+            logging.debug(f"Enemy position: ({old_x:.0f},{old_y:.0f}) -> ({self.pos['x']:.0f},{self.pos['y']:.0f})")
         
         # Wrap around screen edges
         self._wrap_position()

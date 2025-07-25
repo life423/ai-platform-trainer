@@ -13,7 +13,7 @@ import pygame
 def setup_logging():
     """Set up basic logging configuration."""
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler("game.log"),
