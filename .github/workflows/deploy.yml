@@ -29,6 +29,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install "stable-baselines3[extra]"
+        
+        # Install the project in development mode
+        pip install -e .
     
     - name: Pre-train Missile AI
       run: |
@@ -105,6 +108,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install "stable-baselines3[extra]"
+        
+        # Install the project in development mode
+        pip install -e .
     
     - name: Build executable with PyInstaller
       run: |
@@ -166,6 +172,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install "stable-baselines3[extra]"
+        
+        # Install the project in development mode
+        pip install -e .
     
     - name: Build macOS app with PyInstaller
       run: |

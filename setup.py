@@ -183,11 +183,12 @@ setup(
     long_description=open("README.md").read() if os.path.exists("README.md") else "",
     long_description_content_type="text/markdown",
     packages=find_packages(),
-    ext_modules=[CMakeExtension('gpu_environment', 'ai_platform_trainer/cpp')],
-    cmdclass=dict(build_ext=CMakeBuild),
+    # Note: CMake extensions disabled for CI compatibility
+    # ext_modules=[CMakeExtension('gpu_environment', 'ai_platform_trainer/cpp')],
+    # cmdclass=dict(build_ext=CMakeBuild),
     entry_points={
         "console_scripts": [
-            "ai-trainer = unified_launcher:main"
+            "ai-trainer = run_game:main"
         ]
     },
     install_requires=[
