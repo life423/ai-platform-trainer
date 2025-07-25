@@ -245,7 +245,7 @@ jobs:
           libasound2-dev \
           libportaudio2 \
           libpulse-dev \
-          libgl1-mesa-glx \
+          libgl1-mesa-dev \
           libglib2.0-0 \
           libxcb-icccm4 \
           libxcb-image0 \
