@@ -69,6 +69,9 @@ class Menu:
                 self.selected_option = (self.selected_option + 1) % len(
                     self.menu_options
                 )
+            elif event.key == pygame.K_ESCAPE:
+                # ESC key exits the game
+                return "exit"
             # Pressing ENTER again here is a fallback check
             elif event.key in [pygame.K_RETURN, pygame.K_KP_ENTER]:
                 chosen = self.menu_options[self.selected_option]
