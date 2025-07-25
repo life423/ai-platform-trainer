@@ -18,6 +18,7 @@ except ImportError:
 
 from ai_platform_trainer.entities.missile import Missile
 from ai_platform_trainer.ai.models.missile_model import MissileModel
+from ai_platform_trainer.core.screen_context import ScreenContext
 
 
 class SmartMissile(Missile):
@@ -131,29 +132,31 @@ class SmartMissile(Missile):
     ) -> None:
         """Update using traditional neural network model."""
         try:
-            current_angle = math.atan2(self.vy, self.vx)
-            target_angle = math.atan2(
-                target_pos["y"] - self.pos["y"],
-                target_pos["x"] - self.pos["x"]
+            # Get screen context for normalization
+            screen_context = ScreenContext.get_instance()
+            
+            # Create normalized observation
+            observation = screen_context.create_missile_observation(
+                player_pos, target_pos, self.pos, {"x": self.vx, "y": self.vy}
             )
             
-            distance = self._calculate_distance_to_target()
+            current_angle = math.atan2(self.vy, self.vx)
             
-            # Prepare input tensor
+            # Prepare input tensor with normalized values
             if shared_input_tensor is not None:
                 input_tensor = shared_input_tensor
                 input_tensor[0] = torch.tensor([
-                    player_pos["x"], player_pos["y"],
-                    target_pos["x"], target_pos["y"],
-                    self.pos["x"], self.pos["y"],
-                    current_angle, distance, 0.0
+                    observation["player_x"], observation["player_y"],
+                    observation["target_x"], observation["target_y"],
+                    observation["missile_x"], observation["missile_y"],
+                    current_angle, observation["distance_to_target"], 0.0
                 ])
             else:
                 input_tensor = torch.tensor([[
-                    player_pos["x"], player_pos["y"],
-                    target_pos["x"], target_pos["y"],
-                    self.pos["x"], self.pos["y"],
-                    current_angle, distance, 0.0
+                    observation["player_x"], observation["player_y"],
+                    observation["target_x"], observation["target_y"],
+                    observation["missile_x"], observation["missile_y"],
+                    current_angle, observation["distance_to_target"], 0.0
                 ]], dtype=torch.float32)
             
             # Get prediction from neural network
@@ -219,26 +222,23 @@ class SmartMissile(Missile):
         target_vx: float, 
         target_vy: float
     ) -> np.ndarray:
-        """Create observation vector for RL model."""
-        # This should match the observation space from training
-        screen_width, screen_height = 1280, 720  # Assume standard screen size
+        """Create observation vector for RL model using ScreenContext."""
+        # Use ScreenContext for resolution-independent observations
+        screen_context = ScreenContext.get_instance()
         
-        # Normalize positions to [0, 1]
-        missile_x_norm = self.pos["x"] / screen_width
-        missile_y_norm = self.pos["y"] / screen_height
-        target_x_norm = target_pos["x"] / screen_width
-        target_y_norm = target_pos["y"] / screen_height
+        # Create normalized observation
+        observation = screen_context.create_missile_observation(
+            {"x": 0, "y": 0},  # Player pos not needed for this observation
+            target_pos, 
+            self.pos, 
+            {"x": self.vx, "y": self.vy}
+        )
         
-        # Normalize velocities
-        missile_vx_norm = self.vx / 10.0
-        missile_vy_norm = self.vy / 10.0
+        # Normalize target velocities
         target_vx_norm = target_vx / 5.0
         target_vy_norm = target_vy / 5.0
         
-        # Calculate distance and angle
-        distance = self._calculate_distance_to_target()
-        distance_norm = distance / math.sqrt(screen_width**2 + screen_height**2)
-        
+        # Calculate angle to target
         angle_to_target = math.atan2(
             target_pos["y"] - self.pos["y"],
             target_pos["x"] - self.pos["x"]
@@ -246,9 +246,11 @@ class SmartMissile(Missile):
         angle_norm = angle_to_target / math.pi
         
         return np.array([
-            missile_x_norm, missile_y_norm, missile_vx_norm, missile_vy_norm,
-            target_x_norm, target_y_norm, target_vx_norm, target_vy_norm,
-            distance_norm, angle_norm
+            observation["missile_x"], observation["missile_y"], 
+            observation["velocity_x"], observation["velocity_y"],
+            observation["target_x"], observation["target_y"], 
+            target_vx_norm, target_vy_norm,
+            observation["distance_to_target"], angle_norm
         ], dtype=np.float32)
     
     def _calculate_distance_to_target(self) -> float:

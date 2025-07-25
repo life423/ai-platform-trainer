@@ -13,6 +13,8 @@ import pygame
 import logging
 from typing import Dict, Tuple, List, Optional, Any, Union
 
+from ai_platform_trainer.core.screen_context import ScreenContext
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -64,6 +66,8 @@ class EnemyGameEnv(gymnasium.Env):
         if self.game is None:
             self.screen_width = 1280
             self.screen_height = 720
+            # Initialize ScreenContext for standalone mode
+            ScreenContext.initialize(self.screen_width, self.screen_height)
             self.player_pos = np.array([self.screen_width // 4, self.screen_height // 2], dtype=np.float32)
             self.enemy_pos = np.array([self.screen_width // 2, self.screen_height // 2], dtype=np.float32)
             self.player_speed = 5.0
@@ -191,32 +195,37 @@ class EnemyGameEnv(gymnasium.Env):
             # Cap the time since last hit to avoid very large values
             time_since_hit = min(time_since_hit, 10000)
 
-            # Normalize values to help with training stability
-            screen_width = self.game.screen_width
-            screen_height = self.game.screen_height
-
-            px = self.game.player.position["x"] / screen_width
-            py = self.game.player.position["y"] / screen_height
-            ex = self.game.enemy.pos["x"] / screen_width
-            ey = self.game.enemy.pos["y"] / screen_height
-
-            dist = self._get_distance() / max(screen_width, screen_height)
-            player_speed = self.game.player.step / 10.0  # Normalize speed
-            time_factor = time_since_hit / 10000.0  # Normalize time
-        else:
-            # Standalone mode
-            px = self.player_pos[0] / self.screen_width
-            py = self.player_pos[1] / self.screen_height
-            ex = self.enemy_pos[0] / self.screen_width
-            ey = self.enemy_pos[1] / self.screen_height
+            # Use ScreenContext for normalized observation
+            screen_context = ScreenContext.get_instance()
+            observation = screen_context.create_enemy_observation(
+                self.game.player.position,
+                self.game.enemy.pos,
+                self.game.player.step,
+                {"time_factor": time_since_hit / 10000.0}
+            )
             
-            dist = self._get_distance() / max(self.screen_width, self.screen_height)
-            player_speed = self.player_speed / 10.0
-            time_factor = 0.5  # Default value
-
-        obs = np.array([
-            px, py, ex, ey, dist, player_speed, time_factor
-        ], dtype=np.float32)
+            obs = np.array([
+                observation["player_x"], observation["player_y"],
+                observation["enemy_x"], observation["enemy_y"],
+                observation["distance"], observation["player_speed"],
+                observation.get("time_factor", 0.5)
+            ], dtype=np.float32)
+        else:
+            # Standalone mode - use ScreenContext
+            screen_context = ScreenContext.get_instance()
+            observation = screen_context.create_enemy_observation(
+                {"x": self.player_pos[0], "y": self.player_pos[1]},
+                {"x": self.enemy_pos[0], "y": self.enemy_pos[1]},
+                self.player_speed,
+                {"time_factor": 0.5}
+            )
+            
+            obs = np.array([
+                observation["player_x"], observation["player_y"],
+                observation["enemy_x"], observation["enemy_y"],
+                observation["distance"], observation["player_speed"],
+                observation.get("time_factor", 0.5)
+            ], dtype=np.float32)
 
         return obs
 

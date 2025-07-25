@@ -22,6 +22,7 @@ except ImportError:
     logging.warning("stable_baselines3 not available. RL features will be disabled.")
 
 from ai_platform_trainer.ai.models.enemy_movement_model import EnemyMovementModel
+from ai_platform_trainer.core.screen_context import ScreenContext
 
 
 class EnemyPlay:
@@ -99,13 +100,6 @@ class EnemyPlay:
             # Wrap around screen edges
             self._wrap_position()
         
-        # OLD CODE:
-        # if self.use_rl and self.rl_model:
-        #     # Use reinforcement learning model if available
-        #     self._update_with_rl(player_x, player_y, player_speed)
-        # else:
-        #     # Use neural network model
-        #     self._update_with_nn(player_x, player_y, player_speed)
 
         # Update fade-in effect if active
         if self.fading_in:
@@ -130,18 +124,19 @@ class EnemyPlay:
         dy = player_y - self.pos["y"]
         distance = math.sqrt(dx * dx + dy * dy)
         
-        # Normalize inputs for the model
-        normalized_px = player_x / self.screen_width
-        normalized_py = player_y / self.screen_height
-        normalized_ex = self.pos["x"] / self.screen_width
-        normalized_ey = self.pos["y"] / self.screen_height
-        normalized_dist = distance / max(self.screen_width, self.screen_height)
+        # Use ScreenContext for normalization
+        screen_context = ScreenContext.get_instance()
+        observation = screen_context.create_enemy_observation(
+            {"x": player_x, "y": player_y},
+            self.pos,
+            player_speed
+        )
         
-        # Prepare input tensor for the model
+        # Prepare input tensor for the model using normalized values
         model_input = torch.tensor([
-            normalized_px, normalized_py, 
-            normalized_ex, normalized_ey, 
-            normalized_dist
+            observation["player_x"], observation["player_y"], 
+            observation["enemy_x"], observation["enemy_y"], 
+            observation["distance"]
         ], dtype=torch.float32).unsqueeze(0)
         
         # Get model prediction
@@ -184,24 +179,21 @@ class EnemyPlay:
             player_y: Player's y position
             player_speed: Player's movement speed
         """
-        # Calculate distance to player
-        distance = math.sqrt(
-            (player_x - self.pos["x"])**2 + 
-            (player_y - self.pos["y"])**2
+        # Use ScreenContext for normalized observation
+        screen_context = ScreenContext.get_instance()
+        observation = screen_context.create_enemy_observation(
+            {"x": player_x, "y": player_y},
+            self.pos,
+            player_speed,
+            {"time_factor": 0.5}  # Placeholder for time since last hit
         )
         
-        # Normalize values for the observation
-        px = player_x / self.screen_width
-        py = player_y / self.screen_height
-        ex = self.pos["x"] / self.screen_width
-        ey = self.pos["y"] / self.screen_height
-        dist = distance / max(self.screen_width, self.screen_height)
-        player_speed_norm = player_speed / 10.0
-        time_factor = 0.5  # Placeholder for time since last hit
-        
-        # Create observation
+        # Create observation array for RL model
         obs = np.array([
-            px, py, ex, ey, dist, player_speed_norm, time_factor
+            observation["player_x"], observation["player_y"], 
+            observation["enemy_x"], observation["enemy_y"], 
+            observation["distance"], observation["player_speed"],
+            observation.get("time_factor", 0.5)
         ], dtype=np.float32)
         
         # Get action from model

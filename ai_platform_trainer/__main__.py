@@ -1,18 +1,9 @@
 """
 Entry point for running ai_platform_trainer as a module.
 
-This module forwards to the unified launcher for consistency.
+Allows running the game with: python -m ai_platform_trainer
 """
-import os
-import sys
-
-# Add the project root to sys.path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# Import and use the unified launcher
-from unified_launcher import main
+from ai_platform_trainer.main import main
 
 if __name__ == "__main__":
     main()
