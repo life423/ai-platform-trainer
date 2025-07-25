@@ -10,7 +10,10 @@ import logging
 import math
 
 from ai_platform_trainer.entities.enemy_learning import LearningEnemyAI
-from config.settings import settings
+# Color constants
+COLOR_TEXT_PRIMARY = (255, 255, 255)  # White  
+COLOR_TEXT_SECONDARY = (240, 248, 255)  # Alice blue
+COLOR_SELECTED = (255, 215, 0)  # Gold
 
 
 class PlayLearningMode:
@@ -39,9 +42,9 @@ class PlayLearningMode:
         self.ui_bg_color = (25, 25, 112, 180)  # Semi-transparent midnight blue for contrast
         self.progress_bar_bg = (60, 60, 60)    # Dark gray
         self.progress_bar_fill = (255, 140, 0)  # Dark orange (good contrast)
-        self.text_primary = settings.COLOR_TEXT_PRIMARY      # White
-        self.text_secondary = settings.COLOR_TEXT_SECONDARY  # Alice blue
-        self.highlight_color = settings.COLOR_SELECTED       # Gold
+        self.text_primary = COLOR_TEXT_PRIMARY      # White
+        self.text_secondary = COLOR_TEXT_SECONDARY  # Alice blue
+        self.highlight_color = COLOR_SELECTED       # Gold
         self.warning_color = (255, 69, 0)  # Red-orange for danger
         
         logging.info("Learning AI play mode initialized")
