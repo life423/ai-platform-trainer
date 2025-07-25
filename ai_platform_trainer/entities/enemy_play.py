@@ -100,13 +100,6 @@ class EnemyPlay:
             # Wrap around screen edges
             self._wrap_position()
         
-        # OLD CODE:
-        # if self.use_rl and self.rl_model:
-        #     # Use reinforcement learning model if available
-        #     self._update_with_rl(player_x, player_y, player_speed)
-        # else:
-        #     # Use neural network model
-        #     self._update_with_nn(player_x, player_y, player_speed)
 
         # Update fade-in effect if active
         if self.fading_in:
