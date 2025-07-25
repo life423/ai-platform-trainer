@@ -14,7 +14,7 @@ import pygame
 def setup_logging():
     """Set up basic logging configuration."""
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler("game.log"),
@@ -38,8 +38,8 @@ def main():
         # Initialize pygame
         pygame.init()
         
-        # Import and run the clean game system
-        from src.ai_platform_trainer_new.game.core import Game
+        # Import and run the preferred game system with light blue GUI
+        from ai_platform_trainer.gameplay.game import Game
         
         # Create and run the game
         game = Game()
