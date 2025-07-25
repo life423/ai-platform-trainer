@@ -181,6 +181,7 @@ jobs:
         pip install -e .
     
     - name: Build executable with PyInstaller
+      shell: cmd
       run: |
         echo "🔨 Building Windows executable with optimized settings..."
         pyinstaller --clean ^
@@ -215,16 +216,17 @@ jobs:
         )
     
     - name: Test executable
+      shell: cmd
       run: |
         echo "🧪 Testing Windows executable..."
         echo "📏 Executable size:"
         dir dist\AI-Platform-Trainer.exe
         
         echo "🔍 Basic executable validation..."
-        # Check if file exists and is not empty
+        REM Check if file exists and is not empty
         if exist dist\AI-Platform-Trainer.exe (
           echo "✅ Executable file exists"
-          # Get file size - if it's too small, something went wrong
+          REM Get file size - if it's too small, something went wrong
           for %%A in (dist\AI-Platform-Trainer.exe) do (
             if %%~zA LSS 50000000 (
               echo "⚠️  Warning: Executable seems small (%%~zA bytes)"
