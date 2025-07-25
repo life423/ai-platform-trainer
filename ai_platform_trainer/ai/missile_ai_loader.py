@@ -7,6 +7,7 @@ a unified interface for creating intelligent homing missiles.
 import logging
 import os
 import torch
+import numpy as np
 from typing import Optional, Union
 
 try:
@@ -161,142 +162,249 @@ def get_missile_ai_status() -> str:
 def check_and_train_missile_ai():
     """Check if missile AI models exist, and train if needed with loading screen."""
     import pygame
+    import threading
+    import time
+    import numpy as np
     
-    # Check if models already exist
+    # Check if RL model already exists (priority model)
     rl_model_path = "models/missile_rl_model_final.zip"
-    nn_model_path = "models/missile_model.pth"
     
-    if os.path.exists(rl_model_path) or os.path.exists(nn_model_path):
-        logging.info("Missile AI models found - skipping training")
+    if os.path.exists(rl_model_path):
+        logging.info("Advanced RL missile AI model found - skipping training")
         return
     
-    # Models don't exist - need to train
-    logging.info("No missile AI models found - starting first-time training")
+    # RL model doesn't exist - need to train the advanced AI
+    logging.info("No advanced RL missile AI found - training intelligent missile system")
     
     # Show training screen
-    screen = pygame.display.set_mode((800, 600))
+    screen = pygame.display.set_mode((1000, 700))
     pygame.display.set_caption("AI Platform Trainer - First Setup")
     clock = pygame.time.Clock()
-    font = pygame.font.Font(None, 48)
-    small_font = pygame.font.Font(None, 32)
+    font_large = pygame.font.Font(None, 56)
+    font_medium = pygame.font.Font(None, 40)
+    font_small = pygame.font.Font(None, 32)
     
-    # Start training in background
-    try:
-        from ai_platform_trainer.ai.training.train_missile_rl import MissileRLTrainer
+    # Training state variables
+    training_complete = False
+    training_failed = False
+    progress = 0.0
+    current_step = 0
+    total_steps = 100000
+    training_status = "Initializing training..."
+    error_message = ""
+    
+    def training_thread():
+        """Run training in background thread."""
+        nonlocal training_complete, training_failed, progress, current_step, training_status, error_message
         
-        # Check if stable_baselines3 is available
-        if not STABLE_BASELINES_AVAILABLE:
-            logging.error("stable_baselines3 not available - cannot train missile AI")
-            return
-        
-        trainer = MissileRLTrainer(save_path="models/missile_rl_model")
-        total_timesteps = 100000  # More training for much better performance
-        
-        # Training loop with UI
-        training_complete = False
-        progress = 0.0
-        
-        def progress_callback(current_step, total_steps):
-            nonlocal progress
-            progress = current_step / total_steps
-        
-        # Start training in a separate thread would be ideal, but for simplicity
-        # we'll train with periodic UI updates
-        logging.info(f"Training missile AI with {total_timesteps:,} timesteps...")
-        
-        # Show initial screen
-        for i in range(60):  # Show for 1 second
-            screen.fill((20, 30, 40))
+        try:
+            from ai_platform_trainer.ai.training.train_missile_rl import MissileRLTrainer
             
-            # Title
-            title_text = font.render("Setting up AI Platform Trainer", True, (255, 255, 255))
-            title_rect = title_text.get_rect(center=(400, 200))
-            screen.blit(title_text, title_rect)
+            # Check if stable_baselines3 is available
+            if not STABLE_BASELINES_AVAILABLE:
+                error_message = "stable_baselines3 not available - cannot train missile AI"
+                training_failed = True
+                return
             
-            # Status
-            status_text = small_font.render("Training Missile AI...", True, (100, 200, 255))
-            status_rect = status_text.get_rect(center=(400, 280))
-            screen.blit(status_text, status_rect)
+            training_status = "Creating training environment..."
             
-            # Progress bar background
-            progress_bg = pygame.Rect(200, 350, 400, 30)
-            pygame.draw.rect(screen, (60, 60, 60), progress_bg)
+            # Ensure models directory exists
+            os.makedirs("models", exist_ok=True)
             
-            # Progress bar fill (animated while loading)
-            fill_width = int(400 * ((i % 60) / 60.0))
-            if fill_width > 0:
-                progress_fill = pygame.Rect(200, 350, fill_width, 30)
-                pygame.draw.rect(screen, (100, 200, 255), progress_fill)
+            trainer = MissileRLTrainer(save_path="models/missile_rl_model")
             
-            # Info text
-            info_text = small_font.render("This only happens once and takes about 2-3 minutes", True, (200, 200, 200))
-            info_rect = info_text.get_rect(center=(400, 420))
+            training_status = "Starting neural network training..."
+            
+            # Create progress update function
+            def update_progress(current, total):
+                nonlocal progress, current_step, training_status
+                current_step = current
+                progress = min(current / total, 1.0)
+                
+                # Update status based on progress
+                if progress < 0.1:
+                    training_status = "Learning basic movement..."
+                elif progress < 0.3:
+                    training_status = "Learning target tracking..."
+                elif progress < 0.6:
+                    training_status = "Learning interception strategies..."
+                elif progress < 0.9:
+                    training_status = "Optimizing missile trajectories..."
+                else:
+                    training_status = "Finalizing training..."
+            
+            # Start training with progress callback
+            logging.info(f"Training missile AI with {total_steps:,} timesteps...")
+            model = trainer.train(total_timesteps=total_steps, progress_callback=update_progress)
+            
+            training_status = "Training completed successfully!"
+            training_complete = True
+            
+        except Exception as e:
+            error_message = f"Training failed: {str(e)}"
+            training_failed = True
+            logging.error(error_message)
+    
+    # Start training thread
+    training_thread_obj = threading.Thread(target=training_thread, daemon=False)
+    training_thread_obj.start()
+    
+    # Main UI loop
+    start_time = time.time()
+    
+    while not training_complete and not training_failed:
+        # Handle events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+        
+        # Clear screen
+        screen.fill((25, 35, 45))
+        
+        # Draw header
+        title_text = font_large.render("AI Platform Trainer", True, (255, 255, 255))
+        title_rect = title_text.get_rect(center=(500, 100))
+        screen.blit(title_text, title_rect)
+        
+        subtitle_text = font_medium.render("First-Time Setup", True, (150, 200, 255))
+        subtitle_rect = subtitle_text.get_rect(center=(500, 150))
+        screen.blit(subtitle_text, subtitle_rect)
+        
+        # Draw main status
+        status_text = font_medium.render("Training Missile AI", True, (100, 255, 150))
+        status_rect = status_text.get_rect(center=(500, 220))
+        screen.blit(status_text, status_rect)
+        
+        # Draw detailed status
+        detail_text = font_small.render(training_status, True, (200, 200, 200))
+        detail_rect = detail_text.get_rect(center=(500, 260))
+        screen.blit(detail_text, detail_rect)
+        
+        # Draw progress bar background
+        progress_bg = pygame.Rect(150, 320, 700, 40)
+        pygame.draw.rect(screen, (60, 70, 80), progress_bg)
+        pygame.draw.rect(screen, (100, 120, 140), progress_bg, 2)
+        
+        # Draw progress bar fill
+        if progress > 0:
+            fill_width = int(700 * progress)
+            progress_fill = pygame.Rect(150, 320, fill_width, 40)
+            
+            # Gradient effect
+            for i in range(fill_width):
+                color_intensity = min(255, 100 + (i / fill_width) * 155)
+                color = (color_intensity // 3, color_intensity, color_intensity // 2)
+                pygame.draw.line(screen, color, 
+                               (150 + i, 320), (150 + i, 360))
+        
+        # Draw progress text
+        progress_percent = f"{progress * 100:.1f}%"
+        progress_text = font_medium.render(progress_percent, True, (255, 255, 255))
+        progress_text_rect = progress_text.get_rect(center=(500, 340))
+        screen.blit(progress_text, progress_text_rect)
+        
+        # Draw step counter
+        step_text = font_small.render(f"Step {current_step:,} / {total_steps:,}", True, (150, 150, 150))
+        step_rect = step_text.get_rect(center=(500, 380))
+        screen.blit(step_text, step_rect)
+        
+        # Draw time elapsed
+        elapsed_time = time.time() - start_time
+        minutes = int(elapsed_time // 60)
+        seconds = int(elapsed_time % 60)
+        time_text = font_small.render(f"Elapsed: {minutes:02d}:{seconds:02d}", True, (150, 150, 150))
+        time_rect = time_text.get_rect(center=(500, 410))
+        screen.blit(time_text, time_rect)
+        
+        # Draw info text
+        info_lines = [
+            "This intelligent AI will make missiles chase enemies with precision",
+            "Training happens only once and creates a smart homing system",
+            "Please wait while the AI learns optimal missile trajectories"
+        ]
+        
+        for i, line in enumerate(info_lines):
+            info_text = font_small.render(line, True, (180, 180, 180))
+            info_rect = info_text.get_rect(center=(500, 480 + i * 30))
             screen.blit(info_text, info_rect)
-            
-            pygame.display.flip()
-            clock.tick(60)
-            
-            # Handle events
+        
+        # Draw animated elements
+        spinner_angle = (time.time() * 180) % 360
+        spinner_center = (500, 600)
+        spinner_radius = 15
+        for i in range(8):
+            angle = spinner_angle + i * 45
+            alpha = max(50, 255 - i * 30)
+            x = spinner_center[0] + spinner_radius * np.cos(np.radians(angle))
+            y = spinner_center[1] + spinner_radius * np.sin(np.radians(angle))
+            pygame.draw.circle(screen, (alpha, alpha, alpha), (int(x), int(y)), 3)
+        
+        pygame.display.flip()
+        clock.tick(60)
+    
+    # Show completion or error screen
+    if training_complete:
+        # Success screen
+        for i in range(180):  # Show for 3 seconds
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     return
-        
-        # Actually train the model (this will take time)
-        model = trainer.train(total_timesteps=total_timesteps)
-        
-        # Show completion screen
-        for i in range(120):  # Show for 2 seconds
-            screen.fill((20, 30, 40))
             
-            # Title
-            title_text = font.render("Training Complete!", True, (100, 255, 100))
-            title_rect = title_text.get_rect(center=(400, 250))
+            screen.fill((20, 40, 30))
+            
+            title_text = font_large.render("Training Complete!", True, (100, 255, 100))
+            title_rect = title_text.get_rect(center=(500, 250))
             screen.blit(title_text, title_rect)
             
-            # Status
-            status_text = small_font.render("Missile AI is now ready - missiles will chase enemies intelligently!", True, (255, 255, 255))
-            status_rect = status_text.get_rect(center=(400, 320))
+            status_text = font_medium.render("Missile AI is now ready!", True, (255, 255, 255))
+            status_rect = status_text.get_rect(center=(500, 320))
             screen.blit(status_text, status_rect)
             
-            # Continue prompt
-            continue_text = small_font.render("Starting game...", True, (200, 200, 200))
-            continue_rect = continue_text.get_rect(center=(400, 380))
+            detail_text = font_small.render("Missiles will now intelligently chase and intercept enemies", True, (200, 255, 200))
+            detail_rect = detail_text.get_rect(center=(500, 380))
+            screen.blit(detail_text, detail_rect)
+            
+            continue_text = font_small.render("Starting game...", True, (150, 150, 150))
+            continue_rect = continue_text.get_rect(center=(500, 450))
             screen.blit(continue_text, continue_rect)
             
             pygame.display.flip()
             clock.tick(60)
-            
-            # Handle events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    return
         
         logging.info("✅ First-time missile AI training completed successfully!")
         
-    except Exception as e:
-        logging.error(f"Failed to train missile AI: {e}")
+        # Reload the missile AI manager to pick up the new RL model
+        global missile_ai_manager
+        missile_ai_manager = MissileAIManager()
         
-        # Show error screen
-        for i in range(180):  # Show for 3 seconds
-            screen.fill((40, 20, 20))
-            
-            # Title
-            title_text = font.render("Training Failed", True, (255, 100, 100))
-            title_rect = title_text.get_rect(center=(400, 250))
-            screen.blit(title_text, title_rect)
-            
-            # Status
-            status_text = small_font.render("Missiles will use basic homing instead", True, (255, 255, 255))
-            status_rect = status_text.get_rect(center=(400, 320))
-            screen.blit(status_text, status_rect)
-            
-            pygame.display.flip()
-            clock.tick(60)
-            
-            # Handle events
+    elif training_failed:
+        # Error screen
+        for i in range(240):  # Show for 4 seconds
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     return
+            
+            screen.fill((40, 20, 20))
+            
+            title_text = font_large.render("Training Failed", True, (255, 100, 100))
+            title_rect = title_text.get_rect(center=(500, 250))
+            screen.blit(title_text, title_rect)
+            
+            status_text = font_medium.render("Using basic missile homing instead", True, (255, 255, 255))
+            status_rect = status_text.get_rect(center=(500, 320))
+            screen.blit(status_text, status_rect)
+            
+            if error_message:
+                error_text = font_small.render(error_message[:60], True, (255, 200, 200))
+                error_rect = error_text.get_rect(center=(500, 380))
+                screen.blit(error_text, error_rect)
+            
+            continue_text = font_small.render("Starting game...", True, (150, 150, 150))
+            continue_rect = continue_text.get_rect(center=(500, 450))
+            screen.blit(continue_text, continue_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)

@@ -16,7 +16,7 @@ from gymnasium import spaces
 try:
     from stable_baselines3 import PPO
     from stable_baselines3.common.env_util import make_vec_env
-    from stable_baselines3.common.callbacks import EvalCallback
+    from stable_baselines3.common.callbacks import EvalCallback, BaseCallback
     STABLE_BASELINES_AVAILABLE = True
 except ImportError:
     STABLE_BASELINES_AVAILABLE = False
@@ -262,7 +262,7 @@ class MissileRLTrainer:
         self.env = MissileRLEnvironment()
         return self.env
     
-    def train(self, total_timesteps: int = 100000, save_freq: int = 10000):
+    def train(self, total_timesteps: int = 100000, save_freq: int = 10000, progress_callback=None):
         """Train the missile RL model."""
         if not STABLE_BASELINES_AVAILABLE:
             raise ImportError("stable_baselines3 is required for RL training")
@@ -300,11 +300,26 @@ class MissileRLTrainer:
             render=False
         )
         
+        # Create progress tracking callback
+        class ProgressTracker(BaseCallback):
+            def __init__(self, callback_fn=None, verbose=0):
+                super().__init__(verbose)
+                self.callback_fn = callback_fn
+                
+            def _on_step(self) -> bool:
+                if self.callback_fn:
+                    self.callback_fn(self.num_timesteps, total_timesteps)
+                return True
+        
+        callbacks = [eval_callback]
+        if progress_callback:
+            callbacks.append(ProgressTracker(progress_callback))
+        
         # Train the model
         logging.info(f"Starting missile RL training for {total_timesteps} timesteps...")
         self.model.learn(
             total_timesteps=total_timesteps,
-            callback=eval_callback,
+            callback=callbacks,
             progress_bar=True
         )
         
