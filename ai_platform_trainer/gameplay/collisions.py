@@ -29,7 +29,13 @@ def handle_missile_collisions(player, enemy, respawn_callback):
         )
         
         for missile in player.missiles[:]:
-            if missile.get_rect().colliderect(enemy_rect):
+            # Create missile rect manually since get_rect() might not work
+            missile_rect = pygame.Rect(
+                missile.pos["x"] - 5,  # Missile size/2
+                missile.pos["y"] - 5,
+                10, 10  # Missile size
+            )
+            if missile_rect.colliderect(enemy_rect):
                 logging.info("Missile hit the enemy.")
                 player.missiles.remove(missile)
                 enemy.hide()
