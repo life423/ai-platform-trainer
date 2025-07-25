@@ -32,7 +32,7 @@ from ai_platform_trainer.gameplay.display_manager import (
 # AI imports
 from ai_platform_trainer.ai.inference.missile_controller import update_missile_ai
 from ai_platform_trainer.ai.models.enemy_movement_model import EnemyMovementModel
-from ai_platform_trainer.ai.models.missile_model import MissileModel
+from ai_platform_trainer.ai.missile_ai_loader import missile_ai_manager
 
 # Data logger and entity imports
 from ai_platform_trainer.core.data_logger import DataLogger
@@ -116,9 +116,8 @@ class GameCore:
         self.play_mode_manager: Optional[PlayMode] = None
         self.play_learning_mode_manager: Optional[PlayLearningMode] = None
 
-        # Load missile model once
-        self.missile_model: Optional[MissileModel] = None
-        self._load_missile_model_once()
+        # Use shared missile AI manager (no duplicate loading)
+        # Models are loaded once globally in missile_ai_manager
 
         # Additional logic
         self.respawn_delay = 1000
@@ -158,23 +157,6 @@ class GameCore:
         self.current_state = self.states["menu"]
         self.current_state.enter()
 
-    def _load_missile_model_once(self) -> None:
-        """Load the missile AI model once during initialization."""
-        missile_model_path = "models/missile_model.pth"
-        if os.path.isfile(missile_model_path):
-            logging.info(f"Found missile model at '{missile_model_path}'.")
-            logging.info("Loading missile model once...")
-            try:
-                model = MissileModel()
-                model.load_state_dict(torch.load(missile_model_path, map_location="cpu"))
-                model.eval()
-                self.missile_model = model
-            except Exception as e:
-                logging.error(f"Failed to load missile model: {e}")
-                self.missile_model = None
-        else:
-            logging.warning(f"No missile model found at '{missile_model_path}'.")
-            logging.warning("Skipping missile AI.")
 
     def run(self) -> None:
         """Main game loop."""
