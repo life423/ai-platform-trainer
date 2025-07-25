@@ -6,6 +6,7 @@ a unified interface for creating intelligent homing missiles.
 """
 import logging
 import os
+import sys
 import torch
 import numpy as np
 from typing import Optional, Union
@@ -37,30 +38,55 @@ class MissileAIManager:
         """Load available missile AI models."""
         # Try to load RL model first (most advanced)
         if STABLE_BASELINES_AVAILABLE:
-            rl_model_path = "models/missile_rl_model_final.zip"
-            if os.path.exists(rl_model_path):
-                try:
-                    self.rl_model = PPO.load(rl_model_path)
-                    self.use_rl = True
-                    logging.info("✅ Loaded RL missile AI model - missiles will be very smart!")
-                except Exception as e:
-                    logging.error(f"Failed to load RL missile model: {e}")
+            # Check multiple possible locations for the RL model
+            possible_rl_paths = [
+                "models/missile_rl_model_final.zip",  # Standard location
+                os.path.join(os.path.dirname(__file__), "..", "..", "models", "missile_rl_model_final.zip"),  # Relative to module
+                os.path.join(getattr(sys, '_MEIPASS', os.getcwd()), "models", "missile_rl_model_final.zip"),  # PyInstaller bundle
+            ]
+            
+            rl_model_loaded = False
+            for rl_model_path in possible_rl_paths:
+                if os.path.exists(rl_model_path):
+                    try:
+                        self.rl_model = PPO.load(rl_model_path)
+                        self.use_rl = True
+                        logging.info(f"✅ Loaded RL missile AI model from {rl_model_path} - missiles will be very smart!")
+                        rl_model_loaded = True
+                        break
+                    except Exception as e:
+                        logging.warning(f"Failed to load RL missile model from {rl_model_path}: {e}")
+            
+            if not rl_model_loaded:
+                logging.info("ℹ️  No RL missile AI model found - will try neural network fallback")
         
         # Try to load neural network model (fallback)
-        nn_model_path = "models/missile_model.pth"
-        if os.path.exists(nn_model_path):
-            try:
-                self.neural_network_model = MissileModel()
-                self.neural_network_model.load_state_dict(
-                    torch.load(nn_model_path, map_location="cpu")
-                )
-                self.neural_network_model.eval()
-                
-                if not self.use_rl:  # Only log this if RL isn't available
-                    logging.info("✅ Loaded neural network missile AI model - missiles will be smart!")
+        possible_nn_paths = [
+            "models/missile_model.pth",  # Standard location
+            os.path.join(os.path.dirname(__file__), "..", "..", "models", "missile_model.pth"),  # Relative to module
+            os.path.join(getattr(sys, '_MEIPASS', os.getcwd()), "models", "missile_model.pth"),  # PyInstaller bundle
+        ]
+        
+        nn_model_loaded = False
+        for nn_model_path in possible_nn_paths:
+            if os.path.exists(nn_model_path):
+                try:
+                    self.neural_network_model = MissileModel()
+                    self.neural_network_model.load_state_dict(
+                        torch.load(nn_model_path, map_location="cpu")
+                    )
+                    self.neural_network_model.eval()
                     
-            except Exception as e:
-                logging.error(f"Failed to load neural network missile model: {e}")
+                    if not self.use_rl:  # Only log this if RL isn't available
+                        logging.info(f"✅ Loaded neural network missile AI model from {nn_model_path} - missiles will be smart!")
+                    nn_model_loaded = True
+                    break
+                        
+                except Exception as e:
+                    logging.warning(f"Failed to load neural network missile model from {nn_model_path}: {e}")
+        
+        if not nn_model_loaded and not self.use_rl:
+            logging.warning("⚠️  No neural network missile AI model found")
         
         # Check if any models were loaded
         if self.rl_model or self.neural_network_model:
@@ -166,10 +192,26 @@ def check_and_train_missile_ai():
     import time
     import numpy as np
     
-    # Check if RL model already exists (priority model)
-    rl_model_path = "models/missile_rl_model_final.zip"
+    # Check if we're running from a PyInstaller bundle (executable)
+    if hasattr(sys, '_MEIPASS'):
+        logging.info("🎮 Running from executable - AI models should be pre-bundled")
+        # In bundled executable, models should already be included
+        # Just verify they loaded properly in the manager
+        if missile_ai_manager.models_loaded:
+            logging.info("✅ Bundled AI models loaded successfully")
+        else:
+            logging.warning("⚠️  Bundled AI models not found - falling back to basic homing")
+        return
     
-    if os.path.exists(rl_model_path):
+    # Check if RL model already exists (priority model) - for development/source runs
+    possible_rl_paths = [
+        "models/missile_rl_model_final.zip",
+        os.path.join(os.path.dirname(__file__), "..", "..", "models", "missile_rl_model_final.zip"),
+    ]
+    
+    rl_model_exists = any(os.path.exists(path) for path in possible_rl_paths)
+    
+    if rl_model_exists:
         logging.info("Advanced RL missile AI model found - skipping training")
         return
     
