@@ -9,7 +9,7 @@ import random
 import logging
 import math
 
-from ai_platform_trainer.entities.enemy_learning import LearningEnemyAI
+from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
 # Color constants
 COLOR_TEXT_PRIMARY = (255, 255, 255)  # White  
 COLOR_TEXT_SECONDARY = (240, 248, 255)  # Alice blue
@@ -24,8 +24,8 @@ class PlayLearningMode:
         self.game = game
         self.space_pressed_last_frame = False
         
-        # Create learning AI enemy
-        self.learning_enemy = LearningEnemyAI(
+        # Create adaptive staged AI enemy
+        self.learning_enemy = AdaptiveStagedEnemyAI(
             self.game.screen_width, 
             self.game.screen_height
         )

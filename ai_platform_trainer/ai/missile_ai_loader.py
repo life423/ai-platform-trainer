@@ -12,7 +12,7 @@ import numpy as np
 from typing import Optional, Union
 
 try:
-    from stable_baselines3 import PPO
+    from stable_baselines3 import PPO, SAC
     STABLE_BASELINES_AVAILABLE = True
 except ImportError:
     STABLE_BASELINES_AVAILABLE = False
@@ -28,6 +28,7 @@ class MissileAIManager:
     def __init__(self):
         self.neural_network_model: Optional[MissileModel] = None
         self.rl_model: Optional = None
+        self.rl_algorithm: str = "PPO"  # Track which algorithm is loaded
         self.use_rl = False
         self.models_loaded = False
         
@@ -36,26 +37,50 @@ class MissileAIManager:
     
     def _load_models(self):
         """Load available missile AI models."""
-        # Try to load RL model first (most advanced)
+        # Try to load RL model first (most advanced) - check SAC and PPO
         if STABLE_BASELINES_AVAILABLE:
-            # Check multiple possible locations for the RL model
-            possible_rl_paths = [
-                "models/missile_rl_model_final.zip",  # Standard location
-                os.path.join(os.path.dirname(__file__), "..", "..", "models", "missile_rl_model_final.zip"),  # Relative to module
-                os.path.join(getattr(sys, '_MEIPASS', os.getcwd()), "models", "missile_rl_model_final.zip"),  # PyInstaller bundle
+            # Check for SAC models first (potentially better performance)
+            sac_paths = [
+                "models/missile_sac_model_final.zip",
+                os.path.join(os.path.dirname(__file__), "..", "..", "models", "missile_sac_model_final.zip"),
+                os.path.join(getattr(sys, '_MEIPASS', os.getcwd()), "models", "missile_sac_model_final.zip"),
+            ]
+            
+            # Check for PPO models (fallback)
+            ppo_paths = [
+                "models/missile_rl_model_final.zip",
+                os.path.join(os.path.dirname(__file__), "..", "..", "models", "missile_rl_model_final.zip"),
+                os.path.join(getattr(sys, '_MEIPASS', os.getcwd()), "models", "missile_rl_model_final.zip"),
             ]
             
             rl_model_loaded = False
-            for rl_model_path in possible_rl_paths:
-                if os.path.exists(rl_model_path):
+            
+            # Try SAC first
+            for sac_path in sac_paths:
+                if os.path.exists(sac_path):
                     try:
-                        self.rl_model = PPO.load(rl_model_path)
+                        self.rl_model = SAC.load(sac_path)
+                        self.rl_algorithm = "SAC"
                         self.use_rl = True
-                        logging.info(f"✅ Loaded RL missile AI model from {rl_model_path} - missiles will be very smart!")
+                        logging.info(f"✅ Loaded SAC missile AI model from {sac_path} - missiles will be extremely smart!")
                         rl_model_loaded = True
                         break
                     except Exception as e:
-                        logging.warning(f"Failed to load RL missile model from {rl_model_path}: {e}")
+                        logging.warning(f"Failed to load SAC missile model from {sac_path}: {e}")
+            
+            # Try PPO if SAC not found
+            if not rl_model_loaded:
+                for ppo_path in ppo_paths:
+                    if os.path.exists(ppo_path):
+                        try:
+                            self.rl_model = PPO.load(ppo_path)
+                            self.rl_algorithm = "PPO"
+                            self.use_rl = True
+                            logging.info(f"✅ Loaded PPO missile AI model from {ppo_path} - missiles will be very smart!")
+                            rl_model_loaded = True
+                            break
+                        except Exception as e:
+                            logging.warning(f"Failed to load PPO missile model from {ppo_path}: {e}")
             
             if not rl_model_loaded:
                 logging.info("ℹ️  No RL missile AI model found - will try neural network fallback")
@@ -91,8 +116,12 @@ class MissileAIManager:
         # Check if any models were loaded
         if self.rl_model or self.neural_network_model:
             self.models_loaded = True
-            ai_type = "RL + Neural Network" if self.rl_model and self.neural_network_model else \
-                     "RL" if self.rl_model else "Neural Network"
+            if self.rl_model and self.neural_network_model:
+                ai_type = f"{self.rl_algorithm} + Neural Network"
+            elif self.rl_model:
+                ai_type = f"{self.rl_algorithm}"
+            else:
+                ai_type = "Neural Network"
             logging.info(f"🎯 Missile AI system ready with {ai_type} guidance")
         else:
             logging.warning("⚠️  No missile AI models found - missiles will use basic homing")
@@ -134,7 +163,10 @@ class MissileAIManager:
             return "Basic homing (no AI models loaded)"
         
         if self.use_rl and self.rl_model:
-            return "Advanced RL AI (very smart homing)"
+            if self.rl_algorithm == "SAC":
+                return "Advanced SAC AI (extremely smart homing)"
+            else:
+                return "Advanced PPO AI (very smart homing)"
         elif self.neural_network_model:
             return "Neural Network AI (smart homing)"
         else:
@@ -147,7 +179,7 @@ class MissileAIManager:
     def get_best_available_model_type(self) -> str:
         """Get the best available model type."""
         if self.use_rl and self.rl_model:
-            return "RL"
+            return self.rl_algorithm
         elif self.neural_network_model:
             return "Neural Network"
         else:
