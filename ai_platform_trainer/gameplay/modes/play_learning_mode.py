@@ -243,17 +243,17 @@ class PlayLearningMode:
             screen.blit(stats_text, (panel_x + 180, stats_y_start + i * line_height))
         
         # Learning status indicator at bottom of screen with better visibility
-        if stats['frames'] < 100:
-            status = "🤖 Learning basic movement..."
+        if stats['frames'] < 60:
+            status = "🤖 AI is learning basic behavior..."
             status_color = self.text_primary
-        elif stats['frames'] < 500:
-            status = "🎯 Learning to chase player..."
+        elif stats['frames'] < 180:
+            status = "🎯 AI is actively hunting you!"
             status_color = (255, 193, 7)  # Yellow
-        elif stats['frames'] < 1500:
-            status = "🧠 Developing smart tactics..."
+        elif stats['frames'] < 300:
+            status = "🧠 AI has become a smart predator!"
             status_color = (255, 152, 0)  # Orange
         else:
-            status = "⚡ EXPERT MODE - AI is dangerous!"
+            status = "💀 NIGHTMARE MODE - AI is extremely dangerous!"
             status_color = self.warning_color
         
         # Background for status text

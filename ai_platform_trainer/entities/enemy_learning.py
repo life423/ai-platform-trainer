@@ -56,13 +56,13 @@ class LearningEnemyAI:
         self.total_frames = 0
         self.last_performance_update = 0
         
-        # Behavior evolution stages
-        self.behavior_stage = "random"  # random -> chase -> smart -> expert
+        # Behavior evolution stages - much faster progression for engaging gameplay
+        self.behavior_stage = "learning"  # learning -> hunting -> predator -> nightmare
         self.stage_thresholds = {
-            "random": 100,    # First 100 frames: random movement
-            "chase": 500,     # Next 400 frames: basic chase
-            "smart": 1500,    # Next 1000 frames: smart movement
-            "expert": float('inf')  # Beyond 1500 frames: expert behavior
+            "learning": 60,    # First 1 second: basic learning  
+            "hunting": 180,    # Next 2 seconds: active hunting
+            "predator": 300,   # Next 2 seconds: smart predator
+            "nightmare": float('inf')  # Beyond 5 seconds: nightmare mode
         }
         
         # RL Model (if available)
@@ -129,22 +129,26 @@ class LearningEnemyAI:
         """Update the AI's behavior stage based on experience."""
         old_stage = self.behavior_stage
         
-        if self.total_frames < self.stage_thresholds["random"]:
-            self.behavior_stage = "random"
-            self.difficulty_level = 0.1
-            self.speed = 2.0
-        elif self.total_frames < self.stage_thresholds["chase"]:
-            self.behavior_stage = "chase"
-            self.difficulty_level = 0.3
-            self.speed = 3.0
-        elif self.total_frames < self.stage_thresholds["smart"]:
-            self.behavior_stage = "smart"
-            self.difficulty_level = 0.6
-            self.speed = 4.0
+        if self.total_frames < self.stage_thresholds["learning"]:
+            self.behavior_stage = "learning"
+            self.difficulty_level = 0.2 + (self.total_frames / 60) * 0.3  # 0.2 to 0.5 in 1 second
+            self.speed = 2.5 + (self.total_frames / 60) * 1.5  # 2.5 to 4.0 in 1 second
+        elif self.total_frames < self.stage_thresholds["hunting"]:
+            self.behavior_stage = "hunting"
+            progress = (self.total_frames - 60) / 120  # 0 to 1 over 2 seconds
+            self.difficulty_level = 0.5 + progress * 0.3  # 0.5 to 0.8
+            self.speed = 4.0 + progress * 2.0  # 4.0 to 6.0
+        elif self.total_frames < self.stage_thresholds["predator"]:
+            self.behavior_stage = "predator"
+            progress = (self.total_frames - 180) / 120  # 0 to 1 over 2 seconds
+            self.difficulty_level = 0.8 + progress * 0.15  # 0.8 to 0.95
+            self.speed = 6.0 + progress * 1.5  # 6.0 to 7.5
         else:
-            self.behavior_stage = "expert"
-            self.difficulty_level = min(1.0, 0.8 + (self.total_frames - 1500) / 3000)
-            self.speed = min(6.0, 4.0 + (self.total_frames - 1500) / 1000)
+            self.behavior_stage = "nightmare"
+            # Nightmare mode gets progressively more dangerous
+            nightmare_progress = min(1.0, (self.total_frames - 300) / 600)  # Cap progression
+            self.difficulty_level = 0.95 + nightmare_progress * 0.05  # 0.95 to 1.0
+            self.speed = 7.5 + nightmare_progress * 2.5  # 7.5 to 10.0 (very fast!)
         
         if old_stage != self.behavior_stage:
             logging.info(f"AI evolved from {old_stage} to {self.behavior_stage} (difficulty: {self.difficulty_level:.2f})")
@@ -153,69 +157,74 @@ class LearningEnemyAI:
                               missiles: List) -> Tuple[float, float]:
         """Get movement decision based on current AI stage."""
         
-        if self.behavior_stage == "random":
-            return self._random_movement()
-        elif self.behavior_stage == "chase":
-            return self._chase_movement(player_x, player_y)
-        elif self.behavior_stage == "smart":
-            return self._smart_movement(player_x, player_y, missiles)
-        else:  # expert
-            return self._expert_movement(player_x, player_y, missiles)
+        if self.behavior_stage == "learning":
+            return self._learning_movement(player_x, player_y)
+        elif self.behavior_stage == "hunting":
+            return self._hunting_movement(player_x, player_y, missiles)
+        elif self.behavior_stage == "predator":
+            return self._predator_movement(player_x, player_y, missiles)
+        else:  # nightmare
+            return self._nightmare_movement(player_x, player_y, missiles)
     
-    def _random_movement(self) -> Tuple[float, float]:
-        """Random movement for early learning stage."""
+    def _learning_movement(self, player_x: float, player_y: float) -> Tuple[float, float]:
+        """Learning stage - mix of random and basic chase."""
+        # Mix random movement with increasing chase behavior
+        progress = self.total_frames / 60.0  # 0 to 1 over first 60 frames
+        
+        # Random component
         angle = random.uniform(0, 2 * math.pi)
-        move_x = math.cos(angle) * self.speed * random.uniform(0.3, 1.0)
-        move_y = math.sin(angle) * self.speed * random.uniform(0.3, 1.0)
-        return move_x, move_y
-    
-    def _chase_movement(self, player_x: float, player_y: float) -> Tuple[float, float]:
-        """Basic chase movement."""
+        random_x = math.cos(angle) * self.speed * 0.5
+        random_y = math.sin(angle) * self.speed * 0.5
+        
+        # Chase component  
         dx = player_x - self.pos["x"]
         dy = player_y - self.pos["y"]
         distance = math.sqrt(dx * dx + dy * dy)
         
         if distance > 1:
-            move_x = (dx / distance) * self.speed
-            move_y = (dy / distance) * self.speed
-            return move_x, move_y
-        return 0.0, 0.0
-    
-    def _smart_movement(self, player_x: float, player_y: float, 
-                       missiles: List) -> Tuple[float, float]:
-        """Smart movement that considers missiles and player prediction."""
-        # Basic chase with missile avoidance
-        dx = player_x - self.pos["x"]
-        dy = player_y - self.pos["y"]
-        distance = math.sqrt(dx * dx + dy * dy)
-        
-        if distance > 1:
-            # Base chase movement
             chase_x = (dx / distance) * self.speed
             chase_y = (dy / distance) * self.speed
-            
-            # Missile avoidance
-            avoid_x, avoid_y = self._calculate_missile_avoidance(missiles)
-            
-            # Combine chase and avoidance (weighted)
-            move_x = 0.7 * chase_x + 0.3 * avoid_x
-            move_y = 0.7 * chase_y + 0.3 * avoid_y
-            
-            return move_x, move_y
-        return 0.0, 0.0
+        else:
+            chase_x, chase_y = 0.0, 0.0
+        
+        # Blend random and chase based on progress
+        move_x = (1 - progress) * random_x + progress * chase_x
+        move_y = (1 - progress) * random_y + progress * chase_y
+        
+        return move_x, move_y
     
-    def _expert_movement(self, player_x: float, player_y: float, 
-                        missiles: List) -> Tuple[float, float]:
-        """Expert movement with prediction and advanced tactics."""
-        # Advanced AI behavior with player prediction
+    def _hunting_movement(self, player_x: float, player_y: float, missiles: List) -> Tuple[float, float]:
+        """Hunting stage - aggressive chase with basic missile awareness."""
         dx = player_x - self.pos["x"]
         dy = player_y - self.pos["y"]
         distance = math.sqrt(dx * dx + dy * dy)
         
         if distance > 1:
-            # Predict player movement (simple prediction)
-            predicted_x = player_x + dx * 0.1  # Simple prediction
-            predicted_y = player_y + dy * 0.1
+            # Aggressive direct chase
+            chase_x = (dx / distance) * self.speed * 1.2  # 20% speed boost
+            chase_y = (dy / distance) * self.speed * 1.2
+            
+            # Basic missile avoidance
+            avoid_x, avoid_y = self._calculate_missile_avoidance(missiles)
+            
+            # Weighted combination - mostly chase
+            move_x = 0.8 * chase_x + 0.2 * avoid_x
+            move_y = 0.8 * chase_y + 0.2 * avoid_y
+            
+            return move_x, move_y
+        return 0.0, 0.0
+    
+    def _predator_movement(self, player_x: float, player_y: float, 
+                          missiles: List) -> Tuple[float, float]:
+        """Predator stage - smart hunting with prediction and advanced avoidance."""
+        dx = player_x - self.pos["x"]
+        dy = player_y - self.pos["y"]
+        distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance > 1:
+            # Player movement prediction
+            predicted_x = player_x + dx * 0.15  # Better prediction
+            predicted_y = player_y + dy * 0.15
             
             # Calculate movement to predicted position
             pred_dx = predicted_x - self.pos["x"]
@@ -223,20 +232,62 @@ class LearningEnemyAI:
             pred_distance = math.sqrt(pred_dx * pred_dx + pred_dy * pred_dy)
             
             if pred_distance > 1:
-                chase_x = (pred_dx / pred_distance) * self.speed
-                chase_y = (pred_dy / pred_distance) * self.speed
+                chase_x = (pred_dx / pred_distance) * self.speed * 1.1
+                chase_y = (pred_dy / pred_distance) * self.speed * 1.1
             else:
                 chase_x, chase_y = 0.0, 0.0
             
             # Advanced missile avoidance
             avoid_x, avoid_y = self._calculate_missile_avoidance(missiles, advanced=True)
             
-            # Combine with strategic positioning
+            # Strategic positioning
             strategy_x, strategy_y = self._calculate_strategic_movement(player_x, player_y)
             
-            # Weighted combination
-            move_x = 0.5 * chase_x + 0.3 * avoid_x + 0.2 * strategy_x
-            move_y = 0.5 * chase_y + 0.3 * avoid_y + 0.2 * strategy_y
+            # Weighted combination - balanced
+            move_x = 0.6 * chase_x + 0.3 * avoid_x + 0.1 * strategy_x
+            move_y = 0.6 * chase_y + 0.3 * avoid_y + 0.1 * strategy_y
+            
+            return move_x, move_y
+        return 0.0, 0.0
+    
+    def _nightmare_movement(self, player_x: float, player_y: float, 
+                           missiles: List) -> Tuple[float, float]:
+        """Nightmare mode - extremely intelligent and aggressive AI."""
+        dx = player_x - self.pos["x"]
+        dy = player_y - self.pos["y"]
+        distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance > 1:
+            # Advanced player prediction with velocity estimation
+            prediction_strength = 0.25 + (self.total_frames - 300) / 1200  # Increases over time
+            predicted_x = player_x + dx * prediction_strength
+            predicted_y = player_y + dy * prediction_strength
+            
+            # Calculate movement to predicted position
+            pred_dx = predicted_x - self.pos["x"]
+            pred_dy = predicted_y - self.pos["y"]
+            pred_distance = math.sqrt(pred_dx * pred_dx + pred_dy * pred_dy)
+            
+            if pred_distance > 1:
+                chase_x = (pred_dx / pred_distance) * self.speed * 1.3  # 30% speed boost
+                chase_y = (pred_dy / pred_distance) * self.speed * 1.3
+            else:
+                chase_x, chase_y = 0.0, 0.0
+            
+            # Superior missile avoidance
+            avoid_x, avoid_y = self._calculate_nightmare_avoidance(missiles)
+            
+            # Aggressive strategic positioning
+            strategy_x, strategy_y = self._calculate_aggressive_strategy(player_x, player_y)
+            
+            # Add unpredictable element to make it more challenging
+            chaos_factor = 0.1
+            chaos_x = random.uniform(-1, 1) * self.speed * chaos_factor
+            chaos_y = random.uniform(-1, 1) * self.speed * chaos_factor
+            
+            # Weighted combination - heavily favor aggression
+            move_x = 0.5 * chase_x + 0.2 * avoid_x + 0.2 * strategy_x + 0.1 * chaos_x
+            move_y = 0.5 * chase_y + 0.2 * avoid_y + 0.2 * strategy_y + 0.1 * chaos_y
             
             return move_x, move_y
         return 0.0, 0.0
@@ -294,6 +345,66 @@ class LearningEnemyAI:
             strategy_y = 1.0
         elif self.pos["y"] > self.screen_height - edge_margin:
             strategy_y = -1.0
+        
+        return strategy_x, strategy_y
+    
+    def _calculate_nightmare_avoidance(self, missiles: List) -> Tuple[float, float]:
+        """Calculate superior missile avoidance for nightmare mode."""
+        if not missiles:
+            return 0.0, 0.0
+        
+        avoid_x, avoid_y = 0.0, 0.0
+        
+        for missile in missiles:
+            missile_x = missile.pos["x"]
+            missile_y = missile.pos["y"]
+            
+            # Calculate distance and trajectory
+            dx = missile_x - self.pos["x"]
+            dy = missile_y - self.pos["y"]
+            distance = math.sqrt(dx * dx + dy * dy)
+            
+            # Increased avoidance range for nightmare mode
+            if distance < 150:  # Larger avoidance radius
+                if distance > 1:
+                    # Stronger avoidance force
+                    force = min(200 / distance, 15.0)  # Increased force
+                    avoid_x -= (dx / distance) * force
+                    avoid_y -= (dy / distance) * force
+        
+        # Normalize and apply stronger avoidance
+        avoid_distance = math.sqrt(avoid_x * avoid_x + avoid_y * avoid_y)
+        if avoid_distance > 1:
+            avoid_x = (avoid_x / avoid_distance) * self.speed * 0.8  # Stronger avoidance
+            avoid_y = (avoid_y / avoid_distance) * self.speed * 0.8
+        
+        return avoid_x, avoid_y
+    
+    def _calculate_aggressive_strategy(self, player_x: float, player_y: float) -> Tuple[float, float]:
+        """Calculate aggressive strategic movement for nightmare mode."""
+        # Try to cut off player escape routes
+        center_x = self.screen_width / 2
+        center_y = self.screen_height / 2
+        
+        # Calculate where player is relative to center
+        player_from_center_x = player_x - center_x
+        player_from_center_y = player_y - center_y
+        
+        # Try to move to intercept player's likely escape route
+        strategy_x = player_from_center_x * 0.3  # Move to cut off escape
+        strategy_y = player_from_center_y * 0.3
+        
+        # Add corner pressure - if player is near edge, pressure them
+        edge_margin = 100
+        if player_x < edge_margin:
+            strategy_x += 2.0  # Push from left
+        elif player_x > self.screen_width - edge_margin:
+            strategy_x -= 2.0  # Push from right
+            
+        if player_y < edge_margin:
+            strategy_y += 2.0  # Push from top
+        elif player_y > self.screen_height - edge_margin:
+            strategy_y -= 2.0  # Push from bottom
         
         return strategy_x, strategy_y
     
