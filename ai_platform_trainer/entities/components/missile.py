@@ -21,10 +21,19 @@ class Missile:
         self.size = 10
         self.color = (255, 255, 0)  # Yellow
         self.pos = {"x": x, "y": y}
+        self.position = {"x": x, "y": y}  # Add position attribute for renderer
         self.speed = speed
         # Velocity components for straight line movement
         self.vx = vx
         self.vy = vy
+        
+        # Direction for rendering (normalized)
+        import math
+        if vx != 0 or vy != 0:
+            magnitude = math.sqrt(vx * vx + vy * vy)
+            self.direction = (vx / magnitude, vy / magnitude)
+        else:
+            self.direction = (1.0, 0.0)  # Default rightward direction
 
         # New fields for matching training logic:
         self.birth_time = birth_time
@@ -36,6 +45,9 @@ class Missile:
         """
         self.pos["x"] += self.vx
         self.pos["y"] += self.vy
+        # Keep position in sync with pos for renderer
+        self.position["x"] = self.pos["x"]
+        self.position["y"] = self.pos["y"]
 
     def draw(self, screen: pygame.Surface) -> None:
         """Draw the missile on the screen."""

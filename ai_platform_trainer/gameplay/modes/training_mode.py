@@ -32,7 +32,7 @@ class TrainingMode:
 
             if random.random() < getattr(self, "missile_fire_prob", 0.1):
                 if self.missile_cooldown <= 0 and len(self.game.player.missiles) == 0:
-                    self.game.player.shoot_missile(enemy_x, enemy_y)
+                    self.game.player.shoot_missile({"x": enemy_x, "y": enemy_y})
                     self.missile_cooldown = 120
 
                     if self.game.player.missiles:
