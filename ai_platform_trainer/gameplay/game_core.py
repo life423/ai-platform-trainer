@@ -268,7 +268,7 @@ class GameCore:
         Start the game in the specified mode.
         
         Args:
-            mode: The game mode ("play" or "train")
+            mode: The game mode ("train", "play_supervised", or "play_learning")
         """
         self.mode = mode
         logging.info(f"Starting game in '{mode}' mode.")
@@ -282,8 +282,16 @@ class GameCore:
             self.player.reset()
             self.training_mode_manager = TrainingMode(self)
 
-        else:  # "play"
-            self.player, self.enemy = self._init_play_mode()
+        elif mode == "play_supervised":
+            # Play against pre-trained supervised learning model
+            self.player, self.enemy = self._init_supervised_play_mode()
+            self.player.reset()
+            spawn_entities(self)
+            self.play_mode_manager = PlayMode(self)
+
+        elif mode == "play_learning":
+            # Play against real-time learning AI
+            self.player, self.enemy = self._init_learning_play_mode()
             self.player.reset()
             spawn_entities(self)
             self.play_mode_manager = PlayMode(self)
@@ -325,6 +333,53 @@ class GameCore:
             logging.info("No RL model found, using traditional neural network")
 
         logging.info("Initialized PlayerPlay and EnemyPlay for play mode.")
+        return player, enemy
+
+    def _init_supervised_play_mode(self) -> Tuple[PlayerPlay, EnemyPlay]:
+        """
+        Initialize entities for supervised learning play mode.
+        
+        Returns:
+            Tuple of (player, enemy) entities
+        """
+        # Load the traditional neural network model (no RL)
+        model = EnemyMovementModel(input_size=5, hidden_size=64, output_size=2)
+        try:
+            model.load_state_dict(torch.load(config.MODEL_PATH, map_location="cpu"))
+            model.eval()
+            logging.info("Supervised AI model loaded for play mode.")
+        except Exception as e:
+            logging.error(f"Failed to load supervised model: {e}")
+            raise e
+
+        player = PlayerPlay(self.screen_width, self.screen_height)
+        enemy = EnemyPlay(self.screen_width, self.screen_height, model)
+        
+        # Force use of neural network (disable RL)
+        enemy.use_rl = False
+        
+        logging.info("Initialized supervised learning play mode.")
+        return player, enemy
+
+    def _init_learning_play_mode(self) -> Tuple[PlayerPlay, EnemyPlay]:
+        """
+        Initialize entities for real-time learning play mode.
+        
+        Returns:
+            Tuple of (player, enemy) entities
+        """
+        # Start with a basic model or no model - AI will learn from scratch
+        model = EnemyMovementModel(input_size=5, hidden_size=64, output_size=2)
+        # Don't load pre-trained weights - start fresh!
+        
+        player = PlayerPlay(self.screen_width, self.screen_height)
+        enemy = EnemyPlay(self.screen_width, self.screen_height, model)
+        
+        # Enable real-time learning mode
+        enemy.use_rl = True
+        enemy.learning_mode = True
+        
+        logging.info("Initialized real-time learning play mode - AI starts from scratch!")
         return player, enemy
 
     def handle_events(self) -> None:
@@ -376,7 +431,7 @@ class GameCore:
         if selected_action == "exit":
             logging.info("Exit action selected from menu.")
             self.running = False
-        elif selected_action in ["train", "play"]:
+        elif selected_action in ["train", "play_supervised", "play_learning"]:
             logging.info(f"'{selected_action}' selected from menu.")
             self.menu_active = False
             self.start_game(selected_action)

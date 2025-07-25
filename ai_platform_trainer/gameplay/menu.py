@@ -4,20 +4,12 @@ import pygame
 class Menu:
     def __init__(self, screen_width, screen_height):
         # Menu options displayed in the main menu
-        self.menu_options = ["Play", "AI Select", "Train", "Help", "Exit"]
+        self.menu_options = ["Training Mode", "Play vs Supervised AI", "Play vs Learning AI", "Exit"]
         # Tracks which menu option is currently selected (for keyboard input)
         self.selected_option = 0
 
         # Flag to show help screen; if True, the help screen is drawn instead of the main menu
         self.show_help = False
-        
-        # Flag to show AI selection screen
-        self.show_ai_select = False
-        
-        # AI selection options and currently selected AI
-        self.ai_options = ["Supervised Learning", "Reinforcement Learning"]
-        self.selected_ai = 0  # 0 = Supervised, 1 = RL
-        self.ai_option_rects = {}
 
         # Store screen dimensions to position menu items correctly
         self.screen_width = screen_width
@@ -35,7 +27,7 @@ class Menu:
     def handle_menu_events(self, event):
         """
         Handle user input for the menu.
-        If self.show_help or self.show_ai_select is True, handle those screens.
+        If self.show_help is True, handle help screen.
         Otherwise, process keyboard/mouse events to navigate or select menu options.
         """
 
@@ -48,33 +40,6 @@ class Menu:
             ]:
                 self.show_help = False
             return None
-            
-        # If the AI selection screen is displayed
-        elif self.show_ai_select:
-            # Handle navigation in the AI selection menu
-            if event.type == pygame.KEYDOWN:
-                if event.key in [pygame.K_UP, pygame.K_w]:
-                    self.selected_ai = (self.selected_ai - 1) % len(self.ai_options)
-                elif event.key in [pygame.K_DOWN, pygame.K_s]:
-                    self.selected_ai = (self.selected_ai + 1) % len(self.ai_options)
-                elif event.key in [pygame.K_RETURN, pygame.K_KP_ENTER]:
-                    # Selected an AI type, return to main menu
-                    self.show_ai_select = False
-                    return f"ai_{self.selected_ai}"  # Return which AI was selected
-                elif event.key == pygame.K_ESCAPE:
-                    # Go back to main menu without changing AI
-                    self.show_ai_select = False
-            
-            # Handle mouse clicks in AI selection
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                for index, rect in self.ai_option_rects.items():
-                    if rect.collidepoint(mouse_x, mouse_y):
-                        self.selected_ai = index
-                        self.show_ai_select = False
-                        return f"ai_{self.selected_ai}"  # Return which AI was selected
-            
-            return None
 
         # If user presses ENTER (or NUMPAD ENTER) on the main menu
         elif event.type == pygame.KEYDOWN and event.key in [
@@ -82,17 +47,15 @@ class Menu:
             pygame.K_KP_ENTER,
         ]:
             chosen = self.menu_options[self.selected_option]
-            if chosen == "Help":
-                # Switch to the help screen
-                self.show_help = True
-                return None  # Don't return "help" because we handle it internally
-            elif chosen == "AI Select":
-                # Switch to the AI selection screen
-                self.show_ai_select = True
-                return None  # Don't return "ai_select" because we handle it internally
-            else:
-                # Return the chosen option in lowercase (e.g., "play", "train", "exit")
-                return chosen.lower()
+            # Convert menu option to game mode identifier
+            if chosen == "Training Mode":
+                return "train"
+            elif chosen == "Play vs Supervised AI":
+                return "play_supervised"
+            elif chosen == "Play vs Learning AI":
+                return "play_learning"
+            elif chosen == "Exit":
+                return "exit"
 
         # Handle arrow keys / WASD for navigating menu options
         if event.type == pygame.KEYDOWN:
@@ -108,8 +71,15 @@ class Menu:
                 )
             # Pressing ENTER again here is a fallback check
             elif event.key in [pygame.K_RETURN, pygame.K_KP_ENTER]:
-                return self.menu_options[self.selected_option].lower()
-            # We let the game itself handle ESC for exiting the program
+                chosen = self.menu_options[self.selected_option]
+                if chosen == "Training Mode":
+                    return "train"
+                elif chosen == "Play vs Supervised AI":
+                    return "play_supervised"
+                elif chosen == "Play vs Learning AI":
+                    return "play_learning"
+                elif chosen == "Exit":
+                    return "exit"
 
         # Mouse click detection
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -120,11 +90,14 @@ class Menu:
                 if rect.collidepoint(mouse_x, mouse_y):
                     self.selected_option = index
                     chosen = self.menu_options[self.selected_option]
-                    if chosen == "Help":
-                        self.show_help = True
-                        return None
-                    else:
-                        return chosen.lower()
+                    if chosen == "Training Mode":
+                        return "train"
+                    elif chosen == "Play vs Supervised AI":
+                        return "play_supervised"
+                    elif chosen == "Play vs Learning AI":
+                        return "play_learning"
+                    elif chosen == "Exit":
+                        return "exit"
 
         # If no relevant event, return None
         return None
@@ -133,18 +106,12 @@ class Menu:
         """
         Draw the menu on the given Pygame screen.
         If show_help is True, the help screen is drawn instead.
-        If show_ai_select is True, the AI selection screen is drawn.
         Otherwise, the main menu is drawn with the title and list of options.
         """
 
         # If the help screen is active, draw that instead
         if self.show_help:
             self.draw_help(screen)
-            return
-            
-        # If the AI selection screen is active, draw that
-        if self.show_ai_select:
-            self.draw_ai_select(screen)
             return
             
         # Fill the screen background
@@ -175,64 +142,6 @@ class Menu:
             # Draw the menu option on screen
             screen.blit(option_surface, option_rect)
 
-    def draw_ai_select(self, screen):
-        """
-        Draw the AI selection screen where users can choose between
-        supervised learning and reinforcement learning for the enemy.
-        """
-        # Clear the screen with the background color
-        screen.fill(self.color_background)
-
-        # Title for the AI selection screen
-        ai_title_surface = self.font_title.render(
-            "Select Enemy AI Type", True, self.color_title
-        )
-        ai_title_rect = ai_title_surface.get_rect(
-            center=(self.screen_width // 2, self.screen_height // 5)
-        )
-        screen.blit(ai_title_surface, ai_title_rect)
-
-        # Create a smaller font for descriptions
-        font_info = pygame.font.Font(None, 34)
-
-        # Render AI options
-        for index, option in enumerate(self.ai_options):
-            # Choose highlight color if this option is currently selected
-            color = (
-                self.color_selected
-                if index == self.selected_ai
-                else self.color_option
-            )
-            option_surface = self.font_option.render(option, True, color)
-            option_rect = option_surface.get_rect(
-                center=(self.screen_width // 2, self.screen_height // 2 + index * 100)
-            )
-            # Store this rect for click detection
-            self.ai_option_rects[index] = option_rect
-            # Draw the option
-            screen.blit(option_surface, option_rect)
-            
-            # Draw description below each option
-            description = ""
-            if index == 0:  # Supervised Learning
-                description = "Classic neural network trained on demonstration data"
-            else:  # Reinforcement Learning
-                description = "Advanced AI that learned through trial and error"
-                
-            desc_surface = font_info.render(description, True, self.color_option)
-            desc_rect = desc_surface.get_rect(
-                center=(self.screen_width // 2, self.screen_height // 2 + index * 100 + 40)
-            )
-            screen.blit(desc_surface, desc_rect)
-
-        # Instructions at bottom
-        instructions = self.font_option.render(
-            "Press ENTER to select or ESC to cancel", True, self.color_title
-        )
-        instructions_rect = instructions.get_rect(
-            center=(self.screen_width // 2, self.screen_height - 50)
-        )
-        screen.blit(instructions, instructions_rect)
 
     def draw_help(self, screen):
         """
@@ -291,8 +200,9 @@ class Menu:
 
         # Text explaining the game modes
         modes_text = [
-            "• Play Mode: Regular gameplay against AI enemy",
-            "• Train Mode: Collects missile data to train avoidance AI"
+            "• Training Mode: Collect gameplay data for AI training",
+            "• Play vs Supervised AI: Fight pre-trained neural network",
+            "• Play vs Learning AI: Watch AI learn and improve in real-time!"
         ]
 
         # Draw modes text
@@ -313,12 +223,12 @@ class Menu:
 
         # Text explaining the AI training
         ai_text = [
-            "• Two AI types available: Supervised and Reinforcement Learning",
-            "• Supervised Learning: Neural network trained on demonstrations",
-            "• Reinforcement Learning: AI trained through trial and error",
-            "• Use 'AI Select' from main menu to choose which AI to play against",
-            "• Missile avoidance is trained using gameplay data collection",
-            "• CUDA acceleration is used for physics simulation"
+            "• Supervised AI: Pre-trained neural network with fixed behavior",
+            "• Learning AI: Starts dumb and learns every frame during gameplay",
+            "• Watch the Learning AI evolve from simple chase to smart tactics",
+            "• Learning AI gets better at avoiding missiles and catching player",
+            "• Each session starts fresh - AI learns from scratch every time",
+            "• Real-time learning creates unique and engaging gameplay"
         ]
 
         # Draw AI text
