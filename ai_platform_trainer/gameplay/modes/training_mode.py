@@ -12,6 +12,8 @@ class TrainingMode:
         self.missile_cooldown = 0
         self.missile_lifespan = {}
         self.missile_sequences = {}
+        self.last_save_time = 0
+        self.save_interval = 30000  # Auto-save every 30 seconds
 
     def update(self):
         current_time = pygame.time.get_ticks()
@@ -26,6 +28,14 @@ class TrainingMode:
                 self.game.player.position["y"],
                 self.game.player.step,
             )
+
+            # Log data every frame for continuous data collection
+            self._log_frame_data(current_time)
+            
+            # Auto-save data periodically
+            if current_time - self.last_save_time >= self.save_interval:
+                self._auto_save_data()
+                self.last_save_time = current_time
 
             if self.missile_cooldown > 0:
                 self.missile_cooldown -= 1
@@ -170,3 +180,61 @@ class TrainingMode:
             self.game.data_logger.data = []
         else:
             logging.error("Failed to process collected data and retrain models")
+            
+    def _log_frame_data(self, current_time: int) -> None:
+        """
+        Log frame data for continuous data collection.
+        Collects comprehensive state information every frame.
+        """
+        if not self.game.data_logger:
+            return
+            
+        player_x = self.game.player.position["x"]
+        player_y = self.game.player.position["y"]
+        enemy_x = self.game.enemy.pos["x"]
+        enemy_y = self.game.enemy.pos["y"]
+        
+        # Calculate distances and angles
+        dx = enemy_x - player_x
+        dy = enemy_y - player_y
+        distance_to_enemy = math.sqrt(dx * dx + dy * dy)
+        angle_to_enemy = math.atan2(dy, dx)
+        
+        # Check for active missiles
+        has_missile = len(self.game.player.missiles) > 0
+        missile_x = missile_y = missile_vx = missile_vy = 0.0
+        if has_missile:
+            missile = self.game.player.missiles[0]
+            missile_x = missile.pos["x"]
+            missile_y = missile.pos["y"]
+            missile_vx = missile.vx
+            missile_vy = missile.vy
+        
+        # Collect comprehensive frame data
+        frame_data = {
+            "timestamp": current_time,
+            "player_x": player_x,
+            "player_y": player_y,
+            "enemy_x": enemy_x,
+            "enemy_y": enemy_y,
+            "distance_to_enemy": distance_to_enemy,
+            "angle_to_enemy": angle_to_enemy,
+            "has_missile": has_missile,
+            "missile_x": missile_x,
+            "missile_y": missile_y,
+            "missile_vx": missile_vx,
+            "missile_vy": missile_vy,
+            "enemy_visible": self.game.enemy.visible,
+            "player_step": self.game.player.step
+        }
+        
+        self.game.data_logger.log(frame_data)
+        
+    def _auto_save_data(self) -> None:
+        """
+        Auto-save collected data to prevent data loss.
+        """
+        if self.game.data_logger and self.game.data_logger.data:
+            self.game.data_logger.save()
+            data_count = len(self.game.data_logger.data)
+            logging.info(f"Auto-saved {data_count} data points to training dataset")
