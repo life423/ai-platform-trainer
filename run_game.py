@@ -37,6 +37,10 @@ def main():
         # Initialize pygame
         pygame.init()
         
+        # Check and train missile AI if needed
+        from ai_platform_trainer.ai.missile_ai_loader import check_and_train_missile_ai
+        check_and_train_missile_ai()
+        
         # Import and run the preferred game system with light blue GUI
         from ai_platform_trainer.gameplay.game import Game
         

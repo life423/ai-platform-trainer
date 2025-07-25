@@ -78,6 +78,17 @@ class PlayLearningMode:
         # Update missiles
         if self.game.player:
             self.game.player.update_missiles()
+            
+        # Update smart missile AI - missiles will automatically home in on the learning enemy
+        if self.game.player and self.game.player.missiles and self.learning_enemy:
+            for missile in self.game.player.missiles:
+                # Update smart missiles with AI guidance
+                if hasattr(missile, 'update_with_ai'):
+                    missile.update_with_ai(
+                        self.game.player.position,
+                        self.learning_enemy.pos,
+                        getattr(self.game, '_missile_input', None)
+                    )
 
         # Handle respawning
         if self.game.is_respawning and current_time >= self.game.respawn_timer:

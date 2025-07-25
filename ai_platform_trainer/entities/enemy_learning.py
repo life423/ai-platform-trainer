@@ -35,7 +35,7 @@ class LearningEnemyAI:
         self.screen_height = screen_height
         self.size = 50
         self.color = (178, 34, 34)  # Fire brick red
-        self.pos = {"x": screen_width // 2, "y": screen_height // 2}
+        self.pos = {"x": float(screen_width // 2), "y": float(screen_height // 2)}
         self.speed = 3.0  # Start slower, will get faster as it learns
         self.visible = True
         self.fading_in = False
@@ -458,8 +458,8 @@ class LearningEnemyAI:
     # Standard enemy methods for compatibility
     def set_position(self, x: float, y: float) -> None:
         """Set enemy position."""
-        self.pos["x"] = x
-        self.pos["y"] = y
+        self.pos["x"] = float(x)
+        self.pos["y"] = float(y)
 
     def hide(self) -> None:
         """Hide the enemy."""

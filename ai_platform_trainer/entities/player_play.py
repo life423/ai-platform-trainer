@@ -4,6 +4,7 @@ import random
 import math
 from typing import List, Optional, Dict
 from ai_platform_trainer.entities.missile import Missile
+from ai_platform_trainer.ai.missile_ai_loader import create_smart_missile, get_missile_ai_status
 
 
 class PlayerPlay:
@@ -85,10 +86,15 @@ class PlayerPlay:
             vx = missile_speed
             vy = 0.0
 
-        # Create a new missile object with calculated initial velocity and random lifespan
-        missile = Missile(
+        # Create a smart missile with AI homing capabilities
+        target_x = enemy_pos["x"] if enemy_pos else missile_start_x + 200
+        target_y = enemy_pos["y"] if enemy_pos else missile_start_y
+        
+        missile = create_smart_missile(
             x=missile_start_x,
             y=missile_start_y,
+            target_x=target_x,
+            target_y=target_y,
             speed=missile_speed,
             vx=vx,
             vy=vy,
