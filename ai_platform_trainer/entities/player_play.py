@@ -105,10 +105,16 @@ class PlayerPlay:
         self.last_missile_time = current_time
         logging.info("Play mode: Shot a missile with increased travel distance.")
 
-    def update_missiles(self) -> None:
+    def update_missiles(self, enemy_pos: Optional[Dict[str, float]] = None) -> None:
         current_time = pygame.time.get_ticks()
         for missile in self.missiles[:]:
-            missile.update()
+            # Check if it's a SmartMissile with AI capabilities
+            if hasattr(missile, 'update_with_ai') and enemy_pos:
+                # Use the AI update method with target position
+                missile.update_with_ai(self.position, enemy_pos)
+            else:
+                # Fallback to basic update
+                missile.update()
 
             # Remove if it expires
             if current_time - missile.birth_time >= missile.lifespan:

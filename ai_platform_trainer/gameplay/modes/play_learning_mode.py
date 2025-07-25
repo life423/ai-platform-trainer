@@ -80,7 +80,9 @@ class PlayLearningMode:
         
         # Update missiles
         if self.game.player:
-            self.game.player.update_missiles()
+            # Pass enemy position for smart missile tracking
+            enemy_pos = self.learning_enemy.pos if self.learning_enemy and self.learning_enemy.visible else None
+            self.game.player.update_missiles(enemy_pos)
             
         # Update smart missile AI - missiles will automatically home in on the learning enemy
         if self.game.player and self.game.player.missiles and self.learning_enemy:

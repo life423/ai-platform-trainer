@@ -60,7 +60,9 @@ class PlayMode:
 
         # 4) Update missiles
         if self.game.player:
-            self.game.player.update_missiles()
+            # Pass enemy position for smart missile tracking
+            enemy_pos = self.game.enemy.pos if self.game.enemy and self.game.enemy.visible else None
+            self.game.player.update_missiles(enemy_pos)
 
         # 5) Missile AI
         if (
