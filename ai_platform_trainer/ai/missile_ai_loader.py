@@ -187,6 +187,7 @@ def get_missile_ai_status() -> str:
 
 def check_and_train_missile_ai():
     """Check if missile AI models exist, and train if needed with loading screen."""
+    global missile_ai_manager
     import pygame
     import threading
     import time
@@ -418,7 +419,6 @@ def check_and_train_missile_ai():
         logging.info("✅ First-time missile AI training completed successfully!")
         
         # Reload the missile AI manager to pick up the new RL model
-        global missile_ai_manager
         missile_ai_manager = MissileAIManager()
         
     elif training_failed:
