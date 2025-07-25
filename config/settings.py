@@ -22,11 +22,18 @@ class GameSettings:
     ENEMY_SPEED = 5
     MISSILE_SPEED = 5
     
-    # Colors (light blue theme)
-    COLOR_BACKGROUND = (135, 206, 235)  # Light blue
-    COLOR_PLAYER = (0, 0, 139)          # Dark blue
-    COLOR_ENEMY = (139, 0, 0)           # Dark red
-    COLOR_MISSILE = (255, 255, 0)       # Yellow
+    # Colors with good contrast ratios (WCAG AA compliant)
+    COLOR_BACKGROUND = (135, 206, 235)  # Light blue (#87CEEB)
+    COLOR_PLAYER = (25, 25, 112)        # Midnight blue (#191970) - High contrast on light blue
+    COLOR_ENEMY = (178, 34, 34)         # Fire brick red (#B22222) - Good contrast, less harsh than pure red
+    COLOR_MISSILE = (255, 140, 0)       # Dark orange (#FF8C00) - Better visibility than yellow on light blue
+    
+    # UI Colors for accessibility
+    COLOR_TEXT_PRIMARY = (255, 255, 255)    # White - High contrast on dark backgrounds
+    COLOR_TEXT_SECONDARY = (240, 248, 255)  # Alice blue - Softer white
+    COLOR_SELECTED = (255, 215, 0)          # Gold (#FFD700) - High contrast selection
+    COLOR_NORMAL = (220, 220, 220)          # Light gray - Good readability
+    COLOR_DESCRIPTION = (192, 192, 192)     # Silver - Muted but readable
     
     # Game mechanics
     RESPAWN_DELAY = 1000  # milliseconds

@@ -44,8 +44,10 @@ class Renderer:
                     (missile.pos["x"], missile.pos["y"], missile.size, missile.size)
                 )
     
-    def render_text(self, text: str, position: tuple, color: tuple = (255, 255, 255)):
-        """Render text at the specified position."""
+    def render_text(self, text: str, position: tuple, color: tuple = None):
+        """Render text at the specified position with accessible colors."""
+        if color is None:
+            color = settings.COLOR_TEXT_PRIMARY
         text_surface = self.font.render(text, True, color)
         self.screen.blit(text_surface, position)
     

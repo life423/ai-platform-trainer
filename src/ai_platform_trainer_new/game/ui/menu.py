@@ -28,11 +28,11 @@ class Menu:
         self.font_medium = pygame.font.Font(None, 48)
         self.font_small = pygame.font.Font(None, 32)
         
-        # Colors
-        self.title_color = (255, 255, 255)
-        self.selected_color = (255, 255, 0)
-        self.normal_color = (200, 200, 200)
-        self.description_color = (150, 150, 150)
+        # Colors with good contrast ratios
+        self.title_color = settings.COLOR_TEXT_PRIMARY
+        self.selected_color = settings.COLOR_SELECTED
+        self.normal_color = settings.COLOR_NORMAL
+        self.description_color = settings.COLOR_DESCRIPTION
         
         # Menu descriptions
         self.descriptions = {

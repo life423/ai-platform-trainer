@@ -242,4 +242,5 @@ class TrainingMode:
         renderer.render_text(f"Data Points: {len(self.data_logger.data)}", (10, 50))
         
         if self.is_respawning:
-            renderer.render_text("Enemy Respawning...", (10, 90), (255, 255, 0))
+            # Use dark orange for warning text - good contrast on light blue background
+            renderer.render_text("Enemy Respawning...", (10, 90), (255, 140, 0))

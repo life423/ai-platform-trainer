@@ -156,4 +156,5 @@ class PlayMode:
         renderer.render_text("PLAY MODE - ESC to menu", (10, 10))
         
         if self.is_respawning:
-            renderer.render_text("Enemy Respawning...", (10, 50), (255, 255, 0))
+            # Use dark orange for warning text - good contrast on light blue background
+            renderer.render_text("Enemy Respawning...", (10, 50), (255, 140, 0))

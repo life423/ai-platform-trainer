@@ -38,8 +38,8 @@ def main():
         # Initialize pygame
         pygame.init()
         
-        # Import and run the game system
-        from ai_platform_trainer.gameplay.game import Game
+        # Import and run the clean game system
+        from src.ai_platform_trainer_new.game.core import Game
         
         # Create and run the game
         game = Game()
