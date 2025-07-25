@@ -37,7 +37,7 @@ def main():
         # Initialize pygame
         pygame.init()
         
-        # Import and run the game directly
+        # Import and run the preferred game system with light blue GUI
         from ai_platform_trainer.gameplay.game import Game
         
         # Create and run the game
