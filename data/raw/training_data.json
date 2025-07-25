@@ -1,18 +1,1 @@
-[
-    {
-        "timestamp": 74618,
-        "player_x": 168.6875879245743,
-        "player_y": 11.273898873448339,
-        "enemy_x": 84,
-        "enemy_y": 125,
-        "distance_to_enemy": 141.7942651376605,
-        "angle_to_enemy": 2.2108728169340366,
-        "has_missile": false,
-        "missile_x": 0.0,
-        "missile_y": 0.0,
-        "missile_vx": 0.0,
-        "missile_vy": 0.0,
-        "enemy_visible": true,
-        "player_step": 5
-    }
-]
+[]

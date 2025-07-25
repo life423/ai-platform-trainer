@@ -43,6 +43,7 @@ from ai_platform_trainer.entities.player_training import PlayerTraining
 from ai_platform_trainer.gameplay.modes.training_mode import TrainingMode
 from ai_platform_trainer.gameplay.modes.play_mode import PlayMode
 from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
+from ai_platform_trainer.core.screen_context import ScreenContext
 
 
 class GameCore:
@@ -90,6 +91,9 @@ class GameCore:
             (self.screen, self.screen_width, self.screen_height) = init_pygame_display(
                 fullscreen=self.config_manager.get("display.fullscreen", True)
             )
+        
+        # Initialize ScreenContext with actual screen dimensions
+        ScreenContext.initialize(self.screen_width, self.screen_height)
 
         # Create clock, menu, and renderer
         if self.render_mode and hasattr(self.render_mode, "HEADLESS") and self.render_mode == self.render_mode.HEADLESS:
@@ -447,6 +451,9 @@ class GameCore:
         self.screen_width, self.screen_height = w, h
         pygame.display.set_caption(config.WINDOW_TITLE)
         self.menu = Menu(self.screen_width, self.screen_height)
+        
+        # Update ScreenContext with new dimensions
+        ScreenContext.update_dimensions(self.screen_width, self.screen_height)
 
         if not self.menu_active:
             current_mode = self.mode

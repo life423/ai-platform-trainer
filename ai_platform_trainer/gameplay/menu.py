@@ -3,9 +3,13 @@ import pygame
 
 class Menu:
     def __init__(self, screen_width, screen_height):
-        # Menu options displayed in the main menu
-        self.menu_options = ["Training Mode", "Play vs Supervised AI", "Play vs Learning AI", "Exit"]
-        # Tracks which menu option is currently selected (for keyboard input)
+        # Main menu options - simplified and hierarchical
+        self.main_menu_options = ["Play", "Train", "Help", "Exit"]
+        # Play submenu options
+        self.play_submenu_options = ["Supervised AI", "Learning AI", "Back"]
+        
+        # Current menu state
+        self.current_menu = "main"  # "main" or "play_submenu"
         self.selected_option = 0
 
         # Flag to show help screen; if True, the help screen is drawn instead of the main menu
@@ -16,8 +20,9 @@ class Menu:
         self.screen_height = screen_height
 
         # Fonts and colors for text rendering and background
-        self.font_title = pygame.font.Font(None, 100)  # Large font for the main title
-        self.font_option = pygame.font.Font(None, 60)  # Font for menu options
+        self.font_title = pygame.font.Font(None, 80)  # Slightly smaller title for better balance
+        self.font_option = pygame.font.Font(None, 48)  # Reduced font size for cleaner look
+        self.font_submenu = pygame.font.Font(None, 36)  # Smaller font for submenu indicator
         self.color_background = (135, 206, 235)  # Light blue background color
         self.color_title = (0, 51, 102)  # Dark blue for title text
         self.color_option = (245, 245, 245)  # Light gray for unselected options
@@ -41,48 +46,32 @@ class Menu:
                 self.show_help = False
             return None
 
-        # If user presses ENTER (or NUMPAD ENTER) on the main menu
+        # If user presses ENTER (or NUMPAD ENTER) on the menu
         elif event.type == pygame.KEYDOWN and event.key in [
             pygame.K_RETURN,
             pygame.K_KP_ENTER,
         ]:
-            chosen = self.menu_options[self.selected_option]
-            # Convert menu option to game mode identifier
-            if chosen == "Training Mode":
-                return "train"
-            elif chosen == "Play vs Supervised AI":
-                return "play_supervised"
-            elif chosen == "Play vs Learning AI":
-                return "play_learning"
-            elif chosen == "Exit":
-                return "exit"
+            return self._handle_selection()
 
         # Handle arrow keys / WASD for navigating menu options
         if event.type == pygame.KEYDOWN:
+            current_options = self._get_current_menu_options()
             if event.key in [pygame.K_UP, pygame.K_w]:
                 # Move selection up, wrapping around with modulo
-                self.selected_option = (self.selected_option - 1) % len(
-                    self.menu_options
-                )
+                self.selected_option = (self.selected_option - 1) % len(current_options)
             elif event.key in [pygame.K_DOWN, pygame.K_s]:
                 # Move selection down, wrapping around with modulo
-                self.selected_option = (self.selected_option + 1) % len(
-                    self.menu_options
-                )
+                self.selected_option = (self.selected_option + 1) % len(current_options)
             elif event.key == pygame.K_ESCAPE:
-                # ESC key exits the game
-                return "exit"
+                # ESC key - go back or exit
+                if self.current_menu == "play_submenu":
+                    self.current_menu = "main"
+                    self.selected_option = 0
+                else:
+                    return "exit"
             # Pressing ENTER again here is a fallback check
             elif event.key in [pygame.K_RETURN, pygame.K_KP_ENTER]:
-                chosen = self.menu_options[self.selected_option]
-                if chosen == "Training Mode":
-                    return "train"
-                elif chosen == "Play vs Supervised AI":
-                    return "play_supervised"
-                elif chosen == "Play vs Learning AI":
-                    return "play_learning"
-                elif chosen == "Exit":
-                    return "exit"
+                return self._handle_selection()
 
         # Mouse click detection
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -92,17 +81,48 @@ class Menu:
             for index, rect in self.option_rects.items():
                 if rect.collidepoint(mouse_x, mouse_y):
                     self.selected_option = index
-                    chosen = self.menu_options[self.selected_option]
-                    if chosen == "Training Mode":
-                        return "train"
-                    elif chosen == "Play vs Supervised AI":
-                        return "play_supervised"
-                    elif chosen == "Play vs Learning AI":
-                        return "play_learning"
-                    elif chosen == "Exit":
-                        return "exit"
+                    return self._handle_selection()
 
         # If no relevant event, return None
+        return None
+
+    def _get_current_menu_options(self):
+        """Return the current menu options based on menu state."""
+        if self.current_menu == "main":
+            return self.main_menu_options
+        elif self.current_menu == "play_submenu":
+            return self.play_submenu_options
+        return []
+
+    def _handle_selection(self):
+        """Handle the current menu selection."""
+        if self.current_menu == "main":
+            chosen = self.main_menu_options[self.selected_option]
+            if chosen == "Play":
+                # Enter play submenu
+                self.current_menu = "play_submenu"
+                self.selected_option = 0
+                return None
+            elif chosen == "Train":
+                return "train"
+            elif chosen == "Help":
+                self.show_help = True
+                return None
+            elif chosen == "Exit":
+                return "exit"
+        
+        elif self.current_menu == "play_submenu":
+            chosen = self.play_submenu_options[self.selected_option]
+            if chosen == "Supervised AI":
+                return "play_supervised"
+            elif chosen == "Learning AI":
+                return "play_learning"
+            elif chosen == "Back":
+                # Return to main menu
+                self.current_menu = "main"
+                self.selected_option = 0
+                return None
+        
         return None
 
     def draw(self, screen):
@@ -120,16 +140,32 @@ class Menu:
         # Fill the screen background
         screen.fill(self.color_background)
 
-        # Render the game title
-        title_surface = self.font_title.render("Pixel Pursuit", True, self.color_title)
+        # Render the appropriate title based on current menu
+        if self.current_menu == "main":
+            title_text = "Pixel Pursuit"
+        else:
+            title_text = "Select AI Type"
+            
+        title_surface = self.font_title.render(title_text, True, self.color_title)
         title_rect = title_surface.get_rect(
-            center=(self.screen_width // 2, self.screen_height // 5)
+            center=(self.screen_width // 2, self.screen_height // 4)
         )
         screen.blit(title_surface, title_rect)
 
-        # Render menu options
-        mouse_x, mouse_y = pygame.mouse.get_pos()
-        for index, option in enumerate(self.menu_options):
+        # Show breadcrumb for submenu
+        if self.current_menu == "play_submenu":
+            breadcrumb = self.font_submenu.render("Play >", True, self.color_title)
+            breadcrumb_rect = breadcrumb.get_rect(
+                center=(self.screen_width // 2, self.screen_height // 4 + 50)
+            )
+            screen.blit(breadcrumb, breadcrumb_rect)
+
+        # Render menu options with improved spacing
+        current_options = self._get_current_menu_options()
+        start_y = self.screen_height // 2
+        spacing = 70  # Increased spacing for better readability
+        
+        for index, option in enumerate(current_options):
             # Choose highlight color if this option is currently selected
             color = (
                 self.color_selected
@@ -138,7 +174,7 @@ class Menu:
             )
             option_surface = self.font_option.render(option, True, color)
             option_rect = option_surface.get_rect(
-                center=(self.screen_width // 2, self.screen_height // 2 + index * 80)
+                center=(self.screen_width // 2, start_y + index * spacing)
             )
             # Store this rect for click detection
             self.option_rects[index] = option_rect
@@ -203,9 +239,9 @@ class Menu:
 
         # Text explaining the game modes
         modes_text = [
-            "• Training Mode: Collect gameplay data for AI training",
-            "• Play vs Supervised AI: Fight pre-trained neural network",
-            "• Play vs Learning AI: Watch AI learn and improve in real-time!"
+            "• Train: Collect gameplay data for AI training",
+            "• Play > Supervised AI: Fight pre-trained neural network",
+            "• Play > Learning AI: Watch AI learn and improve in real-time!"
         ]
 
         # Draw modes text

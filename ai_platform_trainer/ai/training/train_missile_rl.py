@@ -25,6 +25,7 @@ except ImportError:
 from ai_platform_trainer.gameplay.game_core import GameCore
 from ai_platform_trainer.entities.missile import Missile
 from ai_platform_trainer.entities.enemy_learning import LearningEnemyAI
+from ai_platform_trainer.core.screen_context import ScreenContext
 
 
 class MissileRLEnvironment(gym.Env):
@@ -40,6 +41,9 @@ class MissileRLEnvironment(gym.Env):
         
         self.screen_width = screen_width
         self.screen_height = screen_height
+        
+        # Initialize ScreenContext for resolution independence
+        ScreenContext.initialize(screen_width, screen_height)
         
         # Action space: turn rate (-1 to 1, normalized)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
@@ -131,32 +135,34 @@ class MissileRLEnvironment(gym.Env):
     
     def _get_observation(self) -> np.ndarray:
         """Get current observation state."""
-        distance = self._calculate_distance()
+        # Use ScreenContext for resolution-independent observations
+        screen_context = ScreenContext.get_instance()
+        
+        # Create normalized observation using ScreenContext
+        observation = screen_context.create_missile_observation(
+            {"x": 0, "y": 0},  # Player pos not needed
+            {"x": self.target["x"], "y": self.target["y"]},
+            self.missile.pos,
+            {"x": self.missile.vx, "y": self.missile.vy}
+        )
+        
+        # Calculate angle to target
         angle_to_target = np.arctan2(
             self.target["y"] - self.missile.pos["y"],
             self.target["x"] - self.missile.pos["x"]
         )
         
-        # Normalize positions to [0, 1]
-        missile_x_norm = self.missile.pos["x"] / self.screen_width
-        missile_y_norm = self.missile.pos["y"] / self.screen_height
-        target_x_norm = self.target["x"] / self.screen_width
-        target_y_norm = self.target["y"] / self.screen_height
-        
-        # Normalize velocities
-        missile_vx_norm = self.missile.vx / 10.0
-        missile_vy_norm = self.missile.vy / 10.0
+        # Normalize target velocities
         target_vx_norm = self.target["vx"] / 5.0
         target_vy_norm = self.target["vy"] / 5.0
-        
-        # Normalize distance and angle
-        distance_norm = distance / np.sqrt(self.screen_width**2 + self.screen_height**2)
         angle_norm = angle_to_target / np.pi
         
         return np.array([
-            missile_x_norm, missile_y_norm, missile_vx_norm, missile_vy_norm,
-            target_x_norm, target_y_norm, target_vx_norm, target_vy_norm,
-            distance_norm, angle_norm
+            observation["missile_x"], observation["missile_y"], 
+            observation["velocity_x"], observation["velocity_y"],
+            observation["target_x"], observation["target_y"], 
+            target_vx_norm, target_vy_norm,
+            observation["distance_to_target"], angle_norm
         ], dtype=np.float32)
     
     def _calculate_distance(self) -> float:
@@ -275,17 +281,17 @@ class MissileRLTrainer:
             "MlpPolicy",
             env,
             verbose=1,
-            tensorboard_log="./tensorboard_logs/missile_rl/",
+            # tensorboard_log="./tensorboard_logs/missile_rl/",  # Disabled - requires tensorboard
             learning_rate=1e-3,  # Higher learning rate for faster learning
-            n_steps=4096,  # More steps per update
-            batch_size=128,  # Larger batch size
-            n_epochs=20,  # More epochs for better learning
+            n_steps=2048,  # Reduced for faster training
+            batch_size=64,  # Smaller batch size for faster training
+            n_epochs=10,  # Fewer epochs for faster training
             gamma=0.995,  # Higher discount for long-term planning
             gae_lambda=0.98,  # Higher lambda for better advantage estimation
             clip_range=0.3,  # Slightly higher clip range
             ent_coef=0.005,  # Lower entropy for more focused policy
             policy_kwargs=dict(
-                net_arch=[256, 256, 128]  # Larger network for complex control
+                net_arch=[128, 128]  # Smaller network for faster training
             )
         )
         
@@ -320,7 +326,7 @@ class MissileRLTrainer:
         self.model.learn(
             total_timesteps=total_timesteps,
             callback=callbacks,
-            progress_bar=True
+            progress_bar=False
         )
         
         # Save final model
@@ -380,8 +386,8 @@ def main():
     # Create trainer
     trainer = MissileRLTrainer("models/missile_rl_model")
     
-    # Train model with more timesteps for better performance
-    model = trainer.train(total_timesteps=200000)
+    # Train model with fewer timesteps for faster testing
+    model = trainer.train(total_timesteps=50000)
     
     # Test model
     trainer.test_model("models/missile_rl_model_final.zip")
