@@ -2,7 +2,7 @@
     "display": {
         "width": 1280,
         "height": 720,
-        "fullscreen": true,
+        "fullscreen": false,
         "window_title": "Pixel Pursuit",
         "frame_rate": 60,
         "screen_size": [
