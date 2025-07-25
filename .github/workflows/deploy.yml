@@ -466,7 +466,7 @@ jobs:
         cp artifacts/windows-executable/AI-Platform-Trainer.exe release/AI-Platform-Trainer-Windows.exe
         
         # macOS
-        cp artifacts/macos-application/AI-Platform-Trainer release/AI-Platform-Trainer-macOS
+        cp artifacts/macos-application/dist/AI-Platform-Trainer release/AI-Platform-Trainer-macOS
         cp artifacts/macos-application/AI-Platform-Trainer-macOS.dmg release/
         
         # Linux
