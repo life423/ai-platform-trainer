@@ -42,7 +42,7 @@ def main():
         check_and_train_missile_ai()
         
         # Import and run the preferred game system with light blue GUI
-        from ai_platform_trainer.gameplay.game import Game
+        from ai_platform_trainer.gameplay.game_core import GameCore as Game
         
         # Create and run the game
         game = Game()
