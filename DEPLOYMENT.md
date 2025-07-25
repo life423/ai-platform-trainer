@@ -1,3 +1,4 @@
+
 # AI Platform Trainer - Deployment Guide
 
 This document describes the automated deployment system that builds and distributes executable files via GitHub Actions.

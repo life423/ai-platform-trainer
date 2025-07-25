@@ -24,10 +24,8 @@ from ai_platform_trainer.gameplay.spawner import (
     spawn_entities,
     respawn_enemy_with_fade_in,
 )
-from ai_platform_trainer.gameplay.display_manager import (
-    init_pygame_display,
-    toggle_fullscreen_display,
-)
+from ai_platform_trainer.gameplay.display_manager import DisplayManager
+from ai_platform_trainer.gameplay.input_handler import InputHandler
 
 # AI imports
 from ai_platform_trainer.ai.inference.missile_controller import update_missile_ai
@@ -76,21 +74,22 @@ class GameCore:
         self.config_manager.set("display.fullscreen", True)
         self.config_manager.save()
 
-        # Initialize Pygame
-        pygame.init()
-        
         # Initialize display based on render mode
         if self.render_mode and hasattr(self.render_mode, "HEADLESS") and self.render_mode == self.render_mode.HEADLESS:
-            # Headless mode - use dummy video driver
+            # Headless mode - use dummy video driver and minimal pygame init
+            pygame.init()
             os.environ['SDL_VIDEODRIVER'] = 'dummy'
             self.screen = pygame.Surface((1280, 720))
             self.screen_width = 1280
             self.screen_height = 720
+            self.display_manager = None
         else:
-            # Normal mode with display
-            (self.screen, self.screen_width, self.screen_height) = init_pygame_display(
+            # Normal mode with display - use DisplayManager (which calls pygame.init)
+            self.display_manager = DisplayManager(
                 fullscreen=self.config_manager.get("display.fullscreen", True)
             )
+            self.screen = self.display_manager.get_screen()
+            self.screen_width, self.screen_height = self.display_manager.get_dimensions()
         
         # Initialize ScreenContext with actual screen dimensions
         ScreenContext.initialize(self.screen_width, self.screen_height)
@@ -103,7 +102,6 @@ class GameCore:
             self.renderer = None
         else:
             # Normal mode with full rendering
-            pygame.display.set_caption(config.WINDOW_TITLE)
             self.clock = pygame.time.Clock()
             self.menu = Menu(self.screen_width, self.screen_height)
             self.renderer = Renderer(self.screen)
@@ -116,8 +114,12 @@ class GameCore:
         self.play_mode_manager: Optional[PlayMode] = None
         self.play_learning_mode_manager: Optional[PlayLearningMode] = None
 
-        # Use shared missile AI manager (no duplicate loading)
-        # Models are loaded once globally in missile_ai_manager
+        # Use shared missile AI manager for missile models
+        self.missile_model = missile_ai_manager.neural_network_model
+
+        # Initialize input handler
+        self.input_handler = InputHandler()
+        self._setup_input_callbacks()
 
         # Additional logic
         self.respawn_delay = 1000
@@ -136,6 +138,26 @@ class GameCore:
             self._setup_state_machine()
 
         logging.info("Game initialized.")
+
+    def _setup_input_callbacks(self) -> None:
+        """Set up input handler callbacks for key events."""
+        def handle_keydown(event):
+            if event.key == pygame.K_f:
+                logging.debug("F pressed - toggling fullscreen.")
+                self._toggle_fullscreen()
+            elif not self.menu_active:
+                if event.key == pygame.K_ESCAPE:
+                    logging.info("Escape key pressed. Exiting game.")
+                    self.running = False
+                elif event.key == pygame.K_SPACE and self.player and self.enemy:
+                    logging.debug("Space key pressed in event handler")
+                    self.player.shoot_missile(self.enemy.pos)
+                elif event.key == pygame.K_m:
+                    logging.info("M key pressed. Returning to menu.")
+                    self.menu_active = True
+                    self.reset_game_state()
+        
+        self.input_handler.register_callback(pygame.KEYDOWN, handle_keydown)
 
     def _setup_state_machine(self) -> None:
         """Set up the state machine for game flow control."""
@@ -169,7 +191,23 @@ class GameCore:
         """Standard game loop without state machine."""
         while self.running:
             current_time = pygame.time.get_ticks()
-            self.handle_events()
+            
+            # Handle input events
+            if self.render_mode and hasattr(self.render_mode, "HEADLESS") and self.render_mode == self.render_mode.HEADLESS:
+                # Skip input handling in headless mode
+                pass
+            else:
+                should_continue, events = self.input_handler.handle_input()
+                if not should_continue:
+                    self.running = False
+                
+                # Handle menu-specific events
+                if self.menu_active:
+                    for event in events:
+                        if event.type == pygame.KEYDOWN or (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
+                            selected_action = self.menu.handle_menu_events(event)
+                            if selected_action:
+                                self.check_menu_selection(selected_action)
 
             if self.menu_active:
                 if self.render_mode and hasattr(self.render_mode, "HEADLESS") and self.render_mode == self.render_mode.HEADLESS:
@@ -177,7 +215,8 @@ class GameCore:
                     pass
                 else:
                     self.menu.draw(self.screen)
-                    pygame.display.flip()
+                    if self.display_manager:
+                        self.display_manager.flip()
             else:
                 self.update(current_time)
                 if self.render_mode and hasattr(self.render_mode, "HEADLESS") and self.render_mode == self.render_mode.HEADLESS:
@@ -231,7 +270,8 @@ class GameCore:
                 
                 self.current_state.render(self.renderer)
             
-            pygame.display.flip()
+            if self.display_manager:
+                self.display_manager.flip()
 
         # Save data if we were training
         if self.mode == "train" and self.data_logger:
@@ -365,44 +405,6 @@ class GameCore:
         return player, enemy
 
 
-    def handle_events(self) -> None:
-        """Handle pygame events."""
-        # Skip event handling in headless mode
-        if self.render_mode and hasattr(self.render_mode, "HEADLESS") and self.render_mode == self.render_mode.HEADLESS:
-            return
-            
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                logging.info("Quit event detected. Exiting game.")
-                self.running = False
-
-            elif event.type == pygame.KEYDOWN:
-                # Fullscreen toggling
-                if event.key == pygame.K_f:
-                    logging.debug("F pressed - toggling fullscreen.")
-                    self._toggle_fullscreen()
-
-                if self.menu_active:
-                    selected_action = self.menu.handle_menu_events(event)
-                    if selected_action:
-                        self.check_menu_selection(selected_action)
-                else:
-                    if event.key == pygame.K_ESCAPE:
-                        logging.info("Escape key pressed. Exiting game.")
-                        self.running = False
-                    elif event.key == pygame.K_SPACE and self.player and self.enemy:
-                        logging.debug("Space key pressed in event handler")
-                        self.player.shoot_missile(self.enemy.pos)
-                    elif event.key == pygame.K_m:
-                        logging.info("M key pressed. Returning to menu.")
-                        self.menu_active = True
-                        self.reset_game_state()
-
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if self.menu_active:
-                    selected_action = self.menu.handle_menu_events(event)
-                    if selected_action:
-                        self.check_menu_selection(selected_action)
 
     def check_menu_selection(self, selected_action: str) -> None:
         """
@@ -421,17 +423,16 @@ class GameCore:
 
     def _toggle_fullscreen(self) -> None:
         """Toggle between windowed and fullscreen modes."""
+        if not self.display_manager:
+            return  # Skip in headless mode
+            
         was_fullscreen = self.config_manager.get("display.fullscreen", False)
-        new_display, w, h = toggle_fullscreen_display(
-            not was_fullscreen,
-            config.SCREEN_SIZE
-        )
+        self.display_manager.toggle_fullscreen()
         self.config_manager.set("display.fullscreen", not was_fullscreen)
         self.config_manager.save()
 
-        self.screen = new_display
-        self.screen_width, self.screen_height = w, h
-        pygame.display.set_caption(config.WINDOW_TITLE)
+        self.screen = self.display_manager.get_screen()
+        self.screen_width, self.screen_height = self.display_manager.get_dimensions()
         self.menu = Menu(self.screen_width, self.screen_height)
         
         # Update ScreenContext with new dimensions
