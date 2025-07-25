@@ -61,7 +61,7 @@ class SmartMissile(Missile):
         self.frames_alive = 0
         self.distance_to_target_history = []
         
-        logging.debug(f"SmartMissile created with {'RL' if self.use_rl else 'Neural Network'} AI")
+        logging.info(f"SmartMissile created with {'RL' if self.use_rl else 'Neural Network' if self.ai_model else 'Basic'} AI")
     
     def update_with_ai(
         self, 
@@ -78,6 +78,7 @@ class SmartMissile(Missile):
             shared_input_tensor: Pre-allocated tensor for efficiency
         """
         if not target_pos:
+            logging.warning("update_with_ai called with no target_pos")
             return
             
         # Update target tracking
@@ -96,6 +97,9 @@ class SmartMissile(Missile):
         else:
             # Fallback to basic homing
             self._update_with_basic_homing(target_pos)
+        
+        # Actually update the position after AI calculations
+        super().update()
     
     def _update_with_rl(self, player_pos: Dict[str, float], target_pos: Dict[str, float]) -> None:
         """Update using reinforcement learning model."""
