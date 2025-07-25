@@ -42,6 +42,7 @@ from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.entities.player_training import PlayerTraining
 from ai_platform_trainer.gameplay.modes.training_mode import TrainingMode
 from ai_platform_trainer.gameplay.modes.play_mode import PlayMode
+from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
 
 
 class GameCore:
@@ -70,9 +71,9 @@ class GameCore:
         # Get configuration manager
         self.config_manager = get_config_manager()
         
-        # Always start in fullscreen mode regardless of settings
-        self.config_manager.set("display.fullscreen", True)
-        self.config_manager.save()
+        # Use fullscreen mode for the game
+        self.settings["fullscreen"] = True
+        save_settings(self.settings, "settings.json")
 
         # Initialize Pygame
         pygame.init()
@@ -87,7 +88,7 @@ class GameCore:
         else:
             # Normal mode with display
             (self.screen, self.screen_width, self.screen_height) = init_pygame_display(
-                fullscreen=True  # Force fullscreen
+                fullscreen=self.settings["fullscreen"]
             )
 
         # Create clock, menu, and renderer
@@ -109,6 +110,7 @@ class GameCore:
         self.data_logger: Optional[DataLogger] = None
         self.training_mode_manager: Optional[TrainingMode] = None
         self.play_mode_manager: Optional[PlayMode] = None
+        self.play_learning_mode_manager: Optional[PlayLearningMode] = None
 
         # Load missile model once
         self.missile_model: Optional[MissileModel] = None
@@ -189,17 +191,25 @@ class GameCore:
                     pass
                 else:
                     self.menu.draw(self.screen)
+                    pygame.display.flip()
             else:
                 self.update(current_time)
                 if self.render_mode and hasattr(self.render_mode, "HEADLESS") and self.render_mode == self.render_mode.HEADLESS:
                     # Skip rendering in headless mode
                     pass
                 else:
-                    self.renderer.render(self.menu, self.player, self.enemy, self.menu_active)
+                    # Only pass learning mode manager if we're actually in learning mode
+                    learning_manager = self.play_learning_mode_manager if self.mode == "play_learning" else None
+                    self.renderer.render(
+                        self.menu, 
+                        self.player, 
+                        self.enemy, 
+                        self.menu_active, 
+                        self.mode, 
+                        learning_manager
+                    )
 
-            # Only flip display in full render mode
-            if not (self.render_mode and hasattr(self.render_mode, "HEADLESS") and self.render_mode == self.render_mode.HEADLESS):
-                pygame.display.flip()
+            # Display flip is handled by renderer in game mode, menu handles its own flip
                 
             self.clock.tick(config.FRAME_RATE)
 
@@ -268,7 +278,7 @@ class GameCore:
         Start the game in the specified mode.
         
         Args:
-            mode: The game mode ("play" or "train")
+            mode: The game mode ("train", "play_supervised", or "play_learning")
         """
         self.mode = mode
         logging.info(f"Starting game in '{mode}' mode.")
@@ -282,11 +292,26 @@ class GameCore:
             self.player.reset()
             self.training_mode_manager = TrainingMode(self)
 
-        else:  # "play"
-            self.player, self.enemy = self._init_play_mode()
+        elif mode == "play_supervised":
+            # Play against pre-trained supervised learning model
+            self.player, self.enemy = self._init_supervised_play_mode()
             self.player.reset()
             spawn_entities(self)
             self.play_mode_manager = PlayMode(self)
+
+        elif mode == "play_learning":
+            # Play against real-time learning AI
+            self.player = PlayerPlay(self.screen_width, self.screen_height)
+            self.player.reset()
+            
+            # Create learning mode manager which will handle enemy creation
+            self.play_learning_mode_manager = PlayLearningMode(self)
+            
+            # Set the enemy reference for compatibility with other systems
+            self.enemy = self.play_learning_mode_manager.learning_enemy
+            
+            # Now spawn entities with both player and enemy available
+            spawn_entities(self)
 
     def _init_play_mode(self) -> Tuple[PlayerPlay, EnemyPlay]:
         """
@@ -326,6 +351,33 @@ class GameCore:
 
         logging.info("Initialized PlayerPlay and EnemyPlay for play mode.")
         return player, enemy
+
+    def _init_supervised_play_mode(self) -> Tuple[PlayerPlay, EnemyPlay]:
+        """
+        Initialize entities for supervised learning play mode.
+        
+        Returns:
+            Tuple of (player, enemy) entities
+        """
+        # Load the traditional neural network model (no RL)
+        model = EnemyMovementModel(input_size=5, hidden_size=64, output_size=2)
+        try:
+            model.load_state_dict(torch.load(config.MODEL_PATH, map_location="cpu"))
+            model.eval()
+            logging.info("Supervised AI model loaded for play mode.")
+        except Exception as e:
+            logging.error(f"Failed to load supervised model: {e}")
+            raise e
+
+        player = PlayerPlay(self.screen_width, self.screen_height)
+        enemy = EnemyPlay(self.screen_width, self.screen_height, model)
+        
+        # Force use of neural network (disable RL)
+        enemy.use_rl = False
+        
+        logging.info("Initialized supervised learning play mode.")
+        return player, enemy
+
 
     def handle_events(self) -> None:
         """Handle pygame events."""
@@ -376,7 +428,7 @@ class GameCore:
         if selected_action == "exit":
             logging.info("Exit action selected from menu.")
             self.running = False
-        elif selected_action in ["train", "play"]:
+        elif selected_action in ["train", "play_supervised", "play_learning"]:
             logging.info(f"'{selected_action}' selected from menu.")
             self.menu_active = False
             self.start_game(selected_action)
@@ -410,12 +462,18 @@ class GameCore:
         """
         if self.mode == "train" and self.training_mode_manager:
             self.training_mode_manager.update()
-        elif self.mode == "play":
+        elif self.mode == "play_supervised":
             if self.play_mode_manager:
                 self.play_mode_manager.update(current_time)
             else:
                 self.play_mode_manager = PlayMode(self)
                 self.play_mode_manager.update(current_time)
+        elif self.mode == "play_learning":
+            if self.play_learning_mode_manager:
+                self.play_learning_mode_manager.update(current_time)
+            else:
+                self.play_learning_mode_manager = PlayLearningMode(self)
+                self.play_learning_mode_manager.update(current_time)
 
     def check_collision(self) -> bool:
         """
@@ -489,6 +547,7 @@ class GameCore:
         self.is_respawning = False
         self.respawn_timer = 0
         self.play_mode_manager = None
+        self.play_learning_mode_manager = None
         self.training_mode_manager = None
         logging.info("Game state reset, returning to menu.")
 

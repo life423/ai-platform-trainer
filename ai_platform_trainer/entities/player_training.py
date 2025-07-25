@@ -2,6 +2,7 @@ import random
 import math
 import logging
 import pygame
+from typing import Optional, Dict
 from ai_platform_trainer.entities.missile import Missile
 from ai_platform_trainer.utils.helpers import wrap_position
 
@@ -247,7 +248,7 @@ class PlayerTraining:
         )
         self.position["x"], self.position["y"] = new_x, new_y
 
-    def shoot_missile(self, enemy_x: float, enemy_y: float) -> None:
+    def shoot_missile(self, enemy_pos: Optional[Dict[str, float]] = None) -> None:
         """
         Fires a missile toward the enemy with a slight random angle offset
         and a random lifespan. Only one missile at a time.
@@ -255,6 +256,15 @@ class PlayerTraining:
         if len(self.missiles) == 0:
             missile_start_x = self.position["x"] + self.size // 2
             missile_start_y = self.position["y"] + self.size // 2
+
+            # Extract enemy coordinates from position dict
+            if enemy_pos:
+                enemy_x = enemy_pos["x"]
+                enemy_y = enemy_pos["y"]
+            else:
+                # Fallback to center of screen if no target provided
+                enemy_x = 640
+                enemy_y = 360
 
             # Compute base angle
             dx = enemy_x - missile_start_x

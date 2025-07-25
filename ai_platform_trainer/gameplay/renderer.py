@@ -24,7 +24,7 @@ class Renderer:
         self.frame_count = 0
         self.particle_effects = []
 
-    def render(self, menu, player, enemy, menu_active: bool) -> None:
+    def render(self, menu, player, enemy, menu_active: bool, game_mode: str = None, learning_mode_manager=None) -> None:
         """
         Render the game elements on the screen.
 
@@ -33,6 +33,8 @@ class Renderer:
             player: Player instance
             enemy: Enemy instance
             menu_active: Boolean indicating if the menu is active
+            game_mode: Current game mode (for special rendering)
+            learning_mode_manager: Learning mode manager for UI rendering
         """
         try:
             # Clear screen with background color
@@ -48,6 +50,11 @@ class Renderer:
             else:
                 # Render game elements
                 self._render_game(player, enemy)
+                
+                # Render learning mode UI if in learning mode
+                if game_mode == "play_learning" and learning_mode_manager:
+                    learning_mode_manager.draw_mode_info(self.screen)
+                
                 logging.debug("Game elements rendered.")
 
             # Update display
