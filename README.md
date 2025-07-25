@@ -1,5 +1,9 @@
 # AI Platform Trainer
 
+[![Build and Deploy Executables](https://github.com/life423/ai-platform-trainer/actions/workflows/deploy.yml/badge.svg)](https://github.com/life423/ai-platform-trainer/actions/workflows/deploy.yml)
+[![Release](https://img.shields.io/github/v/release/life423/ai-platform-trainer)](https://github.com/life423/ai-platform-trainer/releases)
+[![Downloads](https://img.shields.io/github/downloads/life423/ai-platform-trainer/total)](https://github.com/life423/ai-platform-trainer/releases)
+
 ## Project Structure Cleanup
 
 This project has been restructured to follow a cleaner architecture. The duplicate code that was previously in both `ai_platform_trainer/` and `src/` directories has been unified.
