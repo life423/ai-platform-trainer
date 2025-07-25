@@ -1,8 +1,9 @@
 """
-Real-time Learning Enemy AI
+Adaptive Staged Enemy AI
 
-This module provides an enemy that learns and improves during gameplay.
-The AI starts with basic behavior and evolves to become smarter every frame.
+This module provides an enemy with escalating difficulty through scripted behavior stages.
+The AI starts with basic behavior and progressively becomes more challenging using
+pre-defined algorithms (not machine learning).
 """
 import logging
 import math
@@ -11,26 +12,21 @@ import numpy as np
 import pygame
 from typing import Dict, Optional, List, Tuple
 
-try:
-    from stable_baselines3 import PPO
-    from stable_baselines3.common.env_util import make_vec_env
-    import gymnasium as gym
-    STABLE_BASELINES_AVAILABLE = True
-except ImportError:
-    STABLE_BASELINES_AVAILABLE = False
-    logging.warning("stable_baselines3 not available. Learning features will be disabled.")
+# Note: This module uses scripted behavior stages, not machine learning
+# The stable_baselines3 imports are kept for potential future RL implementation
 
 
-class LearningEnemyAI:
+class AdaptiveStagedEnemyAI:
     """
-    Real-time learning AI enemy that improves during gameplay.
+    Adaptive enemy AI with escalating difficulty stages.
     
-    This enemy starts with random/basic behavior and uses reinforcement learning
-    to adapt and improve its strategy every frame based on the game state.
+    This enemy uses scripted behavior stages that become progressively more
+    challenging as time progresses. It does NOT use machine learning, but rather
+    pre-defined algorithms for each difficulty stage.
     """
     
     def __init__(self, screen_width: int, screen_height: int):
-        """Initialize the learning AI enemy."""
+        """Initialize the adaptive staged AI enemy."""
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.size = 50
@@ -43,12 +39,9 @@ class LearningEnemyAI:
         self.fade_start_time = 0
         self.fade_duration = 1000
         
-        # Learning system
-        self.learning_enabled = STABLE_BASELINES_AVAILABLE
-        self.learning_step = 0
+        # Staged difficulty system (not machine learning)
         self.difficulty_level = 0.0  # 0.0 to 1.0 scale
-        self.experience_buffer = []
-        self.max_buffer_size = 1000
+        self.behavior_step = 0
         
         # Performance tracking
         self.hits_on_player = 0
@@ -56,41 +49,23 @@ class LearningEnemyAI:
         self.total_frames = 0
         self.last_performance_update = 0
         
-        # Behavior evolution stages - much faster progression for engaging gameplay
-        self.behavior_stage = "learning"  # learning -> hunting -> predator -> nightmare
+        # Behavior evolution stages - scripted difficulty progression
+        self.behavior_stage = "basic"  # basic -> hunting -> predator -> nightmare
         self.stage_thresholds = {
-            "learning": 60,    # First 1 second: basic learning  
+            "basic": 60,       # First 1 second: basic chase  
             "hunting": 180,    # Next 2 seconds: active hunting
             "predator": 300,   # Next 2 seconds: smart predator
             "nightmare": float('inf')  # Beyond 5 seconds: nightmare mode
         }
         
-        # RL Model (if available)
-        self.rl_model = None
-        self.observation_space = 7  # player_x, player_y, enemy_x, enemy_y, distance, missile_data
-        self.action_space = 2  # move_x, move_y
-        
-        if self.learning_enabled:
-            self._initialize_rl_model()
-        
-        logging.info(f"Learning Enemy AI initialized (RL Available: {self.learning_enabled})")
+        logging.info("Adaptive Staged Enemy AI initialized (scripted behavior system)")
     
-    def _initialize_rl_model(self):
-        """Initialize the RL model for learning."""
-        try:
-            # Create a simple environment for the RL model
-            # We'll update this during gameplay instead of using a gym environment
-            self.rl_model = None  # Will be created when we have enough experience
-            logging.info("RL model initialization prepared")
-        except Exception as e:
-            logging.error(f"Failed to initialize RL model: {e}")
-            self.learning_enabled = False
     
     def update_movement(self, player_x: float, player_y: float, 
                        player_step: int, current_time: int, 
                        missiles: List = None) -> None:
         """
-        Update enemy movement with real-time learning.
+        Update enemy movement using staged difficulty progression.
         
         Args:
             player_x: Player's x position
@@ -117,9 +92,8 @@ class LearningEnemyAI:
         # Keep in bounds
         self._constrain_to_screen()
         
-        # Update learning system
-        if self.learning_enabled:
-            self._update_learning(player_x, player_y, missiles or [])
+        # Update behavior analysis (for debugging/stats)
+        self._update_behavior_analysis(player_x, player_y, missiles or [])
         
         # Update fade-in effect if active
         if self.fading_in:
@@ -129,8 +103,8 @@ class LearningEnemyAI:
         """Update the AI's behavior stage based on experience."""
         old_stage = self.behavior_stage
         
-        if self.total_frames < self.stage_thresholds["learning"]:
-            self.behavior_stage = "learning"
+        if self.total_frames < self.stage_thresholds["basic"]:
+            self.behavior_stage = "basic"
             self.difficulty_level = 0.2 + (self.total_frames / 60) * 0.3  # 0.2 to 0.5 in 1 second
             self.speed = 2.5 + (self.total_frames / 60) * 1.5  # 2.5 to 4.0 in 1 second
         elif self.total_frames < self.stage_thresholds["hunting"]:
@@ -157,8 +131,8 @@ class LearningEnemyAI:
                               missiles: List) -> Tuple[float, float]:
         """Get movement decision based on current AI stage."""
         
-        if self.behavior_stage == "learning":
-            return self._learning_movement(player_x, player_y)
+        if self.behavior_stage == "basic":
+            return self._basic_movement(player_x, player_y)
         elif self.behavior_stage == "hunting":
             return self._hunting_movement(player_x, player_y, missiles)
         elif self.behavior_stage == "predator":
@@ -166,8 +140,8 @@ class LearningEnemyAI:
         else:  # nightmare
             return self._nightmare_movement(player_x, player_y, missiles)
     
-    def _learning_movement(self, player_x: float, player_y: float) -> Tuple[float, float]:
-        """Learning stage - mix of random and basic chase."""
+    def _basic_movement(self, player_x: float, player_y: float) -> Tuple[float, float]:
+        """Basic stage - mix of random and basic chase."""
         # Mix random movement with increasing chase behavior
         progress = self.total_frames / 60.0  # 0 to 1 over first 60 frames
         
@@ -408,14 +382,12 @@ class LearningEnemyAI:
         
         return strategy_x, strategy_y
     
-    def _update_learning(self, player_x: float, player_y: float, missiles: List):
-        """Update the learning system with current experience."""
-        # This is where we would implement actual RL learning
-        # For now, we use the staged behavior system
-        self.learning_step += 1
+    def _update_behavior_analysis(self, player_x: float, player_y: float, missiles: List):
+        """Update behavior analysis for performance tracking."""
+        self.behavior_step += 1
         
-        # Every 100 frames, evaluate performance and adjust
-        if self.learning_step % 100 == 0:
+        # Every 100 frames, evaluate performance and log stats
+        if self.behavior_step % 100 == 0:
             self._evaluate_performance()
     
     def _evaluate_performance(self):

@@ -23,7 +23,7 @@ except ImportError:
     logging.warning("stable_baselines3 not available. RL training disabled.")
 
 from ai_platform_trainer.entities.missile import Missile
-from ai_platform_trainer.entities.enemy_learning import LearningEnemyAI
+from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
 from ai_platform_trainer.core.screen_context import ScreenContext
 
 
