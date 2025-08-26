@@ -38,7 +38,7 @@ from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.enemy_training import EnemyTrain
 from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.entities.player_training import PlayerTraining
-from ai_platform_trainer.gameplay.modes.training_mode import TrainingMode
+
 from ai_platform_trainer.gameplay.modes.play_mode import PlayMode
 from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
 from ai_platform_trainer.core.screen_context import ScreenContext
@@ -110,7 +110,7 @@ class GameCore:
         self.player: Optional[PlayerPlay] = None
         self.enemy: Optional[EnemyPlay] = None
         self.data_logger: Optional[DataLogger] = None
-        self.training_mode_manager: Optional[TrainingMode] = None
+        
         self.play_mode_manager: Optional[PlayMode] = None
         self.play_learning_mode_manager: Optional[PlayLearningMode] = None
 
@@ -164,17 +164,17 @@ class GameCore:
         from ai_platform_trainer.gameplay.state_machine import (
             MenuState,
             PlayState,
-            TrainingState,
             PausedState,
             GameOverState,
+            PlayLearningState,
         )
         
         self.states = {
             "menu": MenuState(self),
             "play": PlayState(self),
-            "train": TrainingState(self),
             "paused": PausedState(self),
             "game_over": GameOverState(self),
+            "play_learning": PlayLearningState(self),
         }
         self.current_state = self.states["menu"]
         self.current_state.enter()
@@ -304,28 +304,16 @@ class GameCore:
         Start the game in the specified mode.
         
         Args:
-            mode: The game mode ("train", "play_supervised", or "play_learning")
+            mode: The game mode ("train" or "play_learning")
         """
         self.mode = mode
         logging.info(f"Starting game in '{mode}' mode.")
 
-        if mode == "train":
-            self.data_logger = DataLogger(config.DATA_PATH)
-            self.player = PlayerTraining(self.screen_width, self.screen_height)
-            self.enemy = EnemyTrain(self.screen_width, self.screen_height)
+        
 
-            spawn_entities(self)
-            self.player.reset()
-            self.training_mode_manager = TrainingMode(self)
+        
 
-        elif mode == "play_supervised":
-            # Play against pre-trained supervised learning model
-            self.player, self.enemy = self._init_supervised_play_mode()
-            self.player.reset()
-            spawn_entities(self)
-            self.play_mode_manager = PlayMode(self)
-
-        elif mode == "play_learning":
+        if mode == "play_learning":
             # Play against real-time learning AI
             self.player = PlayerPlay(self.screen_width, self.screen_height)
             self.player.reset()
@@ -378,31 +366,7 @@ class GameCore:
         logging.info("Initialized PlayerPlay and EnemyPlay for play mode.")
         return player, enemy
 
-    def _init_supervised_play_mode(self) -> Tuple[PlayerPlay, EnemyPlay]:
-        """
-        Initialize entities for supervised learning play mode.
-        
-        Returns:
-            Tuple of (player, enemy) entities
-        """
-        # Load the traditional neural network model (no RL)
-        model = EnemyMovementModel(input_size=5, hidden_size=64, output_size=2)
-        try:
-            model.load_state_dict(torch.load(config.MODEL_PATH, map_location="cpu"))
-            model.eval()
-            logging.info("Supervised AI model loaded for play mode.")
-        except Exception as e:
-            logging.error(f"Failed to load supervised model: {e}")
-            raise e
-
-        player = PlayerPlay(self.screen_width, self.screen_height)
-        enemy = EnemyPlay(self.screen_width, self.screen_height, model)
-        
-        # Force use of neural network (disable RL)
-        enemy.use_rl = False
-        
-        logging.info("Initialized supervised learning play mode.")
-        return player, enemy
+    
 
 
 
@@ -416,7 +380,7 @@ class GameCore:
         if selected_action == "exit":
             logging.info("Exit action selected from menu.")
             self.running = False
-        elif selected_action in ["train", "play_supervised", "play_learning"]:
+        elif selected_action in ["train", "play_learning"]:
             logging.info(f"'{selected_action}' selected from menu.")
             self.menu_active = False
             self.start_game(selected_action)
@@ -452,12 +416,7 @@ class GameCore:
         """
         if self.mode == "train" and self.training_mode_manager:
             self.training_mode_manager.update()
-        elif self.mode == "play_supervised":
-            if self.play_mode_manager:
-                self.play_mode_manager.update(current_time)
-            else:
-                self.play_mode_manager = PlayMode(self)
-                self.play_mode_manager.update(current_time)
+        
         elif self.mode == "play_learning":
             if self.play_learning_mode_manager:
                 self.play_learning_mode_manager.update(current_time)

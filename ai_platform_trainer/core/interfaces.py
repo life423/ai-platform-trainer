@@ -6,18 +6,7 @@ These interfaces define contracts that concrete implementations must follow.
 from abc import ABC, abstractmethod
 
 
-class IRenderer(ABC):
-    """Interface for rendering game elements to the screen."""
 
-    @abstractmethod
-    def render(self, *args, **kwargs):
-        """
-        Render game elements to the screen.
-
-        Args:
-            *args: Variable length argument list
-            **kwargs: Arbitrary keyword arguments
-        """
 
 
 class IInputHandler(ABC):

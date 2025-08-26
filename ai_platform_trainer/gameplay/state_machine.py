@@ -88,10 +88,49 @@ class MenuState(GameState):
             logging.info("Exit action selected from menu.")
             self.game.running = False
             return None
-        elif selected_action in ["train", "play"]:
+        elif selected_action in ["play_learning"]:
             logging.info(f"'{selected_action}' selected from menu.")
             self.game.mode = selected_action
             return selected_action
+        return None
+
+
+class PlayLearningState(GameState):
+    """State for gameplay in 'play_learning' mode"""
+
+    def enter(self):
+        logging.info("Entering play_learning state")
+        # NOTE: This is a scaffold. We will replace this with the real logic.
+        self.game.start_game("play_learning")
+
+    def exit(self):
+        logging.info("Exiting play_learning state")
+        self.game.reset_game_state()
+
+    def update(self, delta_time):
+        current_time = pygame.time.get_ticks()
+        if self.game.play_learning_mode_manager:
+            self.game.play_learning_mode_manager.update(current_time)
+        return None
+
+    def render(self, renderer):
+        learning_manager = self.game.play_learning_mode_manager
+        renderer.render(self.game.menu, self.game.player, self.game.enemy, False, "play_learning", learning_manager)
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                logging.info("Escape key pressed. Going to paused state.")
+                return "paused"
+            elif event.key == pygame.K_SPACE and self.game.player:
+                self.game.player.shoot_missile(self.game.enemy.pos)
+            elif event.key == pygame.K_m:
+                logging.info("M key pressed. Returning to menu.")
+                self.game.reset_g_state()
+                return "menu"
+            elif event.key == pygame.K_f:
+                logging.debug("F pressed - toggling fullscreen.")
+                self.game._toggle_fullscreen()
         return None
 
 
@@ -145,60 +184,7 @@ class PlayState(GameState):
         return None
 
 
-class TrainingState(GameState):
-    """State for gameplay in 'training' mode"""
 
-    def enter(self):
-        logging.info("Entering training state")
-        # Initialize training mode
-        # Get data path from config_manager if available, otherwise fall back to legacy config
-        if hasattr(self.game, "config_manager"):
-            data_path = self.game.config_manager.get("paths.data_path")
-        else:
-            data_path = self.game.config.DATA_PATH
-
-        self.game.data_logger = self.game.DataLogger(data_path)
-        self.game.player = self.game.PlayerTraining(
-            self.game.screen_width,
-            self.game.screen_height
-        )
-        self.game.enemy = self.game.EnemyTrain(
-            self.game.screen_width,
-            self.game.screen_height
-        )
-
-        self.game.spawn_entities()
-        self.game.player.reset()
-        self.game.training_mode_manager = self.game.TrainingMode(self.game)
-
-    def exit(self):
-        logging.info("Exiting training state")
-        # Save training data
-        if self.game.data_logger:
-            self.game.data_logger.save()
-
-    def update(self, delta_time):
-        # Use training mode manager for updates
-        if self.game.training_mode_manager:
-            self.game.training_mode_manager.update()
-        return None
-
-    def render(self, renderer):
-        renderer.render(self.game.menu, self.game.player, self.game.enemy, False)
-
-    def handle_event(self, event):
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                logging.info("Escape key pressed. Going to paused state.")
-                return "paused"
-            elif event.key == pygame.K_m:
-                logging.info("M key pressed. Returning to menu.")
-                self.game.reset_game_state()
-                return "menu"
-            elif event.key == pygame.K_f:
-                logging.debug("F pressed - toggling fullscreen.")
-                self.game._toggle_fullscreen()
-        return None
 
 
 class PausedState(GameState):

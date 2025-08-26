@@ -9,8 +9,17 @@ import sys
 import logging
 import pygame
 
+# Add the project root to sys.path to allow for module imports.
+# This is a common pattern for making a project runnable without installation.
+project_root = os.path.dirname(os.path.abspath(__file__))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-def setup_logging():
+from ai_platform_trainer.ai.missile_ai_loader import check_and_train_missile_ai
+from ai_platform_trainer.gameplay.game_core import GameCore as Game
+
+
+def setup_logging() -> None:
     """Set up basic logging configuration."""
     logging.basicConfig(
         level=logging.DEBUG,
@@ -18,32 +27,20 @@ def setup_logging():
         handlers=[
             logging.FileHandler("game.log"),
             logging.StreamHandler()
-        ]
+        ],
+        force=True  # In Python 3.8+, this allows re-configuration of logging.
     )
 
 
-def main():
+def main() -> int:
     """Main entry point for the AI Platform Trainer."""
-    # Setup logging
     setup_logging()
     logging.info("Starting AI Platform Trainer")
-    
-    # Add the project root to sys.path
-    project_root = os.path.dirname(os.path.abspath(__file__))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-    
+
     try:
-        # Initialize pygame
         pygame.init()
-        
-        # Check and train missile AI if needed
-        from ai_platform_trainer.ai.missile_ai_loader import check_and_train_missile_ai
         check_and_train_missile_ai()
-        
-        # Import and run the preferred game system with light blue GUI
-        from ai_platform_trainer.gameplay.game_core import GameCore as Game
-        
+
         # Create and run the game
         game = Game()
         game.run()
