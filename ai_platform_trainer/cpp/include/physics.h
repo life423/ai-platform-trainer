@@ -128,18 +128,65 @@ void cuda_calculate_distances(
  * @param evasion_vector_x Output X component of evasion vector
  * @param evasion_vector_y Output Y component of evasion vector
  */
-void cuda_calculate_evasion_vector(
-    float enemy_x,
-    float enemy_y,
-    const float* missiles_x,
-    const float* missiles_y,
-    const float* missiles_vx,
-    const float* missiles_vy,
-    int missile_count,
-    int prediction_steps,
-    float* evasion_vector_x,
-    float* evasion_vector_y
-);
+#pragma once
+
+#include <vector>
+#include <memory>
+#include "entity.h"
+
+namespace gpu_env {
+
+// Vector structure
+struct Vector2 {
+    float x;
+    float y;
+};
+
+// C++ interface for physics operations
+class PhysicsEngine {
+public:
+    PhysicsEngine(float screen_width, float screen_height);
+    ~PhysicsEngine();
+
+    // Initialize the physics engine
+    void initialize();
+
+    // Update positions of all entities
+    void update_positions(
+        EntityBatch& entities,
+        const std::vector<float>& velocities_x,
+        const std::vector<float>& velocities_y
+    );
+
+    // Detect collisions between two entity batches
+    std::vector<std::vector<bool>> detect_collisions(
+        const EntityBatch& entities_a,
+        const EntityBatch& entities_b
+    );
+
+    // Calculate danger map for the entire screen
+    std::vector<float> calculate_danger_map(
+        const MissileBatch& missiles,
+        int grid_width,
+        int grid_height
+    );
+
+    // Calculate optimal evasion vector for an enemy
+    std::pair<float, float> calculate_evasion_vector(
+        float enemy_x,
+        float enemy_y,
+        const MissileBatch& missiles,
+        int prediction_steps = 30
+    );
+
+private:
+    float screen_width_;
+    float screen_height_;
+    bool initialized_;
+};
+
+} // namespace gpu_env
+
 
 // C++ interface for physics operations
 class PhysicsEngine {
