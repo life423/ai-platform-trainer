@@ -21,11 +21,12 @@ from ai_platform_trainer.gameplay.game_core import GameCore as Game
 
 def setup_logging() -> None:
     """Set up basic logging configuration."""
+    log_file_path = os.path.join(project_root, "game.log")
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler("game.log"),
+            logging.FileHandler(log_file_path),
             logging.StreamHandler()
         ],
         force=True  # In Python 3.8+, this allows re-configuration of logging.
@@ -42,7 +43,8 @@ def main() -> int:
         check_and_train_missile_ai()
 
         # Create and run the game
-        game = Game()
+        # game = Game()
+        game = Game(use_state_machine=True)
         game.run()
         
         logging.info("Game completed successfully")
