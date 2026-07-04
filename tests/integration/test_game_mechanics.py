@@ -4,28 +4,28 @@ Integration tests for core game mechanics.
 These tests check the interaction between various components of the game,
 ensuring that they work together correctly in a simulated game loop.
 """
-import pytest
-import pygame
-import torch
+from collections import defaultdict
 from unittest.mock import Mock, patch
 
-from ai_platform_trainer.entities.components.player_play import PlayerPlay
-from ai_platform_trainer.entities.components.enemy_play import EnemyPlay
+import pygame
+import pytest
+import torch
+
 from ai_platform_trainer.entities.behaviors.enemy_ai_controller import EnemyAIController
+from ai_platform_trainer.entities.enemy_play import EnemyPlay
+from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.gameplay.collisions import handle_missile_collisions
 
 
 @pytest.fixture
-
-
 def mock_pygame_setup():
     """Mock pygame setup to avoid actual window creation during tests."""
     # Mock pygame.init
-    with patch('pygame.init') as mock_init:
+    with patch("pygame.init") as mock_init:
         # Mock display setup
-        with patch('pygame.display.set_mode') as mock_set_mode:
+        with patch("pygame.display.set_mode") as mock_set_mode:
             # Mock display.set_caption
-            with patch('pygame.display.set_caption'):
+            with patch("pygame.display.set_caption"):
                 # Mock Surface
                 mock_surface = Mock(spec=pygame.Surface)
                 mock_set_mode.return_value = mock_surface
@@ -33,8 +33,6 @@ def mock_pygame_setup():
 
 
 @pytest.fixture
-
-
 def mock_model():
     """Create a mock enemy AI model."""
     model = Mock()
@@ -48,43 +46,33 @@ def mock_model():
 
 
 @pytest.fixture
-
-
 def player():
     """Create a player instance for testing."""
     return PlayerPlay(screen_width=800, screen_height=600)
 
 
 @pytest.fixture
-
-
 def enemy(mock_model):
     """Create an enemy instance for testing."""
-    return EnemyPlay(
-        screen_width=800,
-        screen_height=600,
-        model=mock_model
-    )
+    return EnemyPlay(screen_width=800, screen_height=600, model=mock_model)
 
 
 @pytest.fixture
-
-
 def mock_time():
     """Mock pygame time.get_ticks to control game timing."""
-    with patch('pygame.time.get_ticks') as mock:
+    with patch("pygame.time.get_ticks") as mock:
         mock.return_value = 1000  # Start at 1000ms
         yield mock
 
 
 @pytest.fixture
-
-
 def mock_keys():
     """Mock pygame.key.get_pressed to simulate keyboard input."""
-    with patch('pygame.key.get_pressed') as mock:
-        # Create a dictionary-like object to simulate key states
-        keys = {k: False for k in range(500)}  # Initialize all keys as not pressed
+    with patch("pygame.key.get_pressed") as mock:
+        # Arrow keys (e.g. K_LEFT = 1073741904) use SDL scancode-derived
+        # constants far outside a small range, so a defaultdict is needed
+        # rather than a fixed-size dict comprehension.
+        keys = defaultdict(bool)  # Any unset key reads as not pressed
         mock.return_value = keys
         yield keys
 
@@ -106,7 +94,9 @@ class TestGameMechanics:
         # Missile should have the correct properties
         missile = player.missiles[0]
         assert missile.birth_time == 1000  # The mocked time
-        assert missile.pos["x"] > player.position["x"]  # Should start at player position
+        assert (
+            missile.pos["x"] > player.position["x"]
+        )  # Should start at player position
         assert missile.pos["y"] > player.position["y"]
 
         # Can't fire again immediately (only one active missile)
@@ -119,14 +109,16 @@ class TestGameMechanics:
         # Missile should have moved
         assert missile.pos != {"x": player.position["x"], "y": player.position["y"]}
 
-    def test_missile_enemy_collision(self, player, enemy):
+    def test_missile_enemy_collision(self, player, enemy, mock_time):
         """Test collision detection between missiles and enemies."""
         # Position enemy and player for a clean test
         player.position = {"x": 100, "y": 100}
         enemy.pos = {"x": 500, "y": 100}
         enemy.visible = True
 
-        # Fire a missile directly at the enemy
+        # Fire a missile directly at the enemy. shoot_missile() checks a
+        # cooldown against pygame.time.get_ticks(), so the mocked clock
+        # (mock_time) must be active for the shot to actually fire.
         player.shoot_missile(enemy_pos=enemy.pos)
 
         # Should have one missile
@@ -162,15 +154,19 @@ class TestGameMechanics:
         controller = EnemyAIController()
 
         # Update enemy movement
-        with patch('time.time') as mock_time_func:
+        with patch("time.time") as mock_time_func:
             mock_time_func.return_value = 1000  # Ensure we're past throttle time
+            # last_action_time was seeded from the real clock at construction;
+            # reset it relative to the mocked clock so the throttle check
+            # in update_enemy_movement doesn't treat this as "too soon".
+            controller.last_action_time = 1000 - controller.action_interval - 0.01
 
             controller.update_enemy_movement(
                 enemy=enemy,
                 player_x=300,  # Player to the right of enemy
                 player_y=200,
                 player_speed=5.0,
-                current_time=1000
+                current_time=1000,
             )
 
         # Enemy should have moved
@@ -220,11 +216,15 @@ class TestGameMechanics:
 
         # Update enemy movement multiple times, overriding the model
         # to test the actual movement logic
-        with patch('time.time') as mock_time_func:
-            with patch.object(controller, '_get_nn_action') as mock_nn:
+        with patch("time.time") as mock_time_func:
+            with patch.object(controller, "_get_nn_action") as mock_nn:
                 # Setup mock to return direction toward player
                 mock_nn.return_value = (0.7071, 0.7071)  # 45 degree angle (normalized)
                 mock_time_func.return_value = 1000  # Ensure we're past throttle time
+                # Reset last_action_time relative to the mocked clock (it was
+                # seeded from the real clock at construction, before the patch
+                # was active) so the throttle check doesn't block every update.
+                controller.last_action_time = 1000 - controller.action_interval - 0.01
 
                 # Update multiple times
                 for _ in range(5):
@@ -234,7 +234,7 @@ class TestGameMechanics:
                         player_x=player_pos["x"],
                         player_y=player_pos["y"],
                         player_speed=5.0,
-                        current_time=mock_time_func.return_value
+                        current_time=mock_time_func.return_value,
                     )
 
         # Enemy should have moved toward player

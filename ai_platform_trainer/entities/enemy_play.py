@@ -7,15 +7,16 @@ for movement decisions.
 import logging
 import math
 import random
-from typing import Dict, Optional, Tuple, Any
+from typing import Any, Dict, Optional, Tuple
 
+import numpy as np
 import pygame
 import torch
-import numpy as np
 
 try:
     import stable_baselines3
     from stable_baselines3 import PPO
+
     STABLE_BASELINES_AVAILABLE = True
 except ImportError:
     STABLE_BASELINES_AVAILABLE = False
@@ -28,20 +29,17 @@ from ai_platform_trainer.core.screen_context import ScreenContext
 class EnemyPlay:
     """
     Enemy entity for play mode with AI-controlled movement.
-    
+
     This class represents the enemy in play mode, which can be controlled
     by either a neural network or a reinforcement learning model.
     """
-    
+
     def __init__(
-        self, 
-        screen_width: int, 
-        screen_height: int, 
-        model: EnemyMovementModel
+        self, screen_width: int, screen_height: int, model: EnemyMovementModel
     ) -> None:
         """
         Initialize the enemy entity.
-        
+
         Args:
             screen_width: Width of the game screen
             screen_height: Height of the game screen
@@ -63,15 +61,11 @@ class EnemyPlay:
         self.fade_duration = 1000  # 1 second fade-in
 
     def update_movement(
-        self, 
-        player_x: float, 
-        player_y: float, 
-        player_speed: float, 
-        current_time: int
+        self, player_x: float, player_y: float, player_speed: float, current_time: int
     ) -> None:
         """
         Update the enemy's position based on AI model predictions.
-        
+
         Args:
             player_x: Player's x position
             player_y: Player's y position
@@ -84,36 +78,34 @@ class EnemyPlay:
         # TEMPORARY: Use simple chase behavior for debugging
         dx = player_x - self.pos["x"]
         dy = player_y - self.pos["y"]
-        
+
         # Normalize and scale movement
         distance = math.sqrt(dx * dx + dy * dy)
         if distance > 1:  # Avoid division by zero
             move_x = (dx / distance) * self.speed
             move_y = (dy / distance) * self.speed
-            
+
             # Update position
             self.pos["x"] += move_x
             self.pos["y"] += move_y
-            
-            logging.debug(f"Enemy chasing: moving ({move_x:.2f}, {move_y:.2f}) toward player at ({player_x:.0f}, {player_y:.0f})")
-            
+
+            logging.debug(
+                f"Enemy chasing: moving ({move_x:.2f}, {move_y:.2f}) toward player at ({player_x:.0f}, {player_y:.0f})"
+            )
+
             # Wrap around screen edges
             self._wrap_position()
-        
 
         # Update fade-in effect if active
         if self.fading_in:
             self.update_fade_in(current_time)
 
     def _update_with_nn(
-        self, 
-        player_x: float, 
-        player_y: float, 
-        player_speed: float
+        self, player_x: float, player_y: float, player_speed: float
     ) -> None:
         """
         Update enemy position using the neural network model.
-        
+
         Args:
             player_x: Player's x position
             player_y: Player's y position
@@ -123,57 +115,63 @@ class EnemyPlay:
         dx = player_x - self.pos["x"]
         dy = player_y - self.pos["y"]
         distance = math.sqrt(dx * dx + dy * dy)
-        
+
         # Use ScreenContext for normalization
         screen_context = ScreenContext.get_instance()
         observation = screen_context.create_enemy_observation(
-            {"x": player_x, "y": player_y},
-            self.pos,
-            player_speed
+            {"x": player_x, "y": player_y}, self.pos, player_speed
         )
-        
+
         # Prepare input tensor for the model using normalized values
-        model_input = torch.tensor([
-            observation["player_x"], observation["player_y"], 
-            observation["enemy_x"], observation["enemy_y"], 
-            observation["distance"]
-        ], dtype=torch.float32).unsqueeze(0)
-        
+        model_input = torch.tensor(
+            [
+                observation["player_x"],
+                observation["player_y"],
+                observation["enemy_x"],
+                observation["enemy_y"],
+                observation["distance"],
+            ],
+            dtype=torch.float32,
+        ).unsqueeze(0)
+
         # Get model prediction
         with torch.no_grad():
             movement = self.model(model_input).squeeze(0)
-            logging.debug(f"Neural network output: [{movement[0].item():.3f}, {movement[1].item():.3f}]")
-            
+            logging.debug(
+                f"Neural network output: [{movement[0].item():.3f}, {movement[1].item():.3f}]"
+            )
+
         # Apply movement (scale from [-1,1] to actual pixels)
         move_x = movement[0].item() * self.speed
         move_y = movement[1].item() * self.speed
         logging.debug(f"Scaled movement: dx={move_x:.3f}, dy={move_y:.3f}")
-        
+
         # Debug: Log enemy movement
         if abs(move_x) > 0.1 or abs(move_y) > 0.1:
-            logging.debug(f"Enemy moving: dx={move_x:.2f}, dy={move_y:.2f}, toward player at ({player_x:.0f},{player_y:.0f})")
-        
+            logging.debug(
+                f"Enemy moving: dx={move_x:.2f}, dy={move_y:.2f}, toward player at ({player_x:.0f},{player_y:.0f})"
+            )
+
         # Update position
         old_x, old_y = self.pos["x"], self.pos["y"]
         self.pos["x"] += move_x
         self.pos["y"] += move_y
-        
+
         # Debug: Log position change
         if abs(move_x) > 0.1 or abs(move_y) > 0.1:
-            logging.debug(f"Enemy position: ({old_x:.0f},{old_y:.0f}) -> ({self.pos['x']:.0f},{self.pos['y']:.0f})")
-        
+            logging.debug(
+                f"Enemy position: ({old_x:.0f},{old_y:.0f}) -> ({self.pos['x']:.0f},{self.pos['y']:.0f})"
+            )
+
         # Wrap around screen edges
         self._wrap_position()
 
     def _update_with_rl(
-        self, 
-        player_x: float, 
-        player_y: float, 
-        player_speed: float
+        self, player_x: float, player_y: float, player_speed: float
     ) -> None:
         """
         Update enemy position using the reinforcement learning model.
-        
+
         Args:
             player_x: Player's x position
             player_y: Player's y position
@@ -185,22 +183,28 @@ class EnemyPlay:
             {"x": player_x, "y": player_y},
             self.pos,
             player_speed,
-            {"time_factor": 0.5}  # Placeholder for time since last hit
+            {"time_factor": 0.5},  # Placeholder for time since last hit
         )
-        
+
         # Create observation array for RL model
-        obs = np.array([
-            observation["player_x"], observation["player_y"], 
-            observation["enemy_x"], observation["enemy_y"], 
-            observation["distance"], observation["player_speed"],
-            observation.get("time_factor", 0.5)
-        ], dtype=np.float32)
-        
+        obs = np.array(
+            [
+                observation["player_x"],
+                observation["player_y"],
+                observation["enemy_x"],
+                observation["enemy_y"],
+                observation["distance"],
+                observation["player_speed"],
+                observation.get("time_factor", 0.5),
+            ],
+            dtype=np.float32,
+        )
+
         # Get action from model
-        if hasattr(self, 'rl_model') and self.rl_model:
+        if hasattr(self, "rl_model") and self.rl_model:
             # Stable Baselines model
             action, _ = self.rl_model.predict(obs, deterministic=True)
-        elif hasattr(self, 'policy_net') and self.policy_net:
+        elif hasattr(self, "policy_net") and self.policy_net:
             # PyTorch model
             with torch.no_grad():
                 obs_tensor = torch.FloatTensor(obs).unsqueeze(0)
@@ -209,16 +213,16 @@ class EnemyPlay:
             # Fallback to simple chase behavior
             dx = player_x - self.pos["x"]
             dy = player_y - self.pos["y"]
-            norm = math.sqrt(dx*dx + dy*dy) + 1e-8
-            action = np.array([dx/norm, dy/norm])
-        
+            norm = math.sqrt(dx * dx + dy * dy) + 1e-8
+            action = np.array([dx / norm, dy / norm])
+
         # Apply action
         self.apply_rl_action(action)
 
     def apply_rl_action(self, action: np.ndarray) -> None:
         """
         Apply an action from the RL model.
-        
+
         Args:
             action: Action array with values between -1 and 1
         """
@@ -226,11 +230,11 @@ class EnemyPlay:
             # Scale action to actual movement
             move_x = float(action[0]) * self.speed
             move_y = float(action[1]) * self.speed
-            
+
             # Update position
             self.pos["x"] += move_x
             self.pos["y"] += move_y
-            
+
             # Wrap around screen edges
             self._wrap_position()
         except Exception as e:
@@ -239,20 +243,35 @@ class EnemyPlay:
 
     def _wrap_position(self) -> None:
         """Wrap the enemy position around screen edges."""
-        if self.pos["x"] < -self.size:
-            self.pos["x"] = self.screen_width
-        elif self.pos["x"] > self.screen_width:
-            self.pos["x"] = -self.size
-            
-        if self.pos["y"] < -self.size:
-            self.pos["y"] = self.screen_height
-        elif self.pos["y"] > self.screen_height:
-            self.pos["y"] = -self.size
+        self.pos["x"], self.pos["y"] = self.wrap_position(self.pos["x"], self.pos["y"])
+
+    def wrap_position(self, x: float, y: float) -> Tuple[float, float]:
+        """
+        Wrap the given coordinates around screen edges.
+
+        Args:
+            x: X position to wrap
+            y: Y position to wrap
+
+        Returns:
+            Tuple of wrapped (x, y) coordinates
+        """
+        if x < -self.size:
+            x = self.screen_width
+        elif x > self.screen_width:
+            x = -self.size
+
+        if y < -self.size:
+            y = self.screen_height
+        elif y > self.screen_height:
+            y = -self.size
+
+        return x, y
 
     def set_position(self, x: float, y: float) -> None:
         """
         Set the enemy position.
-        
+
         Args:
             x: New x position
             y: New y position
@@ -267,7 +286,7 @@ class EnemyPlay:
     def show(self, current_time: int) -> None:
         """
         Show the enemy with a fade-in effect.
-        
+
         Args:
             current_time: Current game time in milliseconds
         """
@@ -279,18 +298,18 @@ class EnemyPlay:
     def update_fade_in(self, current_time: int) -> None:
         """
         Update the fade-in effect.
-        
+
         Args:
             current_time: Current game time in milliseconds
         """
         if not self.fading_in:
             return
-            
+
         elapsed = current_time - self.fade_start_time
         progress = min(1.0, elapsed / self.fade_duration)
-        
+
         self.fade_alpha = int(255 * progress)
-        
+
         if progress >= 1.0:
             self.fading_in = False
             self.fade_alpha = 255
@@ -298,13 +317,13 @@ class EnemyPlay:
     def draw(self, screen: pygame.Surface) -> None:
         """
         Draw the enemy on the screen.
-        
+
         Args:
             screen: Pygame surface to draw on
         """
         if not self.visible:
             return
-            
+
         if self.fading_in:
             # Create a surface with per-pixel alpha
             s = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
@@ -313,43 +332,49 @@ class EnemyPlay:
             screen.blit(s, (self.pos["x"], self.pos["y"]))
         else:
             pygame.draw.rect(
-                screen,
-                self.color,
-                (self.pos["x"], self.pos["y"], self.size, self.size)
+                screen, self.color, (self.pos["x"], self.pos["y"], self.size, self.size)
             )
 
     def load_rl_model(self, model_path: str) -> bool:
         """
         Load a reinforcement learning model.
-        
+
         Args:
             model_path: Path to the RL model file
-            
+
         Returns:
             True if the model was loaded successfully, False otherwise
         """
         try:
             # Check if path ends with .zip (Stable Baselines) or .pth (PyTorch)
-            if model_path.endswith('.zip'):
+            if model_path.endswith(".zip"):
                 # Stable Baselines model
                 if not STABLE_BASELINES_AVAILABLE:
-                    logging.warning("Cannot load RL model: stable_baselines3 not available")
+                    logging.warning(
+                        "Cannot load RL model: stable_baselines3 not available"
+                    )
                     return False
-                    
+
                 self.rl_model = PPO.load(model_path)
                 self.use_rl = True
-                logging.info(f"Successfully loaded Stable Baselines RL model from {model_path}")
+                logging.info(
+                    f"Successfully loaded Stable Baselines RL model from {model_path}"
+                )
                 return True
-            elif model_path.endswith('.pth'):
+            elif model_path.endswith(".pth"):
                 # PyTorch model
                 from ai_platform_trainer.ai.models.policy_network import PolicyNetwork
-                
-                self.policy_net = PolicyNetwork(input_size=7, hidden_size=64, output_size=2)
+
+                self.policy_net = PolicyNetwork(
+                    input_size=7, hidden_size=64, output_size=2
+                )
                 success = self.policy_net.load(model_path)
                 if success:
                     self.use_rl = True
                     self.rl_model = None  # Not using Stable Baselines
-                    logging.info(f"Successfully loaded PyTorch RL model from {model_path}")
+                    logging.info(
+                        f"Successfully loaded PyTorch RL model from {model_path}"
+                    )
                     return True
                 else:
                     logging.error(f"Failed to load PyTorch model from {model_path}")

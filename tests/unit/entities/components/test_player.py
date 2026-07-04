@@ -4,25 +4,23 @@ Unit tests for the Player classes.
 Tests both PlayerPlay and PlayerTraining classes, focusing on
 movement, missile management, and input handling.
 """
-import pytest
-import pygame
+from collections import defaultdict
 from unittest.mock import Mock, patch
 
-from ai_platform_trainer.entities.components.player_play import PlayerPlay
-from ai_platform_trainer.entities.components.player_training import PlayerTraining
+import pygame
+import pytest
+
+from ai_platform_trainer.entities.player_play import PlayerPlay
+from ai_platform_trainer.entities.player_training import PlayerTraining
 
 
 @pytest.fixture
-
-
 def player_play():
     """Return a fresh PlayerPlay instance for testing."""
     return PlayerPlay(screen_width=800, screen_height=600)
 
 
 @pytest.fixture
-
-
 def player_training():
     """Return a fresh PlayerTraining instance for testing."""
     return PlayerTraining(screen_width=800, screen_height=600)
@@ -57,7 +55,7 @@ class TestPlayerPlay:
     def test_shoot_missile(self, player_play):
         """Test missile creation when shooting."""
         # Mock pygame time
-        with patch('pygame.time.get_ticks') as mock_time:
+        with patch("pygame.time.get_ticks") as mock_time:
             mock_time.return_value = 1000
 
             # Shoot a missile with no target
@@ -83,7 +81,7 @@ class TestPlayerPlay:
     def test_shoot_missile_with_target(self, player_play):
         """Test missile creation when shooting at a target."""
         # Mock pygame time
-        with patch('pygame.time.get_ticks') as mock_time:
+        with patch("pygame.time.get_ticks") as mock_time:
             mock_time.return_value = 1000
 
             # Target position
@@ -104,7 +102,7 @@ class TestPlayerPlay:
     def test_update_missiles(self, player_play):
         """Test updating missile positions."""
         # Create a missile
-        with patch('pygame.time.get_ticks') as mock_time:
+        with patch("pygame.time.get_ticks") as mock_time:
             mock_time.return_value = 1000
             player_play.shoot_missile()
 
@@ -123,7 +121,7 @@ class TestPlayerPlay:
     def test_update_missiles_expiration(self, player_play):
         """Test that missiles expire after their lifespan."""
         # Create a missile with a short lifespan
-        with patch('pygame.time.get_ticks') as mock_time:
+        with patch("pygame.time.get_ticks") as mock_time:
             # Start time
             mock_time.return_value = 1000
             player_play.shoot_missile()
@@ -142,13 +140,13 @@ class TestPlayerPlay:
 
     def test_handle_input(self, player_play):
         """Test that keyboard input changes player position."""
-        # Create a mock key state dictionary
-        keys = {}
-        for i in range(1000):  # Arbitrary size larger than any key constant
-            keys[i] = False
+        # Arrow keys (e.g. K_LEFT = 1073741904) use SDL scancode-derived
+        # constants far outside a small range, so a defaultdict is needed
+        # rather than a fixed-size dict comprehension.
+        keys = defaultdict(bool)
 
         # Mock pygame.key.get_pressed
-        with patch('pygame.key.get_pressed', return_value=keys):
+        with patch("pygame.key.get_pressed", return_value=keys):
             # Initial position
             initial_pos = player_play.position.copy()
 
@@ -180,24 +178,28 @@ class TestPlayerPlay:
 
     def test_wrap_around(self, player_play):
         """Test screen wrapping when player goes off-screen."""
-        # Move player off right edge
-        player_play.position["x"] = player_play.screen_width + 1
-        player_play.handle_input()  # Should wrap
-        assert player_play.position["x"] == -player_play.size
+        # handle_input() reads real keyboard state via pygame.key.get_pressed(),
+        # which requires a display to be initialized. Mock it out since this
+        # test only cares about the wrap-around logic, not key handling.
+        with patch("pygame.key.get_pressed", return_value=defaultdict(bool)):
+            # Move player off right edge
+            player_play.position["x"] = player_play.screen_width + 1
+            player_play.handle_input()  # Should wrap
+            assert player_play.position["x"] == -player_play.size
 
-        # Move player off left edge
-        player_play.position["x"] = -player_play.size - 1
-        player_play.handle_input()  # Should wrap
-        assert player_play.position["x"] == player_play.screen_width
+            # Move player off left edge
+            player_play.position["x"] = -player_play.size - 1
+            player_play.handle_input()  # Should wrap
+            assert player_play.position["x"] == player_play.screen_width
 
-        # Move player off bottom edge
-        player_play.position["y"] = player_play.screen_height + 1
-        player_play.handle_input()  # Should wrap
-        assert player_play.position["y"] == -player_play.size
+            # Move player off bottom edge
+            player_play.position["y"] = player_play.screen_height + 1
+            player_play.handle_input()  # Should wrap
+            assert player_play.position["y"] == -player_play.size
 
-        # Move player off top edge
-        player_play.position["y"] = -player_play.size - 1
-        player_play.handle_input()  # Should wrap
+            # Move player off top edge
+            player_play.position["y"] = -player_play.size - 1
+            player_play.handle_input()  # Should wrap
         assert player_play.position["y"] == player_play.screen_height
 
 
@@ -272,11 +274,11 @@ class TestPlayerTraining:
     def test_shoot_missile(self, player_training):
         """Test shooting missiles in training mode."""
         # Mock pygame time
-        with patch('pygame.time.get_ticks') as mock_time:
+        with patch("pygame.time.get_ticks") as mock_time:
             mock_time.return_value = 1000
 
             # Shoot a missile
-            player_training.shoot_missile(enemy_x=500, enemy_y=300)
+            player_training.shoot_missile(enemy_pos={"x": 500, "y": 300})
 
             # Should have one missile
             assert len(player_training.missiles) == 1

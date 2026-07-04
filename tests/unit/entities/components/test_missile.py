@@ -3,26 +3,19 @@ Unit tests for the Missile class.
 
 Tests the initialization, movement, and collision detection of missiles.
 """
-import pytest
-import pygame
 from unittest.mock import Mock, patch
 
-from ai_platform_trainer.entities.components.missile import Missile
+import pygame
+import pytest
+
+from ai_platform_trainer.entities.missile import Missile
 
 
 @pytest.fixture
-
-
 def missile():
     """Return a standard missile instance for testing."""
     return Missile(
-        x=100,
-        y=200,
-        speed=5.0,
-        vx=5.0,
-        vy=0.0,
-        birth_time=1000,
-        lifespan=2000
+        x=100, y=200, speed=5.0, vx=5.0, vy=0.0, birth_time=1000, lifespan=2000
     )
 
 
@@ -77,32 +70,26 @@ class TestMissile:
 
     def test_draw(self, missile):
         """Test that draw calls the correct Pygame drawing function."""
-        # Mock the pygame.draw.circle function
-        with patch('pygame.draw.circle') as mock_draw:
+        # Missile is rendered as a triangle pointing in its direction of travel
+        with patch("pygame.draw.polygon") as mock_draw:
             # Create a mock surface
             mock_surface = Mock(spec=pygame.Surface)
 
             # Call the draw method
             missile.draw(mock_surface)
 
-            # Verify pygame.draw.circle was called correctly
-            mock_draw.assert_called_once_with(
-                mock_surface,
-                missile.color,
-                (int(missile.pos["x"]), int(missile.pos["y"])),
-                missile.size
-            )
+            # Verify pygame.draw.polygon was called with the missile's color
+            # and a 3-point triangle
+            mock_draw.assert_called_once()
+            args, _ = mock_draw.call_args
+            assert args[0] is mock_surface
+            assert args[1] == missile.color
+            assert len(args[2]) == 3
 
     def test_diagonal_movement(self):
         """Test that diagonal movement works correctly."""
         # Create a missile with diagonal movement
-        diagonal_missile = Missile(
-            x=100,
-            y=100,
-            speed=5.0,
-            vx=3.0,
-            vy=4.0
-        )
+        diagonal_missile = Missile(x=100, y=100, speed=5.0, vx=3.0, vy=4.0)
 
         diagonal_missile.update()
 
@@ -121,17 +108,11 @@ class TestMissile:
         """Test different lifespan settings."""
         # Create missiles with different lifespans
         short_missile = Missile(
-            x=100,
-            y=100,
-            birth_time=1000,
-            lifespan=500  # Short lifespan
+            x=100, y=100, birth_time=1000, lifespan=500  # Short lifespan
         )
 
         long_missile = Missile(
-            x=100,
-            y=100,
-            birth_time=1000,
-            lifespan=5000  # Long lifespan
+            x=100, y=100, birth_time=1000, lifespan=5000  # Long lifespan
         )
 
         assert short_missile.birth_time == 1000

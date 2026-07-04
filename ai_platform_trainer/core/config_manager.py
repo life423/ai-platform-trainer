@@ -3,9 +3,10 @@
 Configuration management system for the AI Platform Trainer.
 Provides centralized access to configuration values with validation and schema checking.
 """
+import copy
 import json
-import os
 import logging
+import os
 from typing import Any, Dict, Optional
 
 # Schema definition for configuration validation
@@ -16,7 +17,7 @@ CONFIG_SCHEMA = {
         "fullscreen": {"type": bool, "required": True, "default": False},
         "window_title": {"type": str, "required": True, "default": "Pixel Pursuit"},
         "frame_rate": {"type": int, "required": True, "default": 60},
-        "screen_size": {"type": list, "required": False}
+        "screen_size": {"type": list, "required": False},
     },
     "gameplay": {
         "respawn_delay": {"type": int, "required": True, "default": 1000},
@@ -27,25 +28,33 @@ CONFIG_SCHEMA = {
         "missile_step": {"type": int, "required": True, "default": 4},
         "missile_size": {"type": int, "required": True, "default": 5},
         "wall_margin": {"type": int, "required": True, "default": 50},
-        "min_distance": {"type": int, "required": True, "default": 100}
+        "min_distance": {"type": int, "required": True, "default": 100},
     },
     "ai": {
         "missile_model_path": {
             "type": str,
             "required": True,
-            "default": "models/missile_model.pth"
+            "default": "models/missile_model.pth",
         },
-        "enemy_model_path": {"type": str, "required": True, "default": "models/enemy_ai_model.pth"},
+        "enemy_model_path": {
+            "type": str,
+            "required": True,
+            "default": "models/enemy_ai_model.pth",
+        },
         "input_size": {"type": int, "required": True, "default": 5},
         "hidden_size": {"type": int, "required": True, "default": 64},
         "output_size": {"type": int, "required": True, "default": 2},
         "random_speed_factor_min": {"type": float, "required": True, "default": 0.8},
         "random_speed_factor_max": {"type": float, "required": True, "default": 1.2},
-        "enemy_min_speed": {"type": int, "required": True, "default": 2}
+        "enemy_min_speed": {"type": int, "required": True, "default": 2},
     },
     "paths": {
-        "data_path": {"type": str, "required": True, "default": "data/raw/training_data.json"}
-    }
+        "data_path": {
+            "type": str,
+            "required": True,
+            "default": "data/raw/training_data.json",
+        }
+    },
 }
 
 # Default configuration values derived from the schema
@@ -56,7 +65,7 @@ DEFAULT_CONFIG = {
         "fullscreen": False,
         "window_title": "Pixel Pursuit",
         "frame_rate": 60,
-        "screen_size": [800, 600]
+        "screen_size": [800, 600],
     },
     "gameplay": {
         "respawn_delay": 1000,
@@ -67,7 +76,7 @@ DEFAULT_CONFIG = {
         "missile_step": 4,
         "missile_size": 5,
         "wall_margin": 50,
-        "min_distance": 100
+        "min_distance": 100,
     },
     "ai": {
         "missile_model_path": "models/missile_model.pth",
@@ -77,11 +86,9 @@ DEFAULT_CONFIG = {
         "output_size": 2,
         "random_speed_factor_min": 0.8,
         "random_speed_factor_max": 1.2,
-        "enemy_min_speed": 2
+        "enemy_min_speed": 2,
     },
-    "paths": {
-        "data_path": "data/raw/training_data.json"
-    }
+    "paths": {"data_path": "data/raw/training_data.json"},
 }
 
 # Generate the default config values from the schema
@@ -113,10 +120,10 @@ class ConfigManager:
         """
         self.config_file = config_file
         self.user_config_file = "user_settings.json"
-        self.config: Dict[str, Any] = {}
-
-        # Load configuration from default
-        self.config.update(DEFAULT_CONFIG)
+        # Deep copy so mutations (via set()/_deep_update()) never leak into
+        # the shared module-level DEFAULT_CONFIG dict and contaminate other
+        # ConfigManager instances.
+        self.config: Dict[str, Any] = copy.deepcopy(DEFAULT_CONFIG)
 
         # Load configuration from file
         self._load_from_file()
@@ -173,7 +180,11 @@ class ConfigManager:
             source: The dictionary to update from
         """
         for key, value in source.items():
-            if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+            if (
+                key in target
+                and isinstance(target[key], dict)
+                and isinstance(value, dict)
+            ):
                 # If both target and source have a dict at this key, recursively update
                 self._deep_update(target[key], value)
             else:
@@ -188,37 +199,54 @@ class ConfigManager:
         for section, fields in CONFIG_SCHEMA.items():
             if section not in self.config:
                 self.config[section] = {}
-                logging.warning(f"Configuration section '{section}' is missing. Using defaults.")
+                logging.warning(
+                    f"Configuration section '{section}' is missing. Using defaults."
+                )
 
             for field, metadata in fields.items():
                 # Check if required field exists
-                if metadata.get("required", False) and field not in self.config[section]:
+                if (
+                    metadata.get("required", False)
+                    and field not in self.config[section]
+                ):
                     if "default" in metadata:
                         self.config[section][field] = metadata["default"]
-                        msg = (f"Required field '{section}.{field}' is missing. "
-                              f"Using default value: {metadata['default']}")
+                        msg = (
+                            f"Required field '{section}.{field}' is missing. "
+                            f"Using default value: {metadata['default']}"
+                        )
                         logging.warning(msg)
                     else:
-                        raise ValidationError(f"Required field '{section}.{field}' is missing")
+                        raise ValidationError(
+                            f"Required field '{section}.{field}' is missing"
+                        )
 
                 # Check type if the field exists
                 if field in self.config[section]:
                     expected_type = metadata.get("type")
-                    if expected_type and not isinstance(self.config[section][field], expected_type):
+                    if expected_type and not isinstance(
+                        self.config[section][field], expected_type
+                    ):
                         # Special case for lists
-                        if expected_type == list and isinstance(self.config[section][field], (list, tuple)):
+                        if expected_type == list and isinstance(
+                            self.config[section][field], (list, tuple)
+                        ):
                             continue
 
                         # Try to convert the value to the expected type
                         try:
-                            self.config[section][field] = expected_type(self.config[section][field])
+                            self.config[section][field] = expected_type(
+                                self.config[section][field]
+                            )
                             logging.warning(
                                 f"Field '{section}.{field}' has been converted to {expected_type.__name__}"
                             )
                         except (ValueError, TypeError):
-                            error_msg = (f"Field '{section}.{field}' has incorrect type. "
-                                        f"Expected {expected_type.__name__}, got "
-                                        f"{type(self.config[section][field]).__name__}")
+                            error_msg = (
+                                f"Field '{section}.{field}' has incorrect type. "
+                                f"Expected {expected_type.__name__}, got "
+                                f"{type(self.config[section][field]).__name__}"
+                            )
                             logging.error(error_msg)
                             # Use default if available
                             if "default" in metadata:
@@ -229,17 +257,22 @@ class ConfigManager:
     def _calculate_derived_values(self) -> None:
         """Calculate derived configuration values."""
         # Set screen_size based on width and height if not already set
-        if "screen_size" not in self.config["display"] or not self.config["display"]["screen_size"]:
+        if (
+            "screen_size" not in self.config["display"]
+            or not self.config["display"]["screen_size"]
+        ):
             self.config["display"]["screen_size"] = [
                 self.config["display"]["width"],
-                self.config["display"]["height"]
+                self.config["display"]["height"],
             ]
 
     def save(self, save_to_user_settings: bool = False) -> None:
         """Save configuration to file."""
         try:
             # Save to the appropriate file
-            target_file = self.user_config_file if save_to_user_settings else self.config_file
+            target_file = (
+                self.user_config_file if save_to_user_settings else self.config_file
+            )
 
             with open(target_file, "w") as f:
                 json.dump(self.config, f, indent=4)

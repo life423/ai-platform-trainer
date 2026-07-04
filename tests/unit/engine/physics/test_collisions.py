@@ -3,23 +3,24 @@ Unit tests for collision detection.
 
 Tests collision detection and handling for missiles and enemies.
 """
-import pytest
 from unittest.mock import Mock
 
 import pygame
+import pytest
 
 from ai_platform_trainer.gameplay.collisions import handle_missile_collisions
 
 
 @pytest.fixture
-
-
 def player():
     """Create a mock player with missiles for testing collisions."""
     player = Mock()
 
     # Setup missiles list with one active missile
+    # handle_missile_collisions reads missile.pos directly (not get_rect()),
+    # so pos must be set for the mock to behave like a real Missile.
     missile1 = Mock()
+    missile1.pos = {"x": 100, "y": 100}
     missile_rect = pygame.Rect(100, 100, 20, 20)
     missile1.get_rect.return_value = missile_rect
 
@@ -29,8 +30,6 @@ def player():
 
 
 @pytest.fixture
-
-
 def enemy():
     """Create a mock enemy for testing collisions."""
     enemy = Mock()
@@ -42,8 +41,6 @@ def enemy():
 
 
 @pytest.fixture
-
-
 def respawn_callback():
     """Create a mock callback function for respawning."""
     return Mock()
@@ -56,12 +53,14 @@ class TestCollisions:
         """Test collision detection when a missile hits the enemy."""
         # Setup collision: missile at (100,100) with size 20x20,
         # enemy at (90,90) with size 30x30 - these overlap
+        missile = player.missiles[0]
 
         # Call the function under test
         handle_missile_collisions(player, enemy, respawn_callback)
 
         # Verify the missile was removed
-        assert player.missiles[0] not in player.missiles
+        assert missile not in player.missiles
+        assert len(player.missiles) == 0
 
         # Verify the enemy was hidden
         enemy.hide.assert_called_once()
@@ -86,7 +85,9 @@ class TestCollisions:
         # Verify respawn callback was not called
         respawn_callback.assert_not_called()
 
-    def test_handle_missile_collisions_invisible_enemy(self, player, enemy, respawn_callback):
+    def test_handle_missile_collisions_invisible_enemy(
+        self, player, enemy, respawn_callback
+    ):
         """Test collision detection with an invisible enemy."""
         # Make the enemy invisible
         enemy.visible = False
@@ -99,10 +100,13 @@ class TestCollisions:
         enemy.hide.assert_not_called()
         respawn_callback.assert_not_called()
 
-    def test_handle_missile_collisions_multiple_missiles(self, player, enemy, respawn_callback):
+    def test_handle_missile_collisions_multiple_missiles(
+        self, player, enemy, respawn_callback
+    ):
         """Test collision detection with multiple missiles."""
         # Add a second missile that won't collide
         missile2 = Mock()
+        missile2.pos = {"x": 300, "y": 300}
         missile2_rect = pygame.Rect(300, 300, 20, 20)
         missile2.get_rect.return_value = missile2_rect
         player.missiles.append(missile2)
@@ -120,10 +124,13 @@ class TestCollisions:
         # Verify respawn callback was called once
         respawn_callback.assert_called_once()
 
-    def test_handle_missile_collisions_multiple_hits(self, player, enemy, respawn_callback):
+    def test_handle_missile_collisions_multiple_hits(
+        self, player, enemy, respawn_callback
+    ):
         """Test handling multiple missiles hitting in a single frame."""
         # Add a second missile that also collides
         missile2 = Mock()
+        missile2.pos = {"x": 95, "y": 95}
         missile2_rect = pygame.Rect(95, 95, 20, 20)  # Also collides
         missile2.get_rect.return_value = missile2_rect
         player.missiles.append(missile2)
