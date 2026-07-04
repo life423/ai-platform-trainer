@@ -4,7 +4,7 @@ import pygame
 class Menu:
     def __init__(self, screen_width, screen_height):
         # Main menu options
-        self.main_menu_options = ["Play", "Help", "Exit"]
+        self.main_menu_options = ["Play", "Train", "Help", "Exit"]
         self.selected_option = 0
 
         # Flag to show help screen
@@ -73,7 +73,8 @@ class Menu:
         chosen = self.main_menu_options[self.selected_option]
         if chosen == "Play":
             return "play_learning"  # Directly start the game
-
+        elif chosen == "Train":
+            return "train"
         elif chosen == "Help":
             self.show_help = True
             return None

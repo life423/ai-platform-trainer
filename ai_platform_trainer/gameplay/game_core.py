@@ -34,6 +34,7 @@ from ai_platform_trainer.gameplay.input_handler import InputHandler
 from ai_platform_trainer.gameplay.menu import Menu
 from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
 from ai_platform_trainer.gameplay.modes.play_mode import PlayMode
+from ai_platform_trainer.gameplay.modes.training_mode import TrainingMode
 from ai_platform_trainer.gameplay.renderer import Renderer
 from ai_platform_trainer.gameplay.spawner import (
     respawn_enemy_with_fade_in,
@@ -121,6 +122,7 @@ class GameCore:
 
         self.play_mode_manager: Optional[PlayMode] = None
         self.play_learning_mode_manager: Optional[PlayLearningMode] = None
+        self.training_mode_manager: Optional[TrainingMode] = None
 
         # Use shared missile AI manager for missile models
         self.missile_model = missile_ai_manager.neural_network_model
@@ -248,12 +250,12 @@ class GameCore:
                     # Skip rendering in headless mode
                     pass
                 else:
-                    # Only pass learning mode manager if we're actually in learning mode
-                    learning_manager = (
-                        self.play_learning_mode_manager
-                        if self.mode == "play_learning"
-                        else None
-                    )
+                    # Only pass a mode manager if it has UI to draw
+                    learning_manager: Optional[Any] = None
+                    if self.mode == "play_learning":
+                        learning_manager = self.play_learning_mode_manager
+                    elif self.mode == "train":
+                        learning_manager = self.training_mode_manager
                     self.renderer.render(
                         self.menu,
                         self.player,
@@ -353,6 +355,10 @@ class GameCore:
 
             # Now spawn entities with both player and enemy available
             spawn_entities(self)
+        elif mode == "train":
+            # Scripted data-collection mode: TrainingMode creates its own
+            # player/enemy entities and spawns them.
+            self.training_mode_manager = TrainingMode(self)
 
     def _init_play_mode(self) -> Tuple[PlayerPlay, EnemyPlay]:
         """
@@ -440,7 +446,7 @@ class GameCore:
             current_time: Current game time in milliseconds
         """
         if self.mode == "train" and self.training_mode_manager:
-            self.training_mode_manager.update()
+            self.training_mode_manager.update(current_time)
 
         elif self.mode == "play_learning":
             if self.play_learning_mode_manager:

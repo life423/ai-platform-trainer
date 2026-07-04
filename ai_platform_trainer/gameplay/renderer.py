@@ -61,8 +61,8 @@ class Renderer:
                 # Render game elements
                 self._render_game(player, enemy)
 
-                # Render learning mode UI if in learning mode
-                if game_mode == "play_learning" and learning_mode_manager:
+                # Render mode-specific UI overlay, if this mode has one
+                if game_mode in ("play_learning", "train") and learning_mode_manager:
                     learning_mode_manager.draw_mode_info(self.screen)
 
                 logging.debug("Game elements rendered.")
