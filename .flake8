@@ -4,15 +4,39 @@
 # preference) which directly contradict what black/isort already enforce,
 # so the flake8 pre-commit hook fails on virtually every file regardless
 # of its actual quality.
-max-line-length = 88
+#
+# max-line-length is set higher than black's 88 (which only governs code)
+# because black doesn't wrap comments, docstrings, or f-string contents -
+# this codebase has a lot of longer log/debug messages that are fine left
+# on one line.
+max-line-length = 100
 
 # E203 (whitespace before ':') and W503 (line break before binary operator)
 # are black's own documented flake8 exceptions: black intentionally formats
 # code in ways that trip these two checks.
-extend-ignore = E203, W503
+#
+# E231 (missing whitespace after ':') is a false positive on this pinned
+# flake8/pycodestyle version: it misparses f-string format specs like
+# {value:.2f} as needing a space after the colon under Python 3.12's
+# f-string tokenizer, which would actually change the number formatting.
+extend-ignore = E203, W503, E231
 
 # black enforces double quotes; tell flake8-quotes to match instead of
 # flagging every string literal.
 inline-quotes = double
 
 exclude = .git,__pycache__,.venv,venv,build,dist,*.egg-info
+
+# Same reasoning as the mypy overrides in pyproject.toml: ai/training/ is
+# iterative ML experimentation code, cpp/ is standalone GPU/CUDA tooling,
+# and these root-level scripts are one-off dev/debug utilities, not part
+# of the tested package or its entry points.
+per-file-ignores =
+    ai_platform_trainer/ai/training/*:E,F,B,C,Q
+    ai_platform_trainer/cpp/*:E,F,B,C,Q
+    setup.py:E,F,B,C,Q
+    cleanup_old_code.py:E,F,B,C,Q
+    debug_enemy_rl.py:E,F,B,C,Q
+    reward_function_comparison.py:E,F,B,C,Q
+    test_enemy_rl.py:E,F,B,C,Q
+    test_missile_ai.py:E,F,B,C,Q

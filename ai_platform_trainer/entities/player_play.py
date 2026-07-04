@@ -5,10 +5,7 @@ from typing import Dict, List, Optional
 
 import pygame
 
-from ai_platform_trainer.ai.missile_ai_loader import (
-    create_smart_missile,
-    get_missile_ai_status,
-)
+from ai_platform_trainer.ai.missile_ai_loader import create_smart_missile
 from ai_platform_trainer.entities.missile import Missile
 
 

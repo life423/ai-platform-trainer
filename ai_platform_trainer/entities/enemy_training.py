@@ -1,6 +1,7 @@
-import random
-import math
 import logging
+import math
+import random
+
 from ai_platform_trainer.entities.enemy import Enemy
 from ai_platform_trainer.utils.helpers import wrap_position
 

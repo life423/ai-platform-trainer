@@ -7,7 +7,10 @@ of the MissileDataset class.
 import pytest  # noqa: F401 - Used for fixture decorators and approx
 import torch
 
-from ai_platform_trainer.ai.training.missile_dataset import MissileDataset, calculate_distance
+from ai_platform_trainer.ai.training.missile_dataset import (
+    MissileDataset,
+    calculate_distance,
+)
 
 
 class TestMissileDataset:
@@ -101,7 +104,7 @@ class TestMissileDataset:
             dataset.data[0]["missile_x"],
             dataset.data[0]["missile_y"],
             dataset.data[0]["enemy_x"],
-            dataset.data[0]["enemy_y"]
+            dataset.data[0]["enemy_y"],
         )
 
         # Check distance in state tensor (index 7)

@@ -11,14 +11,12 @@ from pathlib import Path  # noqa: F401 - May be used in future tests
 import pytest
 import torch
 
-from ai_platform_trainer.ai.training.missile_dataset import MissileDataset
 from ai_platform_trainer.ai.models.simple_missile_model import SimpleMissileModel
+from ai_platform_trainer.ai.training.missile_dataset import MissileDataset
 from ai_platform_trainer.ai.training.train_missile_model import MissileTrainer
 
 
 @pytest.mark.integration
-
-
 class TestTrainingPipeline:
     """Test the complete training pipeline from data to model."""
 
@@ -43,7 +41,7 @@ class TestTrainingPipeline:
                 epochs=2,  # Use small number of epochs for testing
                 batch_size=1,
                 lr=0.01,
-                model_save_path=model_path
+                model_save_path=model_path,
             )
 
             # Run training
@@ -78,11 +76,7 @@ class TestTrainingPipeline:
         dataset = MissileDataset(json_file=sample_training_json_path)
 
         # Create data loader
-        dataloader = torch.utils.data.DataLoader(
-            dataset,
-            batch_size=2,
-            shuffle=True
-        )
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=True)
 
         # Iterate through all batches
         batch_count = 0
@@ -115,7 +109,7 @@ class TestTrainingPipeline:
                 epochs=1,
                 batch_size=1,
                 lr=0.01,
-                model_save_path=model_path
+                model_save_path=model_path,
             )
 
             # Verify model was initialized correctly
@@ -125,7 +119,7 @@ class TestTrainingPipeline:
 
             # Verify optimizer was initialized with the model's parameters
             for param_group in trainer.optimizer.param_groups:
-                for param in param_group['params']:
+                for param in param_group["params"]:
                     # Check parameter is part of the model
-                    model_params = set([id(p) for p in trainer.model.parameters()])
+                    model_params = {id(p) for p in trainer.model.parameters()}
                     assert id(param) in model_params

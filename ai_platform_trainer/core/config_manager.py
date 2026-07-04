@@ -10,8 +10,11 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
-# Schema definition for configuration validation
-CONFIG_SCHEMA = {
+# Schema definition for configuration validation. Explicitly Dict[str, Any]
+# since the nested metadata dicts mix types (str, bool, int, the `type`
+# builtin itself) that mypy can't reconcile into one inferred structural
+# type on its own.
+CONFIG_SCHEMA: Dict[str, Any] = {
     "display": {
         "width": {"type": int, "required": True, "default": 800},
         "height": {"type": int, "required": True, "default": 600},
@@ -59,7 +62,7 @@ CONFIG_SCHEMA = {
 }
 
 # Default configuration values derived from the schema
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: Dict[str, Any] = {
     "display": {
         "width": 800,
         "height": 600,

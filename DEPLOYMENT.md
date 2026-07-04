@@ -111,7 +111,7 @@ python run_game.py
 
 ### Executable Sizes (Approximate)
 - **Windows**: ~200-300 MB
-- **macOS**: ~250-350 MB  
+- **macOS**: ~250-350 MB
 - **Linux**: ~200-300 MB
 
 ### Build Times (GitHub Actions)
@@ -143,7 +143,7 @@ python run_game.py
 
 ### Build Issues
 
-**Large executable size**: 
+**Large executable size**:
 - UPX compression enabled
 - Unused dependencies excluded
 - Consider AppImage for Linux

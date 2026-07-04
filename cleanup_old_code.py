@@ -9,89 +9,97 @@ import re
 from pathlib import Path
 from typing import List, Tuple
 
+
 def find_deprecated_code(root_path: str) -> List[Tuple[str, int, str]]:
     """Find all deprecated markers in the codebase."""
     deprecated_patterns = [
-        r'DEPRECATED',
-        r'deprecated',
-        r'TODO.*remove',
-        r'legacy',
-        r'OLD CODE',
-        r'obsolete',
-        r'# HACK',
-        r'# XXX',
-        r'placeholder',
-        r'temporary'
+        r"DEPRECATED",
+        r"deprecated",
+        r"TODO.*remove",
+        r"legacy",
+        r"OLD CODE",
+        r"obsolete",
+        r"# HACK",
+        r"# XXX",
+        r"placeholder",
+        r"temporary",
     ]
-    
+
     results = []
-    
+
     for root, dirs, files in os.walk(root_path):
         # Skip hidden directories and venv
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d != 'venv']
-        
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "venv"]
+
         for file in files:
-            if file.endswith('.py'):
+            if file.endswith(".py"):
                 file_path = os.path.join(root, file)
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, "r", encoding="utf-8") as f:
                         for line_num, line in enumerate(f, 1):
                             for pattern in deprecated_patterns:
                                 if re.search(pattern, line, re.IGNORECASE):
                                     results.append((file_path, line_num, line.strip()))
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
-    
+
     return results
+
 
 def find_duplicate_files(root_path: str) -> dict:
     """Find potentially duplicate files based on naming patterns."""
     file_groups = {}
-    
+
     for root, dirs, files in os.walk(root_path):
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d != 'venv']
-        
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "venv"]
+
         for file in files:
-            if file.endswith('.py'):
+            if file.endswith(".py"):
                 # Extract base name (e.g., 'enemy' from 'enemy_play.py')
-                base_name = file.replace('.py', '').split('_')[0]
+                base_name = file.replace(".py", "").split("_")[0]
                 if base_name not in file_groups:
                     file_groups[base_name] = []
                 file_groups[base_name].append(os.path.join(root, file))
-    
+
     # Filter to only show groups with multiple files
     duplicates = {k: v for k, v in file_groups.items() if len(v) > 1}
     return duplicates
 
+
 def find_broken_imports(root_path: str) -> List[Tuple[str, int, str]]:
     """Find imports that reference non-existent modules."""
     broken_imports = []
-    
+
     # Known broken imports
-    known_broken = ['unified_launcher', 'engine.core.service_locator']
-    
+    known_broken = ["unified_launcher", "engine.core.service_locator"]
+
     for root, dirs, files in os.walk(root_path):
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d != 'venv']
-        
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "venv"]
+
         for file in files:
-            if file.endswith('.py'):
+            if file.endswith(".py"):
                 file_path = os.path.join(root, file)
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, "r", encoding="utf-8") as f:
                         for line_num, line in enumerate(f, 1):
                             for broken in known_broken:
-                                if broken in line and ('import' in line or 'from' in line):
-                                    broken_imports.append((file_path, line_num, line.strip()))
+                                if broken in line and (
+                                    "import" in line or "from" in line
+                                ):
+                                    broken_imports.append(
+                                        (file_path, line_num, line.strip())
+                                    )
                 except Exception:
                     pass
-    
+
     return broken_imports
+
 
 def main():
     """Run the cleanup analysis."""
     root_path = os.path.dirname(os.path.abspath(__file__))
     print(f"Analyzing codebase at: {root_path}\n")
-    
+
     # Find deprecated code
     print("=" * 80)
     print("DEPRECATED CODE FOUND:")
@@ -102,7 +110,7 @@ def main():
         print(f"{rel_path}:{line_num} - {line}")
     if len(deprecated) > 20:
         print(f"\n... and {len(deprecated) - 20} more instances")
-    
+
     # Find duplicate files
     print("\n" + "=" * 80)
     print("POTENTIAL DUPLICATE FILES:")
@@ -114,7 +122,7 @@ def main():
             for file in files:
                 rel_path = os.path.relpath(file, root_path)
                 print(f"  - {rel_path}")
-    
+
     # Find broken imports
     print("\n" + "=" * 80)
     print("BROKEN IMPORTS:")
@@ -123,7 +131,7 @@ def main():
     for file_path, line_num, line in broken:
         rel_path = os.path.relpath(file_path, root_path)
         print(f"{rel_path}:{line_num} - {line}")
-    
+
     print("\n" + "=" * 80)
     print("CLEANUP RECOMMENDATIONS:")
     print("=" * 80)
@@ -133,10 +141,13 @@ def main():
     print("4. Remove duplicate state machine implementations")
     print("5. Clean up placeholder and commented code")
     print("6. Remove deprecated missile_ai_controller.py")
-    
+
     print(f"\nTotal deprecated markers found: {len(deprecated)}")
-    print(f"Total files with potential duplicates: {sum(len(f) for f in duplicates.values())}")
+    print(
+        f"Total files with potential duplicates: {sum(len(f) for f in duplicates.values())}"
+    )
     print(f"Total broken imports: {len(broken)}")
+
 
 if __name__ == "__main__":
     main()

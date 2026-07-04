@@ -1,9 +1,8 @@
 # file: ai_platform_trainer/gameplay/spawner.py
 import logging
-from ai_platform_trainer.gameplay.spawn_utils import (
-    find_valid_spawn_position,
-)
+
 from ai_platform_trainer.gameplay.config import config
+from ai_platform_trainer.gameplay.spawn_utils import find_valid_spawn_position
 
 
 def spawn_entities(game):
@@ -81,6 +80,6 @@ def respawn_enemy_with_fade_in(game, current_time):
     new_pos = respawn_enemy_at_position(game)
     # Show the enemy with fade-in behavior
     game.enemy.show(current_time)
-    
+
     game.is_respawning = False
     logging.info(f"Enemy respawned at {new_pos} with fade-in.")

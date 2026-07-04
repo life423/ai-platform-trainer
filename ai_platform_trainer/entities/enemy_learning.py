@@ -8,9 +8,8 @@ pre-defined algorithms (not machine learning).
 import logging
 import math
 import random
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
-import numpy as np
 import pygame
 
 # Note: This module uses scripted behavior stages, not machine learning
@@ -135,7 +134,8 @@ class AdaptiveStagedEnemyAI:
 
         if old_stage != self.behavior_stage:
             logging.info(
-                f"AI evolved from {old_stage} to {self.behavior_stage} (difficulty: {self.difficulty_level:.2f})"
+                f"AI evolved from {old_stage} to {self.behavior_stage} "
+                f"(difficulty: {self.difficulty_level:.2f})"
             )
 
     def _get_movement_decision(
@@ -406,10 +406,7 @@ class AdaptiveStagedEnemyAI:
         # Try to position for better angle of attack
         # This is a simple implementation - could be much more sophisticated
 
-        # Prefer positions that give multiple approach angles
-        center_x = self.screen_width / 2
-        center_y = self.screen_height / 2
-
+        # Prefer positions that give multiple approach angles.
         # Move toward center if too close to edges
         edge_margin = 100
         strategy_x, strategy_y = 0.0, 0.0
@@ -510,7 +507,8 @@ class AdaptiveStagedEnemyAI:
 
             # Simple performance logging
             logging.debug(
-                f"AI Performance - Hit Rate: {hit_rate:.2f}, Survival: {survival_rate:.2f}, Stage: {self.behavior_stage}"
+                f"AI Performance - Hit Rate: {hit_rate:.2f}, "
+                f"Survival: {survival_rate:.2f}, Stage: {self.behavior_stage}"
             )
 
     def _constrain_to_screen(self):

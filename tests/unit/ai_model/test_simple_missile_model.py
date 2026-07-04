@@ -4,9 +4,8 @@ Unit tests for SimpleMissileModel.
 Tests the initialization, structure, and forward pass functionality
 of the SimpleMissileModel neural network.
 """
-import torch
-
 import pytest  # noqa: F401 - Used for the fixture decorator
+import torch
 
 from ai_platform_trainer.ai.models.simple_missile_model import SimpleMissileModel
 

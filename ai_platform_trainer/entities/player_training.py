@@ -1,8 +1,10 @@
-import random
-import math
 import logging
+import math
+import random
+from typing import Dict, List, Optional
+
 import pygame
-from typing import Optional, Dict
+
 from ai_platform_trainer.entities.missile import Missile
 from ai_platform_trainer.utils.helpers import wrap_position
 
@@ -20,7 +22,7 @@ class PlayerTraining:
             "y": random.randint(0, self.screen_height - self.size),
         }
         self.step = 5
-        self.missiles = []
+        self.missiles: List[Missile] = []
         logging.info("PlayerTraining initialized.")
 
         # Desired distance logic for movement patterns
@@ -179,7 +181,8 @@ class PlayerTraining:
             self.circle_radius = max(20, min(200, self.circle_radius))
 
         logging.debug(
-            f"Circle move: pos={self.position}, center={self.circle_center}, radius={self.circle_radius}"
+            f"Circle move: pos={self.position}, center={self.circle_center}, "
+            f"radius={self.circle_radius}"
         )
 
     def diagonal_pattern(self, enemy_x, enemy_y):

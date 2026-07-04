@@ -5,13 +5,14 @@ This module provides optimized hyperparameter sets for different RL algorithms
 based on research and empirical testing for continuous control tasks.
 """
 import logging
-from typing import Dict, Any, List
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
 
 @dataclass
 class AlgorithmConfig:
     """Configuration for a specific RL algorithm."""
+
     name: str
     algorithm_class: str
     hyperparameters: Dict[str, Any]
@@ -21,7 +22,7 @@ class AlgorithmConfig:
 
 class MissileRLConfigurations:
     """Optimized configurations for missile RL training."""
-    
+
     @staticmethod
     def get_ppo_baseline() -> AlgorithmConfig:
         """Baseline PPO configuration (current implementation)."""
@@ -37,12 +38,12 @@ class MissileRLConfigurations:
                 "gae_lambda": 0.98,
                 "clip_range": 0.3,
                 "ent_coef": 0.005,
-                "policy_kwargs": {"net_arch": [128, 128]}
+                "policy_kwargs": {"net_arch": [128, 128]},
             },
             expected_timesteps=100000,
-            description="Current PPO implementation - stable but sample inefficient"
+            description="Current PPO implementation - stable but sample inefficient",
         )
-    
+
     @staticmethod
     def get_ppo_optimized() -> AlgorithmConfig:
         """Optimized PPO configuration based on SB3 zoo recommendations."""
@@ -62,13 +63,13 @@ class MissileRLConfigurations:
                 "max_grad_norm": 0.5,  # Gradient clipping
                 "policy_kwargs": {
                     "net_arch": [{"pi": [256, 256], "vf": [256, 256]}],
-                    "activation_fn": "torch.nn.Tanh"  # Better for continuous control
-                }
+                    "activation_fn": "torch.nn.Tanh",  # Better for continuous control
+                },
             },
             expected_timesteps=80000,
-            description="PPO with SB3 zoo hyperparameters for continuous control"
+            description="PPO with SB3 zoo hyperparameters for continuous control",
         )
-    
+
     @staticmethod
     def get_sac_default() -> AlgorithmConfig:
         """Default SAC configuration - sample efficient."""
@@ -88,13 +89,13 @@ class MissileRLConfigurations:
                 "target_update_interval": 1,
                 "policy_kwargs": {
                     "net_arch": [256, 256],
-                    "activation_fn": "torch.nn.ReLU"
-                }
+                    "activation_fn": "torch.nn.ReLU",
+                },
             },
             expected_timesteps=50000,
-            description="Standard SAC configuration - off-policy, sample efficient"
+            description="Standard SAC configuration - off-policy, sample efficient",
         )
-    
+
     @staticmethod
     def get_sac_aggressive() -> AlgorithmConfig:
         """Aggressive SAC configuration for faster learning."""
@@ -114,13 +115,13 @@ class MissileRLConfigurations:
                 "target_update_interval": 1,
                 "policy_kwargs": {
                     "net_arch": [512, 512],  # Larger networks
-                    "activation_fn": "torch.nn.ReLU"
-                }
+                    "activation_fn": "torch.nn.ReLU",
+                },
             },
             expected_timesteps=30000,
-            description="Aggressive SAC - faster learning, higher sample efficiency"
+            description="Aggressive SAC - faster learning, higher sample efficiency",
         )
-    
+
     @staticmethod
     def get_sac_stable() -> AlgorithmConfig:
         """Conservative SAC configuration for stable learning."""
@@ -140,13 +141,13 @@ class MissileRLConfigurations:
                 "target_update_interval": 2,
                 "policy_kwargs": {
                     "net_arch": [256, 256, 128],  # Deeper network
-                    "activation_fn": "torch.nn.Tanh"
-                }
+                    "activation_fn": "torch.nn.Tanh",
+                },
             },
             expected_timesteps=60000,
-            description="Conservative SAC - very stable, longer training"
+            description="Conservative SAC - very stable, longer training",
         )
-    
+
     @staticmethod
     def get_ddpg_config() -> AlgorithmConfig:
         """DDPG configuration for comparison."""
@@ -165,13 +166,13 @@ class MissileRLConfigurations:
                 "action_noise": "NormalActionNoise",  # Will be handled specially
                 "policy_kwargs": {
                     "net_arch": [256, 256],
-                    "activation_fn": "torch.nn.ReLU"
-                }
+                    "activation_fn": "torch.nn.ReLU",
+                },
             },
             expected_timesteps=70000,
-            description="DDPG - deterministic policy, good for precise control"
+            description="DDPG - deterministic policy, good for precise control",
         )
-    
+
     @staticmethod
     def get_all_configurations() -> List[AlgorithmConfig]:
         """Get all available configurations for comparison."""
@@ -181,17 +182,19 @@ class MissileRLConfigurations:
             MissileRLConfigurations.get_sac_default(),
             MissileRLConfigurations.get_sac_aggressive(),
             MissileRLConfigurations.get_sac_stable(),
-            MissileRLConfigurations.get_ddpg_config()
+            MissileRLConfigurations.get_ddpg_config(),
         ]
-    
+
     @staticmethod
-    def get_recommended_for_task(task_type: str = "missile_guidance") -> List[AlgorithmConfig]:
+    def get_recommended_for_task(
+        task_type: str = "missile_guidance",
+    ) -> List[AlgorithmConfig]:
         """Get recommended configurations for specific task."""
         if task_type == "missile_guidance":
             return [
                 MissileRLConfigurations.get_sac_default(),
                 MissileRLConfigurations.get_sac_aggressive(),
-                MissileRLConfigurations.get_ppo_optimized()
+                MissileRLConfigurations.get_ppo_optimized(),
             ]
         else:
             return MissileRLConfigurations.get_all_configurations()
@@ -199,14 +202,15 @@ class MissileRLConfigurations:
 
 class HyperparameterTuner:
     """Utilities for hyperparameter tuning and optimization."""
-    
+
     @staticmethod
-    def create_learning_rate_sweep(base_config: AlgorithmConfig, 
-                                  rates: List[float] = None) -> List[AlgorithmConfig]:
+    def create_learning_rate_sweep(
+        base_config: AlgorithmConfig, rates: List[float] = None
+    ) -> List[AlgorithmConfig]:
         """Create configurations with different learning rates."""
         if rates is None:
             rates = [1e-5, 3e-5, 1e-4, 3e-4, 1e-3, 3e-3]
-        
+
         configs = []
         for rate in rates:
             config = AlgorithmConfig(
@@ -214,22 +218,23 @@ class HyperparameterTuner:
                 algorithm_class=base_config.algorithm_class,
                 hyperparameters={**base_config.hyperparameters, "learning_rate": rate},
                 expected_timesteps=base_config.expected_timesteps,
-                description=f"{base_config.description} (LR: {rate})"
+                description=f"{base_config.description} (LR: {rate})",
             )
             configs.append(config)
-        
+
         return configs
-    
+
     @staticmethod
-    def create_batch_size_sweep(base_config: AlgorithmConfig,
-                               sizes: List[int] = None) -> List[AlgorithmConfig]:
+    def create_batch_size_sweep(
+        base_config: AlgorithmConfig, sizes: List[int] = None
+    ) -> List[AlgorithmConfig]:
         """Create configurations with different batch sizes."""
         if sizes is None:
             if base_config.algorithm_class == "PPO":
                 sizes = [32, 64, 128, 256]
             else:  # SAC/DDPG
                 sizes = [64, 128, 256, 512]
-        
+
         configs = []
         for size in sizes:
             config = AlgorithmConfig(
@@ -237,23 +242,25 @@ class HyperparameterTuner:
                 algorithm_class=base_config.algorithm_class,
                 hyperparameters={**base_config.hyperparameters, "batch_size": size},
                 expected_timesteps=base_config.expected_timesteps,
-                description=f"{base_config.description} (Batch Size: {size})"
+                description=f"{base_config.description} (Batch Size: {size})",
             )
             configs.append(config)
-        
+
         return configs
-    
+
     @staticmethod
-    def create_network_architecture_sweep(base_config: AlgorithmConfig) -> List[AlgorithmConfig]:
+    def create_network_architecture_sweep(
+        base_config: AlgorithmConfig,
+    ) -> List[AlgorithmConfig]:
         """Create configurations with different network architectures."""
         architectures = [
             [128, 128],
             [256, 256],
             [512, 512],
             [256, 256, 256],
-            [512, 256, 128]
+            [512, 256, 128],
         ]
-        
+
         configs = []
         for arch in architectures:
             arch_str = "_".join(map(str, arch))
@@ -263,41 +270,41 @@ class HyperparameterTuner:
             else:
                 policy_kwargs = {**base_config.hyperparameters.get("policy_kwargs", {})}
                 policy_kwargs["net_arch"] = arch
-            
+
             config = AlgorithmConfig(
                 name=f"{base_config.name}_ARCH_{arch_str}",
                 algorithm_class=base_config.algorithm_class,
                 hyperparameters={
-                    **base_config.hyperparameters, 
-                    "policy_kwargs": policy_kwargs
+                    **base_config.hyperparameters,
+                    "policy_kwargs": policy_kwargs,
                 },
                 expected_timesteps=base_config.expected_timesteps,
-                description=f"{base_config.description} (Architecture: {arch})"
+                description=f"{base_config.description} (Architecture: {arch})",
             )
             configs.append(config)
-        
+
         return configs
 
 
 def print_configuration_summary():
     """Print a summary of all available configurations."""
     configs = MissileRLConfigurations.get_all_configurations()
-    
+
     print("\\n=== Missile RL Algorithm Configurations ===\\n")
-    
+
     for config in configs:
         print(f"📋 {config.name}")
         print(f"   Algorithm: {config.algorithm_class}")
         print(f"   Expected Training Time: {config.expected_timesteps:,} timesteps")
         print(f"   Description: {config.description}")
         print(f"   Key Hyperparameters:")
-        
+
         important_params = ["learning_rate", "batch_size", "gamma", "tau"]
         for param in important_params:
             if param in config.hyperparameters:
                 print(f"     - {param}: {config.hyperparameters[param]}")
         print()
-    
+
     print("🔍 Recommended for missile guidance:")
     recommended = MissileRLConfigurations.get_recommended_for_task("missile_guidance")
     for config in recommended:

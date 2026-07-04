@@ -18,15 +18,15 @@ _**Assistant**_
 
 It looks like you’re using a hybrid approach:
 
-- The core environment and physics kernels are implemented in C++/CUDA (e.g. see `physics.cu` and exposed via PyBind in `cpp/pybind/bindings.cpp` as class `PyEnvironment`.  
+- The core environment and physics kernels are implemented in C++/CUDA (e.g. see `physics.cu` and exposed via PyBind in `cpp/pybind/bindings.cpp` as class `PyEnvironment`.
 - On the Python side you wrap that in `gpu_environment.py` (factory `make_env`/`create_vectorized_env`) and train with SB3’s PPO in `train_rl_agent`.
 
 So you’re using Python bindings for the RL logic, not a pure C++ agent. The default algorithm in the workspace is PPO via Stable-Baselines3. You already have CUDA kernels for physics; the RL loop itself runs in Python.
 
 If you want a minimal CUDA-accelerated MVP (e.g. tabular Q-learning on the GPU) you could:
 
-1. Write a tiny kernel to update a Q-table in `physics.cu` or a new `.cu` file.  
-2. Expose it via PyBind (similar to `calculate_danger_map_kernel`).  
+1. Write a tiny kernel to update a Q-table in `physics.cu` or a new `.cu` file.
+2. Expose it via PyBind (similar to `calculate_danger_map_kernel`).
 3. In Python, implement a simple Q-learning loop that calls that kernel each step.
 
 Let me know if you’d like a more detailed stub for that MVP.
@@ -83,9 +83,9 @@ Here’s how you can drop all CUDA/PyTorch dependencies and force everything to 
 ````
 
 After these changes:
-1. Remove any `*.cu` kernels or guard them out so your physics runs on the host CPU.  
-2. Rebuild your C++ extension (you should see no CUDA in the build logs).  
-3. Reinstall dependencies (`pip install -r requirements.txt`).  
+1. Remove any `*.cu` kernels or guard them out so your physics runs on the host CPU.
+2. Rebuild your C++ extension (you should see no CUDA in the build logs).
+3. Reinstall dependencies (`pip install -r requirements.txt`).
 
 Now your trainer will run entirely on CPU with Stable-Baselines3’s PPO, no PyTorch/CUDA at all.
 
@@ -101,9 +101,9 @@ _**Assistant**_
 
 You only need a `mypy.ini` (or other config file) if you actually run mypy on your project. It isn’t required by Python or pip themselves.
 
-When to keep it:  
-- You want consistent, project-wide type-checking settings  
-- You run `mypy` in CI or locally  
+When to keep it:
+- You want consistent, project-wide type-checking settings
+- You run `mypy` in CI or locally
 
 If you never invoke mypy (or don’t care about its warnings), you can delete it (or move those settings into `pyproject.toml` under a `[tool.mypy]` section).
 
@@ -120,4 +120,3 @@ _**Assistant**_
 
 
 ---
-

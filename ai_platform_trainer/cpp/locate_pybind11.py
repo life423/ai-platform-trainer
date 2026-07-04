@@ -1,7 +1,8 @@
-import sys
 import os
-import pybind11
 import site
+import sys
+
+import pybind11
 
 print("Python version:", sys.version)
 print("Executable:", sys.executable)
@@ -22,7 +23,9 @@ print(f"\nUser site packages: {user_site}")
 pybind11_cmake_locations = []
 
 # Check main pybind11 package
-main_cmake_dir = os.path.join(os.path.dirname(pybind11.__file__), "share", "cmake", "pybind11")
+main_cmake_dir = os.path.join(
+    os.path.dirname(pybind11.__file__), "share", "cmake", "pybind11"
+)
 if os.path.exists(main_cmake_dir):
     pybind11_cmake_locations.append(main_cmake_dir)
 
@@ -32,7 +35,7 @@ for sp in site_packages + [user_site]:
     cmake_dir = os.path.join(sp, "pybind11", "share", "cmake", "pybind11")
     if os.path.exists(cmake_dir):
         pybind11_cmake_locations.append(cmake_dir)
-    
+
     # Check for pybind11-global
     global_cmake_dir = os.path.join(sp, "pybind11_global", "share", "cmake", "pybind11")
     if os.path.exists(global_cmake_dir):
@@ -52,4 +55,4 @@ if not pybind11_cmake_locations:
     print("No pybind11 cmake directories found!")
 else:
     print("\nRecommended command line argument:")
-    print(f"-Dpybind11_DIR=\"{pybind11_cmake_locations[0]}\"")
+    print(f'-Dpybind11_DIR="{pybind11_cmake_locations[0]}"')

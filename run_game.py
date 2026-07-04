@@ -4,9 +4,10 @@ Main launcher for AI Platform Trainer.
 
 This is the primary entry point for the application.
 """
+import logging
 import os
 import sys
-import logging
+
 import pygame
 
 # Add the project root to sys.path to allow for module imports.
@@ -15,20 +16,19 @@ project_root = os.path.dirname(os.path.abspath(__file__))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ai_platform_trainer.ai.missile_ai_loader import check_and_train_missile_ai
-from ai_platform_trainer.gameplay.game_core import GameCore as Game
+from ai_platform_trainer.ai.missile_ai_loader import (  # noqa: E402
+    check_and_train_missile_ai,
+)
+from ai_platform_trainer.gameplay.game_core import GameCore as Game  # noqa: E402
 
 
 def setup_logging() -> None:
     """Set up basic logging configuration."""
     logging.basicConfig(
         level=logging.DEBUG,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler("game.log"),
-            logging.StreamHandler()
-        ],
-        force=True  # In Python 3.8+, this allows re-configuration of logging.
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler("game.log"), logging.StreamHandler()],
+        force=True,  # In Python 3.8+, this allows re-configuration of logging.
     )
 
 
@@ -44,7 +44,7 @@ def main() -> int:
         # Create and run the game
         game = Game()
         game.run()
-        
+
         logging.info("Game completed successfully")
         return 0
     except Exception as e:

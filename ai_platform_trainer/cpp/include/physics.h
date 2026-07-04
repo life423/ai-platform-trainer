@@ -22,7 +22,7 @@ struct Vector2 {
 
 /**
  * Update positions of entities in parallel on the GPU
- * 
+ *
  * @param entities_x X-coordinates of entities
  * @param entities_y Y-coordinates of entities
  * @param velocities_x X velocities
@@ -43,7 +43,7 @@ void cuda_update_positions(
 
 /**
  * Detect collisions between entities in parallel on the GPU
- * 
+ *
  * @param entities_a_x X-coordinates of first entity set
  * @param entities_a_y Y-coordinates of first entity set
  * @param entities_a_sizes Sizes of first entity set
@@ -68,7 +68,7 @@ void cuda_detect_collisions(
 
 /**
  * Predict missile trajectories and calculate the danger level for enemy at each position
- * 
+ *
  * @param missiles_x X-coordinates of missiles
  * @param missiles_y Y-coordinates of missiles
  * @param missiles_vx X velocities of missiles
@@ -95,7 +95,7 @@ void cuda_calculate_danger_map(
 
 /**
  * Calculate distances between entities in parallel on the GPU
- * 
+ *
  * @param entities_a_x X-coordinates of first entity set
  * @param entities_a_y Y-coordinates of first entity set
  * @param entities_a_count Number of entities in first set
@@ -116,7 +116,7 @@ void cuda_calculate_distances(
 
 /**
  * Calculate optimal evasion vectors for enemies based on missile positions and velocities
- * 
+ *
  * @param enemy_x X-coordinate of enemy
  * @param enemy_y Y-coordinate of enemy
  * @param missiles_x X-coordinates of missiles

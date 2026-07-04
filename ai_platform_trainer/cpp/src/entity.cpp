@@ -16,11 +16,11 @@ bool Entity::collides_with(const Entity& other) const {
     float dx = this->x - other.x;
     float dy = this->y - other.y;
     float distance_squared = dx * dx + dy * dy;
-    
+
     // Calculate minimum distance for collision
     float min_distance = (this->size + other.size) * 0.5f;
     float min_distance_squared = min_distance * min_distance;
-    
+
     // Return true if entities are overlapping
     return distance_squared <= min_distance_squared;
 }
@@ -37,7 +37,7 @@ void Entity::wrap_position(float screen_width, float screen_height) {
     } else if (x >= screen_width) {
         x -= screen_width;
     }
-    
+
     // Wrap vertically
     if (y < 0) {
         y += screen_height;
@@ -64,7 +64,7 @@ void Player::handle_input(float dx, float dy) {
         dx /= length;
         dy /= length;
     }
-    
+
     // Update position based on input
     x += dx * step;
     y += dy * step;
@@ -74,27 +74,27 @@ void Player::shoot_missile(float enemy_x, float enemy_y) {
     // Calculate center position for missile
     float missile_x = x + size * 0.5f;
     float missile_y = y + size * 0.5f;
-    
+
     // Calculate direction to enemy
     float dx = enemy_x - missile_x;
     float dy = enemy_y - missile_y;
-    
+
     // Normalize direction
     float length = std::sqrt(dx * dx + dy * dy);
     if (length > 0.001f) {
         dx /= length;
         dy /= length;
     }
-    
+
     // Create missile with calculated velocity
     constexpr float kMissileSpeed = 5.0f;
     constexpr float kMissileSize = 10.0f;
     constexpr float kMissileLifespan = 10000.0f;  // 10 seconds
-    
+
     missiles.push_back(
         std::make_shared<Missile>(
-            missile_x, missile_y, kMissileSpeed, 
-            dx * kMissileSpeed, dy * kMissileSpeed, 
+            missile_x, missile_y, kMissileSpeed,
+            dx * kMissileSpeed, dy * kMissileSpeed,
             kMissileLifespan
         )
     );
@@ -103,16 +103,16 @@ void Player::shoot_missile(float enemy_x, float enemy_y) {
 void Player::update_missiles(float screen_width, float screen_height) {
     for (auto& missile : missiles) {
         missile->update();
-        
+
         // Wrap missile position to screen boundaries
         missile->wrap_position(screen_width, screen_height);
     }
-    
+
     // Remove expired missiles
     missiles.erase(
         std::remove_if(
-            missiles.begin(), 
-            missiles.end(), 
+            missiles.begin(),
+            missiles.end(),
             [](const std::shared_ptr<Missile>& m) {
                 return !m->visible;
             }
@@ -171,7 +171,7 @@ void Missile::update() {
     // Update position based on velocity
     x += vx;
     y += vy;
-    
+
     // Update angle based on velocity
     angle = std::atan2(vy, vx);
 }

@@ -5,14 +5,14 @@ This module provides a training pipeline for the missile trajectory prediction m
 including data loading, training loop, optimization, and model saving.
 """
 import os
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
-from ai_platform_trainer.ai.training.missile_dataset import MissileDataset
 from ai_platform_trainer.ai.models.simple_missile_model import SimpleMissileModel
+from ai_platform_trainer.ai.training.missile_dataset import MissileDataset
 
 
 class MissileTrainer:
@@ -51,7 +51,9 @@ class MissileTrainer:
         # Initialize dataset and loader
         self.dataset = MissileDataset(json_file=self.filename)
 
-        self.dataloader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True)
+        self.dataloader = DataLoader(
+            self.dataset, batch_size=self.batch_size, shuffle=True
+        )
 
         # Initialize model and optimizer
         self.model = SimpleMissileModel(input_size=9, hidden_size=64, output_size=1)
@@ -84,7 +86,7 @@ class MissileTrainer:
                 weights = weights.view(-1)
 
                 # Weighted MSE
-                loss_per_sample = (preds - actions)**2 * weights
+                loss_per_sample = (preds - actions) ** 2 * weights
                 loss = loss_per_sample.mean()
 
                 loss.backward()

@@ -5,7 +5,7 @@ This module provides functions to hook into the game's training mode,
 validating, appending, and retraining models with newly collected data.
 """
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 # Lazy import to avoid circular dependencies
 logger = logging.getLogger(__name__)
@@ -27,10 +27,13 @@ class PostTrainingProcessor:
         """Lazy load the validator and trainer to avoid circular imports"""
         if self._validator_and_trainer is None:
             # Import here to avoid circular dependencies
-            from ai_platform_trainer.utils.data_validator_and_trainer import DataValidatorAndTrainer
+            from ai_platform_trainer.utils.data_validator_and_trainer import (
+                DataValidatorAndTrainer,
+            )
+
             self._validator_and_trainer = DataValidatorAndTrainer()
         return self._validator_and_trainer
-        
+
     def process_training_sequence(self, training_data: List[Dict[str, Any]]) -> bool:
         """
         Process training data from a completed training sequence.
@@ -50,15 +53,15 @@ class PostTrainingProcessor:
             return False
 
         logger.info(f"Processing {len(training_data)} data points from training")
-        
+
         # Use our validator and trainer to handle the data
         success = self.validator_and_trainer.process_new_data(training_data)
-        
+
         if success:
             logger.info("Training data successfully processed and models retrained")
         else:
             logger.error("Failed to process training data")
-            
+
         return success
 
 

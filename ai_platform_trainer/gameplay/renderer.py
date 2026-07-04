@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Dict, List
 
 import pygame
 
@@ -23,7 +24,7 @@ class Renderer:
         # Optional effects
         self.enable_effects = True
         self.frame_count = 0
-        self.particle_effects = []
+        self.particle_effects: List[Dict[str, Any]] = []
 
     def render(
         self,

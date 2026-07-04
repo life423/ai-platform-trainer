@@ -26,7 +26,7 @@ public:
     // Virtual methods
     virtual void update() = 0;
     virtual bool collides_with(const Entity& other) const;
-    
+
     // Utility methods
     void set_position(float new_x, float new_y);
     void wrap_position(float screen_width, float screen_height);

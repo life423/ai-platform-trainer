@@ -28,19 +28,19 @@ public:
     py::tuple step(py::array_t<float> action) {
         // Convert numpy action to vector
         auto action_vec = numpy_to_vector<float>(action);
-        
+
         // Call the C++ step method
         auto [obs, reward, done, truncated, info] = env_->step(action_vec);
-        
+
         // Convert observation to numpy array
         py::array_t<float> obs_array = vector_to_numpy(obs);
-        
+
         // Convert info map to Python dict
         py::dict info_dict;
         for (const auto& [key, value] : info) {
             info_dict[key.c_str()] = value;
         }
-        
+
         return py::make_tuple(obs_array, reward, done, truncated, info_dict);
     }
 
@@ -65,18 +65,18 @@ public:
     py::dict get_debug_data() const {
         auto debug_data = env_->get_debug_data();
         py::dict result;
-        
+
         for (const auto& [key, values] : debug_data) {
             result[key.c_str()] = vector_to_numpy(values);
         }
-        
+
         return result;
     }
 
     // Vectorized environment methods for batch processing
     py::list batch_reset(int batch_size, py::array_t<unsigned int> seeds) {
         std::vector<unsigned int> seed_vec;
-        
+
         // If seeds provided, convert to vector
         if (seeds.size() > 0) {
             seed_vec = numpy_to_vector<unsigned int>(seeds);
@@ -87,16 +87,16 @@ public:
                 seed_vec[i] = static_cast<unsigned int>(i);
             }
         }
-        
+
         // Call batch reset
         auto observations = env_->batch_reset(batch_size, seed_vec);
-        
+
         // Convert to list of numpy arrays
         py::list result;
         for (const auto& obs : observations) {
             result.append(vector_to_numpy(obs));
         }
-        
+
         return result;
     }
 
@@ -106,34 +106,34 @@ public:
         for (const auto& action : actions) {
             action_vecs.push_back(numpy_to_vector<float>(action.cast<py::array_t<float>>()));
         }
-        
+
         // Call batch step
         auto results = env_->batch_step(action_vecs);
-        
+
         // Convert results to Python list of tuples
         py::list result_list;
         for (const auto& [obs, reward, done, truncated, info] : results) {
             // Convert observation to numpy array
             py::array_t<float> obs_array = vector_to_numpy(obs);
-            
+
             // Convert info map to Python dict
             py::dict info_dict;
             for (const auto& [key, value] : info) {
                 info_dict[key.c_str()] = value;
             }
-            
+
             // Create and append the result tuple
             result_list.append(
                 py::make_tuple(obs_array, reward, done, truncated, info_dict)
             );
         }
-        
+
         return result_list;
     }
 
 private:
     std::unique_ptr<Environment> env_;
-    
+
     // Helper methods for numpy conversions
     template<typename T>
     py::array_t<T> vector_to_numpy(const std::vector<T>& vec) {
@@ -142,14 +142,14 @@ private:
         std::copy(vec.begin(), vec.end(), buf);
         return result;
     }
-    
+
     template<typename T>
     std::vector<T> numpy_to_vector(py::array_t<T> array) {
         auto buf = array.request();
         T* ptr = static_cast<T*>(buf.ptr);
         return std::vector<T>(ptr, ptr + buf.size);
     }
-    
+
     template<typename T>
     py::tuple vector_to_tuple(const std::vector<T>& vec) {
         py::tuple result(vec.size());
@@ -193,7 +193,7 @@ PYBIND11_MODULE(gpu_environment, m) {
         .def("get_action_shape", &PyEnvironment::get_action_shape)
         .def("get_config", &PyEnvironment::get_config)
         .def("get_debug_data", &PyEnvironment::get_debug_data)
-        .def("batch_reset", &PyEnvironment::batch_reset, 
+        .def("batch_reset", &PyEnvironment::batch_reset,
              py::arg("batch_size"), py::arg("seeds") = py::array_t<unsigned int>())
         .def("batch_step", &PyEnvironment::batch_step);
 
@@ -203,7 +203,7 @@ PYBIND11_MODULE(gpu_environment, m) {
         // using the environment we've exposed
         return py::none();
     });
-    
+
     m.def("create_vectorized_env", [](int num_envs, const EnvironmentConfig& config) {
         // This function will be implemented in Python
         // to create a vectorized environment

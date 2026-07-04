@@ -12,21 +12,21 @@ _**Assistant**_
 
 To verify you can actually use your GPU in a headless RL run, you can use one of the built-in scripts:
 
-1. Run the simple CUDA check  
+1. Run the simple CUDA check
    ```bash
    python ai_platform_trainer/cpp/verify_cuda.py
-   ```  
-   This will print out  
-   • PyTorch CUDA availability  
+   ```
+   This will print out
+   • PyTorch CUDA availability
    • nvcc version (direct compiler check)
 
-2. Or use the full GPU-training verifier with just the CUDA check enabled:  
+2. Or use the full GPU-training verifier with just the CUDA check enabled:
    ```bash
    python ai_platform_trainer/cpp/verify_gpu_training.py --cuda-check
-   ```  
+   ```
    This calls `verify_cuda_capability`, prints device count/name and exits.
 
-3. For a one-liner in PowerShell/Bash:  
+3. For a one-liner in PowerShell/Bash:
    ```bash
    python - << 'EOF'
    import torch
@@ -47,7 +47,7 @@ Now I need to focus on having my GPU, my nvida 5070 render the RL model working.
 PyTorch version: 2.7.0+cpu
 CUDA available: False
 CUDA is not available. Check your PyTorch installation.
-(.venv) PS C:\Users\aiand\Documents\programming\ai-platform-trainerv1> https://github.com/life423/ai-platform-trainer the latest commit on the main branch is the same code as in my ide that you will be helping me with. 
+(.venv) PS C:\Users\aiand\Documents\programming\ai-platform-trainerv1> https://github.com/life423/ai-platform-trainer the latest commit on the main branch is the same code as in my ide that you will be helping me with.
 
 ---
 
@@ -74,4 +74,3 @@ int main() {
         std::cerr << "cudaGetDeviceCount failed: "
 
 ---
-

@@ -8,7 +8,7 @@ if(CMAKE_CUDA_COMPILER)
   enable_language(CUDA)
   set(CUDA_ENABLED TRUE)
   message(STATUS "CUDA found: ${CMAKE_CUDA_COMPILER_VERSION}")
-  
+
   # Set CUDA architecture specifically for RTX 5070 (Ada Lovelace)
   set(CMAKE_CUDA_ARCHITECTURES 89)
   message(STATUS "Using CUDA architecture: ${CMAKE_CUDA_ARCHITECTURES}")
@@ -74,7 +74,7 @@ if(CUDA_ENABLED)
 endif()
 
 # Pybind11 module
-pybind11_add_module(gpu_environment 
+pybind11_add_module(gpu_environment
     pybind/bindings.cpp
     ${SOURCES}
 )

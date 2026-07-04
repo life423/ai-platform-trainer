@@ -6,20 +6,20 @@ This module provides functionality to:
 2. Append new data to existing training data
 3. Trigger retraining of AI models
 """
-import os
 import json
 import logging
+import os
 import time
-from typing import Dict, List, Any, Tuple
+from typing import Any, Dict, List, Tuple
+
+from ai_platform_trainer.ai.training.train_enemy_rl import train_rl_agent
 
 # Import training modules
 from ai_platform_trainer.ai.training.train_missile_model import MissileTrainer
-from ai_platform_trainer.ai.training.train_enemy_rl import train_rl_agent
 
 # Set up logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class DataValidatorAndTrainer:
         "missile_angle": float,
         "missile_collision": bool,
         "missile_action": float,
-        "timestamp": int
+        "timestamp": int,
     }
 
     def __init__(
@@ -49,7 +49,7 @@ class DataValidatorAndTrainer:
         training_data_path: str = "data/raw/training_data.json",
         missile_model_path: str = "models/missile_model.pth",
         enemy_model_path: str = "models/enemy_rl",
-        backup_dir: str = "data/backups"
+        backup_dir: str = "data/backups",
     ):
         """
         Initialize the validator and trainer.
@@ -64,7 +64,7 @@ class DataValidatorAndTrainer:
         self.missile_model_path = missile_model_path
         self.enemy_model_path = enemy_model_path
         self.backup_dir = backup_dir
-        
+
         # Create directories if they don't exist
         os.makedirs(os.path.dirname(self.training_data_path), exist_ok=True)
         os.makedirs(self.backup_dir, exist_ok=True)
@@ -81,22 +81,25 @@ class DataValidatorAndTrainer:
         """
         if not new_data:
             return False, "New data is empty"
-        
+
         # Check each data point for required fields and types
         for i, data_point in enumerate(new_data):
             # Check for missing keys
             for key in self.EXPECTED_SCHEMA:
                 if key not in data_point:
                     return False, f"Data point {i} missing required key: {key}"
-            
+
             # Check for correct types
             for key, expected_type in self.EXPECTED_SCHEMA.items():
                 actual_value = data_point[key]
                 # Handle None values (decide if they should be allowed)
                 if actual_value is None:
                     expected_name = expected_type.__name__
-                    return False, f"Data point {i}: {key} is None but should be {expected_name}"
-                
+                    return (
+                        False,
+                        f"Data point {i}: {key} is None but should be {expected_name}",
+                    )
+
                 # Type checking with special handling for numeric types
                 if expected_type in (float, int):
                     if not isinstance(actual_value, (float, int)):
@@ -109,7 +112,7 @@ class DataValidatorAndTrainer:
                     expected = expected_type.__name__
                     msg = f"Data point {i}: {key} has type {type_name} but should be {expected}"
                     return False, msg
-        
+
         return True, ""
 
     def backup_existing_data(self) -> bool:
@@ -123,19 +126,19 @@ class DataValidatorAndTrainer:
             path = self.training_data_path
             logger.info(f"No existing data file at {path} to backup")
             return True
-        
+
         try:
             # Create a timestamped backup filename
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             backup_filename = f"training_data_backup_{timestamp}.json"
             backup_path = os.path.join(self.backup_dir, backup_filename)
-            
+
             # Copy the file
-            with open(self.training_data_path, 'r') as source:
+            with open(self.training_data_path, "r") as source:
                 data = json.load(source)
-                with open(backup_path, 'w') as target:
+                with open(backup_path, "w") as target:
                     json.dump(data, target, indent=4)
-            
+
             logger.info(f"Created backup at {backup_path}")
             return True
         except Exception as e:
@@ -153,9 +156,9 @@ class DataValidatorAndTrainer:
             path = self.training_data_path
             logger.info(f"No existing data file at {path}")
             return []
-        
+
         try:
-            with open(self.training_data_path, 'r') as f:
+            with open(self.training_data_path, "r") as f:
                 data = json.load(f)
                 count = len(data)
                 logger.info(f"Loaded {count} existing data points")
@@ -168,7 +171,9 @@ class DataValidatorAndTrainer:
             logger.error(f"Error loading existing data: {error}")
             return []
 
-    def merge_and_save_data(self, existing_data: List[Dict[str, Any]], new_data: List[Dict[str, Any]]) -> bool:
+    def merge_and_save_data(
+        self, existing_data: List[Dict[str, Any]], new_data: List[Dict[str, Any]]
+    ) -> bool:
         """
         Merge new data with existing data and save to file.
 
@@ -184,11 +189,11 @@ class DataValidatorAndTrainer:
             combined_data = existing_data + new_data
             total = len(combined_data)
             logger.info(f"Combined data now has {total} entries")
-            
+
             # Save to file
-            with open(self.training_data_path, 'w') as f:
+            with open(self.training_data_path, "w") as f:
                 json.dump(combined_data, f, indent=4)
-            
+
             data_path = self.training_data_path
             msg = f"Successfully saved combined data to {data_path}"
             logger.info(msg)
@@ -208,7 +213,7 @@ class DataValidatorAndTrainer:
             logger.info("Starting missile model training...")
             trainer = MissileTrainer(
                 filename=self.training_data_path,
-                model_save_path=self.missile_model_path
+                model_save_path=self.missile_model_path,
             )
             trainer.run_training()
             model_path = self.missile_model_path
@@ -230,17 +235,19 @@ class DataValidatorAndTrainer:
             # This can be configured based on available time
             logger.info("Starting enemy RL model training...")
             timesteps = 100000  # Adjust as needed
-            
+
             model = train_rl_agent(
                 total_timesteps=timesteps,
                 save_path=self.enemy_model_path,
                 log_path="logs/enemy_rl",
-                headless=True
+                headless=True,
             )
-            
+
             if model:
                 model_path = self.enemy_model_path
-                logger.info(f"Enemy RL model training completed and saved to {model_path}")
+                logger.info(
+                    f"Enemy RL model training completed and saved to {model_path}"
+                )
                 return True
             else:
                 logger.error("Enemy RL training returned None")
@@ -265,24 +272,24 @@ class DataValidatorAndTrainer:
             msg = f"Data validation failed: {error_msg}"
             logger.error(msg)
             return False
-        
+
         logger.info(f"Validated {len(new_data)} new data points")
-        
+
         # Step 2: Backup existing data
         if not self.backup_existing_data():
             logger.warning("Proceeding without backup")
-        
+
         # Step 3: Load existing data
         existing_data = self.load_existing_data()
-        
+
         # Step 4: Merge and save the combined data
         if not self.merge_and_save_data(existing_data, new_data):
             return False
-        
+
         # Step 5: Retrain models
         missile_success = self.train_missile_model()
         enemy_success = self.train_enemy_model()
-        
+
         return missile_success and enemy_success
 
 

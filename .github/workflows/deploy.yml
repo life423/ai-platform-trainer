@@ -14,53 +14,53 @@ jobs:
   quality-gates:
     name: Quality Gates
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -e .
-    
+
     - name: Code Quality Checks
       run: |
         echo "🔍 Running code quality checks..."
-        
+
         # Check Python syntax
         python -m py_compile run_game.py
         echo "✅ Main entry point syntax is valid"
-        
+
         # Check imports
         python -c "import ai_platform_trainer; print('✅ Main package imports successfully')"
-        
+
         # Verify AI models can be loaded
         python -c "
         from ai_platform_trainer.ai.missile_ai_loader import MissileAIManager
         manager = MissileAIManager()
         print(f'✅ AI system status: {manager.get_ai_info()}')
         "
-        
+
         echo "🎯 All quality checks passed!"
-    
+
     - name: Security Scan
       run: |
         echo "🔒 Running basic security checks..."
-        
+
         # Check for common security issues
         if grep -r "password\|secret\|key" --include="*.py" . | grep -v "# " | grep -v "test"; then
           echo "⚠️  Potential secrets found in code"
         else
           echo "✅ No obvious secrets found"
         fi
-        
+
         # Check requirements for known vulnerabilities
         echo "📦 Checking dependencies..."
         pip list | head -10
@@ -70,60 +70,60 @@ jobs:
     name: Pre-train AI Models
     runs-on: ubuntu-latest
     needs: quality-gates
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install "stable-baselines3[extra]"
-        
+
         # Install the project in development mode
         pip install -e .
-    
+
     - name: Pre-train Missile AI
       run: |
         # Create models directory
         mkdir -p models
-        
+
         # Run missile AI training with optimized settings for CI
         python -c "
         import os
         import logging
         logging.basicConfig(level=logging.INFO)
-        
+
         from ai_platform_trainer.ai.training.train_missile_rl import MissileRLTrainer
-        
+
         print('🚀 Pre-training missile AI for deployment...')
         trainer = MissileRLTrainer(save_path='models/missile_rl_model')
-        
+
         # Train with fewer timesteps for CI (still effective)
         model = trainer.train(total_timesteps=75000)
         print('✅ Missile AI pre-training completed!')
-        
+
         # Test the model
         avg_reward, hit_rate = trainer.test_model('models/missile_rl_model_final.zip', num_episodes=5)
         print(f'📊 Model Performance: Avg Reward: {avg_reward:.2f}, Hit Rate: {hit_rate:.1%}')
-        
+
         if hit_rate < 0.6:
             print('⚠️  Warning: Model performance below target, but proceeding with deployment')
         else:
             print('🎯 Model performance excellent - ready for deployment!')
         "
-    
+
     - name: Verify AI Models
       run: |
         echo "📋 Checking generated AI models..."
         ls -la models/
-        
+
         if [ -f "models/missile_rl_model_final.zip" ]; then
           echo "✅ RL model created successfully"
           echo "📏 Model size: $(du -h models/missile_rl_model_final.zip | cut -f1)"
@@ -131,7 +131,7 @@ jobs:
           echo "❌ RL model not found!"
           exit 1
         fi
-    
+
     - name: Upload AI Models
       uses: actions/upload-artifact@v4
       with:
@@ -144,22 +144,22 @@ jobs:
     runs-on: windows-latest
     needs: pre-train-ai
     timeout-minutes: 45
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
-    
+
     - name: Download Pre-trained AI Models
       uses: actions/download-artifact@v4
       with:
         name: pre-trained-ai-models
         path: models/
-    
+
     - name: Cache PyInstaller
       uses: actions/cache@v4
       with:
@@ -170,16 +170,16 @@ jobs:
         key: windows-pyinstaller-${{ hashFiles('requirements.txt') }}
         restore-keys: |
           windows-pyinstaller-
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install "stable-baselines3[extra]"
-        
+
         # Install the project in development mode
         pip install -e .
-    
+
     - name: Build executable with PyInstaller
       shell: cmd
       run: |
@@ -206,7 +206,7 @@ jobs:
           --exclude-module "tests" ^
           --log-level WARN ^
           run_game.py
-        
+
         echo "✅ Build completed. Checking output..."
         if exist dist\AI-Platform-Trainer.exe (
           echo "✅ Executable created successfully"
@@ -214,14 +214,14 @@ jobs:
           echo "❌ Executable not found!"
           exit 1
         )
-    
+
     - name: Test executable
       shell: cmd
       run: |
         echo "🧪 Testing Windows executable..."
         echo "📏 Executable size:"
         dir dist\AI-Platform-Trainer.exe
-        
+
         echo "🔍 Basic executable validation..."
         REM Check if file exists and is not empty
         if exist dist\AI-Platform-Trainer.exe (
@@ -238,9 +238,9 @@ jobs:
           echo "❌ Executable not found!"
           exit 1
         )
-        
+
         echo "🎯 Test completed successfully"
-    
+
     - name: Upload Windows executable
       uses: actions/upload-artifact@v4
       with:
@@ -251,31 +251,31 @@ jobs:
     name: Build macOS Application
     runs-on: macos-latest
     needs: pre-train-ai
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
-    
+
     - name: Download Pre-trained AI Models
       uses: actions/download-artifact@v4
       with:
         name: pre-trained-ai-models
         path: models/
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install "stable-baselines3[extra]"
-        
+
         # Install the project in development mode
         pip install -e .
-    
+
     - name: Build macOS app with PyInstaller
       run: |
         pyinstaller --clean \
@@ -294,21 +294,21 @@ jobs:
           --collect-all "stable_baselines3" \
           --collect-all "gymnasium" \
           run_game.py
-    
+
     - name: Create DMG
       run: |
         # Create a simple DMG for distribution
         mkdir -p dmg_temp
         cp dist/AI-Platform-Trainer dmg_temp/
         hdiutil create -volname "AI Platform Trainer" -srcfolder dmg_temp -ov -format UDZO AI-Platform-Trainer-macOS.dmg
-    
+
     - name: Test executable
       run: |
         echo "🧪 Testing macOS executable..."
         echo "📏 Executable size:"
         ls -lh dist/AI-Platform-Trainer
         ls -lh AI-Platform-Trainer-macOS.dmg
-    
+
     - name: Upload macOS application
       uses: actions/upload-artifact@v4
       with:
@@ -322,22 +322,22 @@ jobs:
     runs-on: ubuntu-latest
     needs: pre-train-ai
     timeout-minutes: 45
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
-    
+
     - name: Download Pre-trained AI Models
       uses: actions/download-artifact@v4
       with:
         name: pre-trained-ai-models
         path: models/
-    
+
     - name: Cache PyInstaller
       uses: actions/cache@v4
       with:
@@ -348,7 +348,7 @@ jobs:
         key: linux-pyinstaller-${{ hashFiles('requirements.txt') }}
         restore-keys: |
           linux-pyinstaller-
-    
+
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -365,13 +365,13 @@ jobs:
           libxcb-randr0 \
           libxcb-render-util0 \
           libxcb-xinerama0
-    
+
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install "stable-baselines3[extra]"
-    
+
     - name: Build Linux executable with PyInstaller
       run: |
         echo "🔨 Building Linux executable with optimized settings..."
@@ -395,7 +395,7 @@ jobs:
           --exclude-module "tests" \
           --log-level WARN \
           run_game.py
-        
+
         echo "✅ Build completed. Checking output..."
         if [ -f "dist/AI-Platform-Trainer" ]; then
           echo "✅ Executable created successfully"
@@ -403,17 +403,17 @@ jobs:
           echo "❌ Executable not found!"
           exit 1
         fi
-    
+
     - name: Make executable
       run: |
         chmod +x dist/AI-Platform-Trainer
-    
+
     - name: Test executable
       run: |
         echo "🧪 Testing Linux executable..."
         echo "📏 Executable size:"
         ls -lh dist/AI-Platform-Trainer
-        
+
         echo "🔍 Basic executable validation..."
         if [ -f "dist/AI-Platform-Trainer" ]; then
           echo "✅ Executable file exists"
@@ -423,7 +423,7 @@ jobs:
           else
             echo "✅ Executable size looks good ($file_size bytes)"
           fi
-          
+
           # Test executable permissions
           if [ -x "dist/AI-Platform-Trainer" ]; then
             echo "✅ Executable has correct permissions"
@@ -435,9 +435,9 @@ jobs:
           echo "❌ Executable not found!"
           exit 1
         fi
-        
+
         echo "🎯 Test completed successfully"
-    
+
     - name: Upload Linux executable
       uses: actions/upload-artifact@v4
       with:
@@ -449,39 +449,39 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-windows, build-macos, build-linux]
     if: github.ref == 'refs/heads/main' && needs.build-windows.result == 'success' && needs.build-macos.result == 'success' && needs.build-linux.result == 'success'
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
         path: artifacts/
-    
+
     - name: Prepare release assets
       run: |
         mkdir -p release/
-        
+
         # Windows
         cp artifacts/windows-executable/AI-Platform-Trainer.exe release/AI-Platform-Trainer-Windows.exe
-        
+
         # macOS
         cp artifacts/macos-application/dist/AI-Platform-Trainer release/AI-Platform-Trainer-macOS
         cp artifacts/macos-application/AI-Platform-Trainer-macOS.dmg release/
-        
+
         # Linux
         cp artifacts/linux-executable/AI-Platform-Trainer release/AI-Platform-Trainer-Linux
-        
+
         # Create checksums
         cd release/
         sha256sum * > checksums.txt
-        
+
         echo "📦 Release contents:"
         ls -lh
-        
+
         echo "🔒 Checksums:"
         cat checksums.txt
-    
+
     - name: Generate release notes
       run: |
         echo "# AI Platform Trainer - Automated Release" > release_notes.md
@@ -512,7 +512,7 @@ jobs:
         echo "- **Python Version**: ${{ env.PYTHON_VERSION }}" >> release_notes.md
         echo "" >> release_notes.md
         echo "Verify file integrity using the checksums.txt file." >> release_notes.md
-    
+
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
@@ -525,7 +525,7 @@ jobs:
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Success notification
       run: |
         echo "🎉 Release created successfully!"
@@ -540,35 +540,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-windows, build-macos, build-linux]
     if: always()
-    
+
     steps:
     - name: Workflow Status Summary
       run: |
         echo "## 🚀 AI Platform Trainer Build Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         # Check build results
         if [ "${{ needs.build-windows.result }}" == "success" ]; then
           echo "✅ **Windows Build**: Success" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **Windows Build**: Failed" >> $GITHUB_STEP_SUMMARY
         fi
-        
+
         if [ "${{ needs.build-macos.result }}" == "success" ]; then
           echo "✅ **macOS Build**: Success" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **macOS Build**: Failed" >> $GITHUB_STEP_SUMMARY
         fi
-        
+
         if [ "${{ needs.build-linux.result }}" == "success" ]; then
           echo "✅ **Linux Build**: Success" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **Linux Build**: Failed" >> $GITHUB_STEP_SUMMARY
         fi
-        
+
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "🔗 **View Results**: [Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-        
+
         # Set overall status
         if [ "${{ needs.build-windows.result }}" == "success" ] && [ "${{ needs.build-macos.result }}" == "success" ] && [ "${{ needs.build-linux.result }}" == "success" ]; then
           echo "🎉 **Overall Status**: All builds successful!" >> $GITHUB_STEP_SUMMARY

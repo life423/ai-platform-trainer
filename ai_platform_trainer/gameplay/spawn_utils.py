@@ -4,7 +4,6 @@ from typing import Optional, Tuple
 
 from ai_platform_trainer.core.config_manager import get_config_manager
 
-
 # Get the ConfigManager instance
 config_manager = get_config_manager()
 
@@ -15,7 +14,7 @@ def find_valid_spawn_position(
     entity_size: int,
     margin: int = None,
     min_dist: int = None,
-    other_pos: Optional[Tuple[int, int]] = None,
+    other_pos: Optional[Tuple[float, float]] = None,
 ) -> Tuple[int, int]:
     """
     Returns a random (x, y) within the screen boundaries, ensuring optional
@@ -47,7 +46,7 @@ def find_enemy_spawn_position(
     screen_width: int,
     screen_height: int,
     enemy_size: int,
-    player_pos: Tuple[float, float]
+    player_pos: Tuple[float, float],
 ) -> Tuple[int, int]:
     """
     Specialized helper for spawning an enemy, ensuring min distance from the player.

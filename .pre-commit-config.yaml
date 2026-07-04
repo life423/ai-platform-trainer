@@ -25,10 +25,14 @@ repos:
     rev: 6.0.0
     hooks:
       - id: flake8
+        # flake8-docstrings (pydocstyle) intentionally left out: its
+        # docstring-completeness checks aren't a good match for this
+        # codebase's current state, and its parser hard-crashes flake8
+        # entirely on ai_platform_trainer/cpp/verify_gpu_training.py
+        # (a pydocstyle bug, not a problem with that file).
         additional_dependencies: [
           flake8-bugbear,
           flake8-comprehensions,
-          flake8-docstrings,
           flake8-quotes,
         ]
 

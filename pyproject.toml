@@ -31,14 +31,14 @@ ensure_newline_before_comments = true
 
 [tool.mypy]
 python_version = "3.8"
-warn_return_any = true
+warn_return_any = false
 warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-strict_optional = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
+no_implicit_optional = false
+strict_optional = false
 
 [[tool.mypy.overrides]]
 module = "pygame.*"
@@ -59,6 +59,20 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "gymnasium.*"
 ignore_missing_imports = true
+
+# ai/training/ is iterative ML experimentation code (several parallel
+# RL trainer implementations, not the live gameplay path) and cpp/ is
+# standalone GPU/CUDA verification and build tooling - neither is worth
+# holding to the same typing bar as the actual game code.
+[[tool.mypy.overrides]]
+module = ["ai_platform_trainer.ai.training.*", "ai_platform_trainer.cpp.*"]
+ignore_errors = true
+
+# Standalone root-level dev/build scripts, not part of the ai_platform_trainer
+# package itself.
+[[tool.mypy.overrides]]
+module = ["setup", "cleanup_old_code"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

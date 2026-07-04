@@ -6,7 +6,7 @@ all test modules, including mock data, model instances, and utility helpers.
 """
 import json
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 import pytest
 import torch
@@ -15,8 +15,6 @@ from ai_platform_trainer.ai.models.simple_missile_model import SimpleMissileMode
 
 
 @pytest.fixture
-
-
 def sample_training_data() -> List[Dict[str, Any]]:
     """
     Create a small sample of training data for testing.
@@ -51,9 +49,9 @@ def sample_training_data() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-
-
-def sample_training_json_path(tmp_path: Path, sample_training_data: List[Dict[str, Any]]) -> str:
+def sample_training_json_path(
+    tmp_path: Path, sample_training_data: List[Dict[str, Any]]
+) -> str:
     """
     Create a temporary JSON file with sample training data.
 
@@ -71,8 +69,6 @@ def sample_training_json_path(tmp_path: Path, sample_training_data: List[Dict[st
 
 
 @pytest.fixture
-
-
 def simple_missile_model() -> SimpleMissileModel:
     """
     Create a SimpleMissileModel instance with deterministic weights.
@@ -93,8 +89,6 @@ def simple_missile_model() -> SimpleMissileModel:
 
 
 @pytest.fixture
-
-
 def mock_game_state() -> Dict[str, Any]:
     """
     Create a mock game state for testing.

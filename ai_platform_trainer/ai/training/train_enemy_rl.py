@@ -4,13 +4,13 @@ Training script for the enemy AI using Proximal Policy Optimization (PPO).
 This module provides functionality to train an RL agent for enemy behavior
 using the Stable Baselines3 PPO implementation.
 """
-import os
 import logging
-import numpy as np
+import os
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
+import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
@@ -30,7 +30,7 @@ class TrainingCallback(BaseCallback):
         save_freq: int,
         save_path: str,
         monitor: TrainingMonitor,
-        name_prefix: str = "enemy_ppo_model"
+        name_prefix: str = "enemy_ppo_model",
     ):
         """
         Initialize the callback with saving parameters.
@@ -46,7 +46,7 @@ class TrainingCallback(BaseCallback):
         self.save_path = save_path
         self.name_prefix = name_prefix
         self.monitor = monitor
-        self.best_reward = -float('inf')
+        self.best_reward = -float("inf")
         self.best_model_path = os.path.join(save_path, f"{name_prefix}_best")
         self.last_save_step = 0
         self.training_start_time = time.time()
@@ -97,38 +97,46 @@ class TrainingCallback(BaseCallback):
         metrics = {}
 
         # Track training steps
-        metrics['training_steps'] = self.n_calls
+        metrics["training_steps"] = self.n_calls
 
         # Track learning rate
-        if hasattr(self.model, 'lr_schedule') and hasattr(self.model.lr_schedule, 'get_value'):
-            metrics['learning_rate'] = self.model.lr_schedule(1)
+        if hasattr(self.model, "lr_schedule") and hasattr(
+            self.model.lr_schedule, "get_value"
+        ):
+            metrics["learning_rate"] = self.model.lr_schedule(1)
 
         # Track losses
-        if hasattr(self.model, 'logger') and hasattr(self.model.logger, 'name_to_value'):
+        if hasattr(self.model, "logger") and hasattr(
+            self.model.logger, "name_to_value"
+        ):
             name_to_value = self.model.logger.name_to_value
-            for key in ['value_loss', 'policy_loss', 'entropy']:
+            for key in ["value_loss", "policy_loss", "entropy"]:
                 if key in name_to_value:
-                    metrics[f'avg_{key}'] = name_to_value[key]
+                    metrics[f"avg_{key}"] = name_to_value[key]
 
         # Track rewards
-        metrics['episode_rewards'] = self._get_avg_reward()
+        metrics["episode_rewards"] = self._get_avg_reward()
 
         # Calculate and track FPS
         current_time = time.time()
         time_diff = current_time - self.last_fps_update
         if time_diff >= 1.0:  # Update FPS every second
             fps = self.steps_since_fps_update / time_diff
-            metrics['fps'] = fps
+            metrics["fps"] = fps
             self.last_fps_update = current_time
             self.steps_since_fps_update = 0
         else:
             self.steps_since_fps_update += 1
 
         # Track behavioral metrics if available from environment
-        if hasattr(self.training_env, 'get_attr'):
+        if hasattr(self.training_env, "get_attr"):
             try:
                 # These metrics would need to be implemented in the environment
-                for metric in ['player_distances', 'missile_avoidance', 'successful_hits']:
+                for metric in [
+                    "player_distances",
+                    "missile_avoidance",
+                    "successful_hits",
+                ]:
                     values = self.training_env.get_attr(metric)
                     if values:
                         metrics[metric] = np.mean(values)
@@ -147,14 +155,14 @@ class TrainingCallback(BaseCallback):
         if len(self.model.ep_info_buffer) == 0:
             return 0.0
 
-        return np.mean([ep['r'] for ep in self.model.ep_info_buffer])
+        return np.mean([ep["r"] for ep in self.model.ep_info_buffer])
 
 
 def train_rl_agent(
     total_timesteps: int = 500000,
     save_path: str = "models/enemy_rl",
     log_path: str = "logs/enemy_rl",
-    headless: bool = True
+    headless: bool = True,
 ) -> Optional[PPO]:
     """
     Train a reinforcement learning agent for enemy behavior.
@@ -206,9 +214,7 @@ def train_rl_agent(
             gae_lambda=0.95,
             clip_range=0.2,
             ent_coef=0.01,  # Slightly higher entropy to encourage exploration
-            policy_kwargs=dict(
-                net_arch=[dict(pi=[128, 128], vf=[128, 128])]
-            )
+            policy_kwargs=dict(net_arch=[dict(pi=[128, 128], vf=[128, 128])]),
         )
 
         # Set up checkpoint callback with monitoring
@@ -217,7 +223,7 @@ def train_rl_agent(
                 save_freq=10000,
                 save_path=save_path,
                 monitor=monitor,
-                name_prefix="enemy_ppo_model"
+                name_prefix="enemy_ppo_model",
             )
         ]
 
@@ -227,7 +233,7 @@ def train_rl_agent(
             total_timesteps=total_timesteps,
             callback=callbacks,
             tb_log_name="enemy_ppo",
-            reset_num_timesteps=True
+            reset_num_timesteps=True,
         )
 
         # Save the final model and normalized environment
@@ -250,7 +256,7 @@ def train_rl_agent(
 
 def load_rl_model(
     model_path: str = "models/enemy_rl/final_model.zip",
-    normalize_path: str = "models/enemy_rl/vec_normalize.pkl"
+    normalize_path: str = "models/enemy_rl/vec_normalize.pkl",
 ) -> Optional[PPO]:
     """
     Load a trained PPO model with normalization stats.
@@ -294,7 +300,7 @@ if __name__ == "__main__":
     # Set up logging
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     # Train the agent
@@ -302,7 +308,7 @@ if __name__ == "__main__":
         total_timesteps=100000,  # Lower for testing, increase for better results
         save_path="models/enemy_rl",
         log_path="logs/enemy_rl",
-        headless=True
+        headless=True,
     )
 
     if model is not None:

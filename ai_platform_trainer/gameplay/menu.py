@@ -73,7 +73,7 @@ class Menu:
         chosen = self.main_menu_options[self.selected_option]
         if chosen == "Play":
             return "play_learning"  # Directly start the game
-        
+
         elif chosen == "Help":
             self.show_help = True
             return None
@@ -153,7 +153,7 @@ class Menu:
             "• Press Enter to select menu items",
             "• Press F to toggle fullscreen",
             "• Press M to return to the menu",
-            "• Press Escape to quit help or game"
+            "• Press Escape to quit help or game",
         ]
 
         # Draw controls text
@@ -175,7 +175,7 @@ class Menu:
         modes_text = [
             "• Train: Collect gameplay data for AI training",
             "• Play > Supervised AI: Fight pre-trained neural network",
-            "• Play > Learning AI: Watch AI learn and improve in real-time!"
+            "• Play > Learning AI: Watch AI learn and improve in real-time!",
         ]
 
         # Draw modes text
@@ -201,7 +201,7 @@ class Menu:
             "• Watch the Learning AI evolve from simple chase to smart tactics",
             "• Learning AI gets better at avoiding missiles and catching player",
             "• Each session starts fresh - AI learns from scratch every time",
-            "• Real-time learning creates unique and engaging gameplay"
+            "• Real-time learning creates unique and engaging gameplay",
         ]
 
         # Draw AI text

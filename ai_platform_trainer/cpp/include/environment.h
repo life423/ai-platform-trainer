@@ -84,9 +84,9 @@ private:
 
     // Random number generation
     std::mt19937 rng_;
-    
+
     // Observation space handling
-    static constexpr int observation_size_ = 10;  // player_x, player_y, enemy_x, enemy_y, 
+    static constexpr int observation_size_ = 10;  // player_x, player_y, enemy_x, enemy_y,
                                                   // missile data (3 closest missiles x position, y position, velocity)
     std::array<float, observation_size_> observation_buffer_;
 
@@ -95,12 +95,12 @@ private:
     float last_hit_time_;
     bool has_enemy_hit_player_since_reset_;
     int missile_avoidance_count_;
-    
+
     // Danger map for missile avoidance
     static constexpr int danger_map_width_ = 20;
     static constexpr int danger_map_height_ = 15;
     std::vector<float> danger_map_;
-    
+
     // Helper methods
     void update_player(const std::vector<float>& player_action = {});
     void update_enemy(const std::vector<float>& enemy_action);

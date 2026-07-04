@@ -4,30 +4,28 @@ EnemyMovementModel: A neural network model for enemy movement prediction.
 This module defines a neural network used for predicting enemy movement
 based on game state inputs.
 """
-import torch
 import torch.nn as nn
 from torch import Tensor
-from typing import Tuple
 
 
 class EnemyMovementModel(nn.Module):
     """
     Neural network model for enemy movement prediction.
-    
+
     This model consists of four fully connected layers with LeakyReLU activations,
     batch normalization, and dropout for regularization.
     """
-    
+
     def __init__(
-        self, 
-        input_size: int = 5, 
-        hidden_size: int = 128, 
-        output_size: int = 2, 
-        dropout_prob: float = 0.3
+        self,
+        input_size: int = 5,
+        hidden_size: int = 128,
+        output_size: int = 2,
+        dropout_prob: float = 0.3,
     ) -> None:
         """
         Initialize the model with configurable layer sizes.
-        
+
         Args:
             input_size: Number of input features
             hidden_size: Number of neurons in hidden layers
@@ -47,13 +45,13 @@ class EnemyMovementModel(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         """
         Forward pass of the model.
-        
+
         Args:
             x: Input tensor containing model features
-            
+
         Returns:
             Tensor containing prediction outputs (typically x,y movement)
-            
+
         Raises:
             ValueError: If input tensor has incorrect shape
         """
@@ -62,17 +60,11 @@ class EnemyMovementModel(nn.Module):
                 f"Expected input to have shape (batch_size, {self.fc1.in_features})."
             )
 
-        x = nn.functional.leaky_relu(
-            self.bn1(self.fc1(x)), negative_slope=0.01
-        )
+        x = nn.functional.leaky_relu(self.bn1(self.fc1(x)), negative_slope=0.01)
         x = self.dropout(x)
-        x = nn.functional.leaky_relu(
-            self.bn2(self.fc2(x)), negative_slope=0.01
-        )
+        x = nn.functional.leaky_relu(self.bn2(self.fc2(x)), negative_slope=0.01)
         x = self.dropout(x)
-        x = nn.functional.leaky_relu(
-            self.bn3(self.fc3(x)), negative_slope=0.01
-        )
+        x = nn.functional.leaky_relu(self.bn3(self.fc3(x)), negative_slope=0.01)
         x = self.dropout(x)
         x = self.fc4(x)
         return x

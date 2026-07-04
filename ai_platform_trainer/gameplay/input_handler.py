@@ -3,7 +3,9 @@
 InputHandler class for processing user input events.
 """
 import logging
+
 import pygame
+
 from ai_platform_trainer.core.interfaces import IInputHandler
 
 

@@ -1,5 +1,6 @@
 # file: ai_platform_trainer/gameplay/state_machine.py
 import logging
+
 import pygame
 
 
@@ -115,7 +116,14 @@ class PlayLearningState(GameState):
 
     def render(self, renderer):
         learning_manager = self.game.play_learning_mode_manager
-        renderer.render(self.game.menu, self.game.player, self.game.enemy, False, "play_learning", learning_manager)
+        renderer.render(
+            self.game.menu,
+            self.game.player,
+            self.game.enemy,
+            False,
+            "play_learning",
+            learning_manager,
+        )
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -145,8 +153,12 @@ class PlayState(GameState):
         self.game.spawn_entities()
 
         # Initialize play mode manager if needed
-        if not hasattr(self.game, 'play_mode_manager') or self.game.play_mode_manager is None:
+        if (
+            not hasattr(self.game, "play_mode_manager")
+            or self.game.play_mode_manager is None
+        ):
             from ai_platform_trainer.gameplay.modes.play_mode import PlayMode
+
             self.game.play_mode_manager = PlayMode(self.game)
 
     def exit(self):
@@ -184,9 +196,6 @@ class PlayState(GameState):
         return None
 
 
-
-
-
 class PausedState(GameState):
     """State for when the game is paused"""
 
@@ -219,15 +228,15 @@ class PausedState(GameState):
 
         # Render instructions
         instruction_font = pygame.font.SysFont(None, 24)
-        instructions = [
-            "ESC - Resume",
-            "M - Main Menu"
-        ]
+        instructions = ["ESC - Resume", "M - Main Menu"]
 
         for i, instruction in enumerate(instructions):
             text = instruction_font.render(instruction, True, (200, 200, 200))
             text_rect = text.get_rect(
-                center=(self.game.screen_width // 2, self.game.screen_height // 2 + 50 + i * 30)
+                center=(
+                    self.game.screen_width // 2,
+                    self.game.screen_height // 2 + 50 + i * 30,
+                )
             )
             self.game.screen.blit(text, text_rect)
 
@@ -253,7 +262,7 @@ class GameOverState(GameState):
     def enter(self):
         logging.info("Game over")
         # Calculate final score
-        if hasattr(self.game.player, 'score'):
+        if hasattr(self.game.player, "score"):
             self.score = self.game.player.score
 
     def exit(self):
@@ -284,15 +293,15 @@ class GameOverState(GameState):
 
         # Instructions
         instruction_font = pygame.font.SysFont(None, 24)
-        instructions = [
-            "Press SPACE to play again",
-            "Press M for main menu"
-        ]
+        instructions = ["Press SPACE to play again", "Press M for main menu"]
 
         for i, instruction in enumerate(instructions):
             text = instruction_font.render(instruction, True, (200, 200, 200))
             text_rect = text.get_rect(
-                center=(self.game.screen_width // 2, self.game.screen_height // 2 + 100 + i * 30)
+                center=(
+                    self.game.screen_width // 2,
+                    self.game.screen_height // 2 + 100 + i * 30,
+                )
             )
             self.game.screen.blit(text, text_rect)
 

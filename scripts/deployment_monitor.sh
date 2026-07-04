@@ -24,14 +24,14 @@ get_latest_run() {
 # Function to monitor workflow progress
 monitor_workflow() {
     print_status "🔍 Monitoring latest deployment workflow..." "$BLUE"
-    
+
     while true; do
         run_info=$(get_latest_run)
         run_id=$(echo $run_info | cut -d' ' -f1)
         status=$(echo $run_info | cut -d' ' -f2)
         conclusion=$(echo $run_info | cut -d' ' -f3)
         url=$(echo $run_info | cut -d' ' -f4)
-        
+
         clear
         print_status "🚀 AI Platform Trainer - Deployment Monitor" "$BLUE"
         print_status "=============================================" "$BLUE"
@@ -39,7 +39,7 @@ monitor_workflow() {
         print_status "📋 Run ID: $run_id" "$NC"
         print_status "🔗 URL: $url" "$NC"
         echo
-        
+
         case $status in
             "queued")
                 print_status "⏳ Status: Queued" "$YELLOW"
@@ -56,7 +56,7 @@ monitor_workflow() {
                     echo
                     print_status "🎉 Deployment successful! Checking artifacts..." "$GREEN"
                     gh run view $run_id --json artifacts | jq -r '.artifacts[] | "  📦 \(.name) (\(.size_in_bytes) bytes)"'
-                    
+
                     # Check if release was created
                     latest_release=$(gh release list --limit 1 --json tagName,publishedAt | jq -r '.[] | "\(.tagName) \(.publishedAt)"')
                     if [ -n "$latest_release" ]; then
@@ -72,7 +72,7 @@ monitor_workflow() {
                 fi
                 ;;
         esac
-        
+
         echo
         print_status "🔄 Refreshing in 10 seconds... (Ctrl+C to exit)" "$NC"
         sleep 10
@@ -84,24 +84,24 @@ show_dashboard() {
     print_status "📊 AI Platform Trainer - Deployment Dashboard" "$BLUE"
     print_status "===============================================" "$BLUE"
     echo
-    
+
     # Recent runs
     print_status "📈 Recent Workflow Runs:" "$NC"
     gh run list --workflow="Build and Deploy Executables" --limit 5 | head -6
     echo
-    
+
     # Latest release info
     print_status "🎯 Latest Release:" "$NC"
     gh release list --limit 1
     echo
-    
+
     # Repository stats
     print_status "📊 Repository Stats:" "$NC"
     echo "  🌟 Stars: $(gh repo view --json stargazerCount | jq -r '.stargazerCount')"
     echo "  🍴 Forks: $(gh repo view --json forkCount | jq -r '.forkCount')"
     echo "  📥 Total Downloads: $(gh release list --json assets | jq '[.[].assets[].downloadCount] | add // 0')"
     echo
-    
+
     # Workflow status
     print_status "⚡ Active Workflows:" "$NC"
     gh workflow list --json name,state,id | jq -r '.[] | "  \(.name): \(.state)"'
@@ -117,20 +117,20 @@ trigger_deployment() {
 # Function to download latest artifacts
 download_artifacts() {
     print_status "📥 Downloading latest build artifacts..." "$BLUE"
-    
+
     latest_run=$(gh run list --workflow="Build and Deploy Executables" --limit 1 --json databaseId | jq -r '.[].databaseId')
-    
+
     if [ -z "$latest_run" ]; then
         print_status "❌ No recent runs found" "$RED"
         exit 1
     fi
-    
+
     mkdir -p downloads
     cd downloads
-    
+
     print_status "📦 Downloading artifacts from run $latest_run..." "$NC"
     gh run download $latest_run
-    
+
     print_status "✅ Artifacts downloaded to ./downloads/" "$GREEN"
     ls -la
 }
@@ -163,7 +163,7 @@ show_status() {
     run_id=$(echo $run_info | cut -d' ' -f1)
     status=$(echo $run_info | cut -d' ' -f2)
     conclusion=$(echo $run_info | cut -d' ' -f3)
-    
+
     print_status "🔍 Current Deployment Status" "$BLUE"
     print_status "Run ID: $run_id" "$NC"
     print_status "Status: $status" "$NC"

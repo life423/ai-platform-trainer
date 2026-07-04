@@ -18,8 +18,8 @@ class Missile:
 
     def __init__(
         self,
-        x: int,
-        y: int,
+        x: float,
+        y: float,
         speed: float = 8.0,  # Increased from 5.0 to allow faster missile travel
         vx: float = 8.0,  # Increased from 5.0 to allow faster missile travel
         vy: float = 0.0,

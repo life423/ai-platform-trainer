@@ -93,5 +93,7 @@ class MissileDataset(Dataset):
         return (
             torch.tensor(state, dtype=torch.float32),
             torch.tensor(action, dtype=torch.float32),
-            torch.tensor([weight], dtype=torch.float32),  # Wrap in list to make shape (1,)
+            torch.tensor(
+                [weight], dtype=torch.float32
+            ),  # Wrap in list to make shape (1,)
         )

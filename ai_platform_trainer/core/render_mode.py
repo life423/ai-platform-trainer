@@ -9,5 +9,6 @@ from enum import Enum, auto
 
 class RenderMode(Enum):
     """Rendering modes for the game."""
-    FULL = auto()       # Full rendering with window
-    HEADLESS = auto()   # No rendering, console only
+
+    FULL = auto()  # Full rendering with window
+    HEADLESS = auto()  # No rendering, console only

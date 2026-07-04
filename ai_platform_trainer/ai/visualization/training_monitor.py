@@ -4,15 +4,16 @@ Training Monitor for Reinforcement Learning visualization.
 This module provides real-time monitoring and visualization of RL training metrics
 to help understand agent behavior and optimize training parameters.
 """
-import os
 import json
+import logging
+import os
 import time
 from datetime import datetime
-import logging
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
 import numpy as np
+from matplotlib.figure import Figure
 
 
 class TrainingMetrics:
@@ -21,22 +22,22 @@ class TrainingMetrics:
     def __init__(self):
         """Initialize the training metrics storage."""
         self.metrics = {
-            'episode_rewards': [],
-            'episode_lengths': [],
-            'training_steps': [],
-            'avg_value_loss': [],
-            'avg_policy_loss': [],
-            'avg_entropy': [],
-            'learning_rate': [],
-            'exploration_rate': [],
-            'timestamps': [],
-            'fps': [],
+            "episode_rewards": [],
+            "episode_lengths": [],
+            "training_steps": [],
+            "avg_value_loss": [],
+            "avg_policy_loss": [],
+            "avg_entropy": [],
+            "learning_rate": [],
+            "exploration_rate": [],
+            "timestamps": [],
+            "fps": [],
         }
         self.behavioral_metrics = {
-            'player_distances': [],
-            'missile_avoidance': [],
-            'movement_efficiency': [],
-            'successful_hits': [],
+            "player_distances": [],
+            "missile_avoidance": [],
+            "movement_efficiency": [],
+            "successful_hits": [],
         }
         self.start_time = time.time()
 
@@ -48,11 +49,11 @@ class TrainingMetrics:
             info_dict: Dictionary containing metrics to update
         """
         current_time = time.time()
-        self.metrics['timestamps'].append(current_time - self.start_time)
+        self.metrics["timestamps"].append(current_time - self.start_time)
 
         # Update standard metrics
         for key, values in self.metrics.items():
-            if key != 'timestamps' and key in info_dict:
+            if key != "timestamps" and key in info_dict:
                 values.append(info_dict[key])
 
         # Update behavioral metrics
@@ -105,13 +106,12 @@ class TrainingMetrics:
             for key, values in category.items():
                 if values and isinstance(values[0], np.ndarray):
                     serializable[key] = [
-                        v.tolist() if isinstance(v, np.ndarray) else v
-                        for v in values
+                        v.tolist() if isinstance(v, np.ndarray) else v for v in values
                     ]
                 else:
                     serializable[key] = values
 
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(serializable, f, indent=2)
 
         logging.info(f"Saved training metrics to {path}")
@@ -133,7 +133,7 @@ class TrainingVisualizer:
         os.makedirs(output_dir, exist_ok=True)
 
         # Configure plots
-        plt.style.use('ggplot')
+        plt.style.use("ggplot")
         self.fig_size = (10, 6)
 
     def plot_rewards(self, window_size: int = 10) -> Figure:
@@ -146,26 +146,38 @@ class TrainingVisualizer:
         Returns:
             Matplotlib figure object
         """
-        rewards = self.metrics.get_metric('episode_rewards')
+        rewards = self.metrics.get_metric("episode_rewards")
         if not rewards:
             fig, ax = plt.subplots(figsize=self.fig_size)
-            ax.text(0.5, 0.5, 'No reward data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No reward data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return fig
 
-        steps = self.metrics.get_metric('training_steps')
+        steps = self.metrics.get_metric("training_steps")
 
         fig, ax = plt.subplots(figsize=self.fig_size)
-        ax.plot(steps, rewards, 'b-', alpha=0.3, label='Episode Rewards')
+        ax.plot(steps, rewards, "b-", alpha=0.3, label="Episode Rewards")
 
         # Calculate and plot rolling average if enough data
         if len(rewards) >= window_size:
-            rolling_avg = np.convolve(rewards, np.ones(window_size)/window_size, mode='valid')
-            ax.plot(steps[window_size-1:], rolling_avg, 'r-', label=f'{window_size}-Ep Avg')
+            rolling_avg = np.convolve(
+                rewards, np.ones(window_size) / window_size, mode="valid"
+            )
+            ax.plot(
+                steps[window_size - 1 :],
+                rolling_avg,
+                "r-",
+                label=f"{window_size}-Ep Avg",
+            )
 
-        ax.set_xlabel('Training Steps')
-        ax.set_ylabel('Episode Reward')
-        ax.set_title('Training Rewards Over Time')
+        ax.set_xlabel("Training Steps")
+        ax.set_ylabel("Episode Reward")
+        ax.set_title("Training Rewards Over Time")
         ax.legend()
         ax.grid(True)
 
@@ -178,29 +190,34 @@ class TrainingVisualizer:
         Returns:
             Matplotlib figure object
         """
-        steps = self.metrics.get_metric('training_steps')
-        value_loss = self.metrics.get_metric('avg_value_loss')
-        policy_loss = self.metrics.get_metric('avg_policy_loss')
-        entropy = self.metrics.get_metric('avg_entropy')
+        steps = self.metrics.get_metric("training_steps")
+        value_loss = self.metrics.get_metric("avg_value_loss")
+        policy_loss = self.metrics.get_metric("avg_policy_loss")
+        entropy = self.metrics.get_metric("avg_entropy")
 
         if not steps or not value_loss:
             fig, ax = plt.subplots(figsize=self.fig_size)
-            ax.text(0.5, 0.5, 'No loss data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No loss data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return fig
 
         fig, ax = plt.subplots(figsize=self.fig_size)
 
         if value_loss:
-            ax.plot(steps, value_loss, 'b-', label='Value Loss')
+            ax.plot(steps, value_loss, "b-", label="Value Loss")
         if policy_loss:
-            ax.plot(steps, policy_loss, 'r-', label='Policy Loss')
+            ax.plot(steps, policy_loss, "r-", label="Policy Loss")
         if entropy:
-            ax.plot(steps, entropy, 'g-', label='Entropy')
+            ax.plot(steps, entropy, "g-", label="Entropy")
 
-        ax.set_xlabel('Training Steps')
-        ax.set_ylabel('Loss Value')
-        ax.set_title('Training Losses')
+        ax.set_xlabel("Training Steps")
+        ax.set_ylabel("Loss Value")
+        ax.set_title("Training Losses")
         ax.legend()
         ax.grid(True)
 
@@ -213,20 +230,25 @@ class TrainingVisualizer:
         Returns:
             Matplotlib figure object
         """
-        steps = self.metrics.get_metric('training_steps')
-        learning_rate = self.metrics.get_metric('learning_rate')
+        steps = self.metrics.get_metric("training_steps")
+        learning_rate = self.metrics.get_metric("learning_rate")
 
         if not steps or not learning_rate:
             fig, ax = plt.subplots(figsize=self.fig_size)
-            ax.text(0.5, 0.5, 'No learning rate data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No learning rate data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return fig
 
         fig, ax = plt.subplots(figsize=self.fig_size)
-        ax.plot(steps, learning_rate, 'g-')
-        ax.set_xlabel('Training Steps')
-        ax.set_ylabel('Learning Rate')
-        ax.set_title('Learning Rate Schedule')
+        ax.plot(steps, learning_rate, "g-")
+        ax.set_xlabel("Training Steps")
+        ax.set_ylabel("Learning Rate")
+        ax.set_title("Learning Rate Schedule")
         ax.grid(True)
 
         return fig
@@ -238,29 +260,34 @@ class TrainingVisualizer:
         Returns:
             Matplotlib figure object
         """
-        steps = self.metrics.get_metric('training_steps')
-        distances = self.metrics.get_metric('player_distances')
-        avoidance = self.metrics.get_metric('missile_avoidance')
-        hits = self.metrics.get_metric('successful_hits')
+        steps = self.metrics.get_metric("training_steps")
+        distances = self.metrics.get_metric("player_distances")
+        avoidance = self.metrics.get_metric("missile_avoidance")
+        hits = self.metrics.get_metric("successful_hits")
 
         if not steps or (not distances and not avoidance and not hits):
             fig, ax = plt.subplots(figsize=self.fig_size)
-            ax.text(0.5, 0.5, 'No behavioral data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No behavioral data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return fig
 
         fig, ax = plt.subplots(figsize=self.fig_size)
 
         if distances:
-            ax.plot(steps, distances, 'b-', label='Avg. Distance to Player')
+            ax.plot(steps, distances, "b-", label="Avg. Distance to Player")
         if avoidance:
-            ax.plot(steps, avoidance, 'r-', label='Missile Avoidance Rate')
+            ax.plot(steps, avoidance, "r-", label="Missile Avoidance Rate")
         if hits:
-            ax.plot(steps, hits, 'g-', label='Player Hit Success Rate')
+            ax.plot(steps, hits, "g-", label="Player Hit Success Rate")
 
-        ax.set_xlabel('Training Steps')
-        ax.set_ylabel('Metric Value')
-        ax.set_title('Agent Behavioral Metrics')
+        ax.set_xlabel("Training Steps")
+        ax.set_ylabel("Metric Value")
+        ax.set_title("Agent Behavioral Metrics")
         ax.legend()
         ax.grid(True)
 
@@ -273,20 +300,25 @@ class TrainingVisualizer:
         Returns:
             Matplotlib figure object
         """
-        timestamps = self.metrics.get_metric('timestamps')
-        fps = self.metrics.get_metric('fps')
+        timestamps = self.metrics.get_metric("timestamps")
+        fps = self.metrics.get_metric("fps")
 
         if not timestamps or not fps:
             fig, ax = plt.subplots(figsize=self.fig_size)
-            ax.text(0.5, 0.5, 'No training speed data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No training speed data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return fig
 
         fig, ax = plt.subplots(figsize=self.fig_size)
-        ax.plot(timestamps, fps, 'b-')
-        ax.set_xlabel('Training Time (seconds)')
-        ax.set_ylabel('Frames Per Second')
-        ax.set_title('Training Speed')
+        ax.plot(timestamps, fps, "b-")
+        ax.set_xlabel("Training Time (seconds)")
+        ax.set_ylabel("Frames Per Second")
+        ax.set_title("Training Speed")
         ax.grid(True)
 
         return fig
@@ -306,13 +338,13 @@ class TrainingVisualizer:
             "losses": self.plot_losses(),
             "learning_rate": self.plot_learning_rate(),
             "behavior": self.plot_behavioral_metrics(),
-            "speed": self.plot_training_speed()
+            "speed": self.plot_training_speed(),
         }
 
         for name, fig in plots.items():
             filename = f"{name}_{timestamp}.png"
             path = os.path.join(self.output_dir, filename)
-            fig.savefig(path, dpi=100, bbox_inches='tight')
+            fig.savefig(path, dpi=100, bbox_inches="tight")
             plt.close(fig)
 
         logging.info(f"Saved all plots to {self.output_dir}")
@@ -347,7 +379,7 @@ class TrainingVisualizer:
 
         # Save if path provided
         if save_path:
-            fig.savefig(save_path, dpi=100, bbox_inches='tight')
+            fig.savefig(save_path, dpi=100, bbox_inches="tight")
             logging.info(f"Saved dashboard to {save_path}")
 
         return fig
@@ -355,106 +387,138 @@ class TrainingVisualizer:
     # Helper methods for dashboard generation
     def _add_rewards_to_ax(self, ax):
         """Add rewards plot to the given axis."""
-        rewards = self.metrics.get_metric('episode_rewards')
-        steps = self.metrics.get_metric('training_steps')
+        rewards = self.metrics.get_metric("episode_rewards")
+        steps = self.metrics.get_metric("training_steps")
 
         if not rewards or not steps:
-            ax.text(0.5, 0.5, 'No reward data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No reward data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return
 
-        ax.plot(steps, rewards, 'b-', alpha=0.3, label='Episode Rewards')
+        ax.plot(steps, rewards, "b-", alpha=0.3, label="Episode Rewards")
 
         # Calculate and plot rolling average
         window_size = min(10, len(rewards))
         if window_size > 1:
-            rolling_avg = np.convolve(rewards, np.ones(window_size)/window_size, mode='valid')
-            ax.plot(steps[window_size-1:], rolling_avg, 'r-', label=f'{window_size}-Ep Avg')
+            rolling_avg = np.convolve(
+                rewards, np.ones(window_size) / window_size, mode="valid"
+            )
+            ax.plot(
+                steps[window_size - 1 :],
+                rolling_avg,
+                "r-",
+                label=f"{window_size}-Ep Avg",
+            )
 
-        ax.set_xlabel('Steps')
-        ax.set_ylabel('Reward')
-        ax.set_title('Training Rewards')
-        ax.legend(loc='best', fontsize='small')
+        ax.set_xlabel("Steps")
+        ax.set_ylabel("Reward")
+        ax.set_title("Training Rewards")
+        ax.legend(loc="best", fontsize="small")
         ax.grid(True)
 
     def _add_losses_to_ax(self, ax):
         """Add loss plots to the given axis."""
-        steps = self.metrics.get_metric('training_steps')
-        value_loss = self.metrics.get_metric('avg_value_loss')
-        policy_loss = self.metrics.get_metric('avg_policy_loss')
+        steps = self.metrics.get_metric("training_steps")
+        value_loss = self.metrics.get_metric("avg_value_loss")
+        policy_loss = self.metrics.get_metric("avg_policy_loss")
 
         if not steps or (not value_loss and not policy_loss):
-            ax.text(0.5, 0.5, 'No loss data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No loss data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return
 
         if value_loss:
-            ax.plot(steps, value_loss, 'b-', label='Value Loss', alpha=0.7)
+            ax.plot(steps, value_loss, "b-", label="Value Loss", alpha=0.7)
         if policy_loss:
-            ax.plot(steps, policy_loss, 'r-', label='Policy Loss', alpha=0.7)
+            ax.plot(steps, policy_loss, "r-", label="Policy Loss", alpha=0.7)
 
-        ax.set_xlabel('Steps')
-        ax.set_ylabel('Loss')
-        ax.set_title('Training Losses')
-        ax.legend(loc='best', fontsize='small')
+        ax.set_xlabel("Steps")
+        ax.set_ylabel("Loss")
+        ax.set_title("Training Losses")
+        ax.legend(loc="best", fontsize="small")
         ax.grid(True)
 
     def _add_behavior_to_ax(self, ax):
         """Add behavioral metrics to the given axis."""
-        steps = self.metrics.get_metric('training_steps')
-        distances = self.metrics.get_metric('player_distances')
-        hits = self.metrics.get_metric('successful_hits')
+        steps = self.metrics.get_metric("training_steps")
+        distances = self.metrics.get_metric("player_distances")
+        hits = self.metrics.get_metric("successful_hits")
 
         if not steps or (not distances and not hits):
-            ax.text(0.5, 0.5, 'No behavioral data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No behavioral data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return
 
         if distances:
             # Normalize distances for better visualization
             max_dist = max(distances) if distances else 1
-            norm_distances = [d/max_dist for d in distances]
-            ax.plot(steps, norm_distances, 'b-', label='Norm. Distance', alpha=0.7)
+            norm_distances = [d / max_dist for d in distances]
+            ax.plot(steps, norm_distances, "b-", label="Norm. Distance", alpha=0.7)
 
         if hits:
-            ax.plot(steps, hits, 'g-', label='Hit Rate', alpha=0.7)
+            ax.plot(steps, hits, "g-", label="Hit Rate", alpha=0.7)
 
-        ax.set_xlabel('Steps')
-        ax.set_ylabel('Metric Value')
-        ax.set_title('Agent Behavior')
-        ax.legend(loc='best', fontsize='small')
+        ax.set_xlabel("Steps")
+        ax.set_ylabel("Metric Value")
+        ax.set_title("Agent Behavior")
+        ax.legend(loc="best", fontsize="small")
         ax.grid(True)
 
     def _add_learning_rate_to_ax(self, ax):
         """Add learning rate plot to the given axis."""
-        steps = self.metrics.get_metric('training_steps')
-        learning_rate = self.metrics.get_metric('learning_rate')
+        steps = self.metrics.get_metric("training_steps")
+        learning_rate = self.metrics.get_metric("learning_rate")
 
         if not steps or not learning_rate:
-            ax.text(0.5, 0.5, 'No learning rate data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No learning rate data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return
 
-        ax.plot(steps, learning_rate, 'g-')
-        ax.set_xlabel('Steps')
-        ax.set_ylabel('Learning Rate')
-        ax.set_title('Learning Rate')
+        ax.plot(steps, learning_rate, "g-")
+        ax.set_xlabel("Steps")
+        ax.set_ylabel("Learning Rate")
+        ax.set_title("Learning Rate")
         ax.grid(True)
 
     def _add_speed_to_ax(self, ax):
         """Add training speed plot to the given axis."""
-        timestamps = self.metrics.get_metric('timestamps')
-        fps = self.metrics.get_metric('fps')
+        timestamps = self.metrics.get_metric("timestamps")
+        fps = self.metrics.get_metric("fps")
 
         if not timestamps or not fps:
-            ax.text(0.5, 0.5, 'No training speed data available yet',
-                    horizontalalignment='center', verticalalignment='center')
+            ax.text(
+                0.5,
+                0.5,
+                "No training speed data available yet",
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
             return
 
-        ax.plot(timestamps, fps, 'b-')
-        ax.set_xlabel('Training Time (seconds)')
-        ax.set_ylabel('FPS')
-        ax.set_title('Training Speed (higher is better)')
+        ax.plot(timestamps, fps, "b-")
+        ax.set_xlabel("Training Time (seconds)")
+        ax.set_ylabel("FPS")
+        ax.set_title("Training Speed (higher is better)")
         ax.grid(True)
 
 
@@ -475,7 +539,7 @@ class TrainingMonitor:
         os.makedirs(output_dir, exist_ok=True)
 
         # Configure logging
-        logger = logging.getLogger('training_monitor')
+        logger = logging.getLogger("training_monitor")
         logger.setLevel(logging.INFO)
 
         # Initialize metrics and visualizer

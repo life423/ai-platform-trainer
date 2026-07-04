@@ -47,7 +47,7 @@ class EnemyPlay:
         self.screen_height = screen_height
         self.size = 50
         self.color = (139, 0, 0)  # Dark red
-        self.pos = {"x": screen_width // 2, "y": screen_height // 2}
+        self.pos = {"x": float(screen_width // 2), "y": float(screen_height // 2)}
         self.speed = 5.0
         self.model = model
         self.rl_model = None

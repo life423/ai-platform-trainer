@@ -6,9 +6,6 @@ These interfaces define contracts that concrete implementations must follow.
 from abc import ABC, abstractmethod
 
 
-
-
-
 class IInputHandler(ABC):
     """Interface for handling user input."""
 

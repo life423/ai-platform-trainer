@@ -1,9 +1,10 @@
-import torch
-import math
-import pygame
 import logging
+import math
 import random
-from typing import Optional
+from typing import Optional, Tuple
+
+import pygame
+import torch
 
 
 class Enemy:
@@ -19,7 +20,10 @@ class Enemy:
         self.screen_height = screen_height
         self.size = 50
         self.color = (173, 153, 228)
-        self.pos = {"x": self.screen_width // 2, "y": self.screen_height // 2}
+        self.pos = {
+            "x": float(self.screen_width // 2),
+            "y": float(self.screen_height // 2),
+        }
         self.model = model
         self.base_speed = max(2, screen_width // 400)
         self.visible = True
@@ -29,7 +33,7 @@ class Enemy:
         self.image = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
         self.image.fill((*self.color, self.alpha))
 
-    def wrap_position(self, x: float, y: float) -> (float, float):
+    def wrap_position(self, x: float, y: float) -> Tuple[float, float]:
         """Wrap the enemy's position around screen edges."""
         if x < -self.size:
             x = self.screen_width
@@ -77,7 +81,9 @@ class Enemy:
             angle = random.uniform(0, 2 * math.pi)
             action_dx = math.cos(angle)
             action_dy = math.sin(angle)
-            logging.debug(f"Applied fallback random movement for enemy at position {self.pos}")
+            logging.debug(
+                f"Applied fallback random movement for enemy at position {self.pos}"
+            )
 
         speed = player_speed * 0.7
         self.pos["x"] += action_dx * speed
