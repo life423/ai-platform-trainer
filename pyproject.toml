@@ -61,17 +61,16 @@ module = "gymnasium.*"
 ignore_missing_imports = true
 
 # ai/training/ is iterative ML experimentation code (several parallel
-# RL trainer implementations, not the live gameplay path) and cpp/ is
-# standalone GPU/CUDA verification and build tooling - neither is worth
+# RL trainer implementations, not the live gameplay path) - not worth
 # holding to the same typing bar as the actual game code.
 [[tool.mypy.overrides]]
-module = ["ai_platform_trainer.ai.training.*", "ai_platform_trainer.cpp.*"]
+module = ["ai_platform_trainer.ai.training.*"]
 ignore_errors = true
 
-# Standalone root-level dev/build scripts, not part of the ai_platform_trainer
+# Standalone root-level dev/build script, not part of the ai_platform_trainer
 # package itself.
 [[tool.mypy.overrides]]
-module = ["setup", "cleanup_old_code"]
+module = ["setup"]
 ignore_errors = true
 
 [tool.pytest.ini_options]
