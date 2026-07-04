@@ -31,7 +31,6 @@ networkx==3.4.2
 noise==1.2.2
 packaging==25.0
 pillow==11.2.1
-pybind11==2.13.6
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
 pytz==2025.2

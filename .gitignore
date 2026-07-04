@@ -39,22 +39,6 @@ ENV/
 *.sqlite
 *.db
 
-# C++ build artifacts
-ai_platform_trainer/cpp/build/
-*.o
-*.obj
-*.dll
-*.so
-*.dylib
-
-# CUDA
-*.i
-*.ii
-*.gpu
-*.ptx
-*.cubin
-*.fatbin
-
 # Training artifacts
 models/checkpoints/
 models/logs/
@@ -68,3 +52,9 @@ models/*.pkl
 htmlcov/
 .pytest_cache/
 .mypy_cache/
+
+# Editor/tool caches
+.specstory/
+
+# Generated runtime config (see ai_platform_trainer/core/config_manager.py)
+config.json

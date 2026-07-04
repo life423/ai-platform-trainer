@@ -54,43 +54,13 @@ jobs:
 
     - name: Generate coverage report
       run: |
-        pytest --cov=src/ai_platform_trainer tests/ --cov-report=xml
+        pytest --cov=ai_platform_trainer tests/ --cov-report=xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
-
-  # Only run GPU tests on self-hosted runners with GPU capabilities
-  # Commented out as this requires specific self-hosted runner setup
-  # test-gpu:
-  #   name: Test (GPU)
-  #   runs-on: [self-hosted, gpu]
-  #   needs: lint
-  #   if: false  # Disabled by default
-  #
-  #   steps:
-  #   - uses: actions/checkout@v3
-  #
-  #   - name: Set up Python
-  #     uses: actions/setup-python@v4
-  #     with:
-  #       python-version: '3.9'
-  #
-  #   - name: Install dependencies with GPU support
-  #     run: |
-  #       python -m pip install --upgrade pip
-  #       pip install -e ".[dev]"
-  #
-  #   - name: Verify GPU availability
-  #     run: |
-  #       python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
-  #       python -c "import torch; print(f'GPU count: {torch.cuda.device_count()}')"
-  #
-  #   - name: Run GPU tests
-  #     run: |
-  #       pytest -v tests/ -m "gpu"
 
   # Additional job for packaging
   build:

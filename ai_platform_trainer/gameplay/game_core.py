@@ -7,7 +7,7 @@ the best aspects of the standard, DI, and state machine approaches.
 import logging
 import math
 import os
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import pygame
 import torch
@@ -50,12 +50,11 @@ class GameCore:
     extended by other game classes.
     """
 
-    def __init__(self, use_state_machine: bool = False, render_mode=None) -> None:
+    def __init__(self, render_mode=None) -> None:
         """
         Initialize the game.
 
         Args:
-            use_state_machine: Whether to use the state machine for game flow control
             render_mode: Rendering mode (FULL or HEADLESS)
         """
         setup_logging()
@@ -139,17 +138,6 @@ class GameCore:
         # Reusable tensor for missile AI input
         self._missile_input = torch.zeros((1, 9), dtype=torch.float32)
 
-        # State machine setup if requested
-        self.use_state_machine = use_state_machine
-        # Loosely typed: GameState lives in gameplay/state_machine.py and is
-        # only imported lazily in _setup_state_machine() to avoid a circular
-        # import, so there's no type to reference here without importing it.
-        self.states: Dict[str, Any] = {}
-        self.current_state: Optional[Any] = None
-
-        if self.use_state_machine:
-            self._setup_state_machine()
-
         logging.info("Game initialized.")
 
     def _setup_input_callbacks(self) -> None:
@@ -175,32 +163,9 @@ class GameCore:
 
         self.input_handler.register_callback(pygame.KEYDOWN, handle_keydown)
 
-    def _setup_state_machine(self) -> None:
-        """Set up the state machine for game flow control."""
-        from ai_platform_trainer.gameplay.state_machine import (
-            GameOverState,
-            MenuState,
-            PausedState,
-            PlayLearningState,
-            PlayState,
-        )
-
-        self.states = {
-            "menu": MenuState(self),
-            "play": PlayState(self),
-            "paused": PausedState(self),
-            "game_over": GameOverState(self),
-            "play_learning": PlayLearningState(self),
-        }
-        self.current_state = self.states["menu"]
-        self.current_state.enter()
-
     def run(self) -> None:
         """Main game loop."""
-        if self.use_state_machine:
-            self._run_state_machine()
-        else:
-            self._run_standard()
+        self._run_standard()
 
     def _run_standard(self) -> None:
         """Standard game loop without state machine."""
@@ -278,62 +243,6 @@ class GameCore:
 
         pygame.quit()
         logging.info("Game loop exited and Pygame quit.")
-
-    def _run_state_machine(self) -> None:
-        """State machine-based game loop."""
-        while self.running:
-            delta_time = self.clock.tick(config.FRAME_RATE) / 1000.0
-
-            # Process events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                    break
-
-                # Let the current state handle the event
-                if self.current_state:
-                    next_state = self.current_state.handle_event(event)
-                    if next_state:
-                        self.transition_to(next_state)
-
-            # Update and render the current state
-            if self.current_state:
-                next_state = self.current_state.update(delta_time)
-                if next_state:
-                    self.transition_to(next_state)
-
-                self.current_state.render(self.renderer)
-
-            if self.display_manager:
-                self.display_manager.flip()
-
-        # Merge and retrain from collected data if we were training
-        if self.mode == "train" and self.training_mode_manager:
-            self.training_mode_manager.finalize()
-
-        pygame.quit()
-        logging.info("Game loop exited and Pygame quit.")
-
-    def transition_to(self, state_name: str) -> None:
-        """
-        Transition from the current state to a new state.
-
-        Args:
-            state_name: The name of the state to transition to
-        """
-        if not self.use_state_machine:
-            logging.warning("Attempted to use state machine when not enabled")
-            return
-
-        if state_name in self.states:
-            logging.info(
-                f"Transitioning from {type(self.current_state).__name__} to {state_name}"
-            )
-            self.current_state.exit()
-            self.current_state = self.states[state_name]
-            self.current_state.enter()
-        else:
-            logging.error(f"Attempted to transition to unknown state: {state_name}")
 
     def start_game(
         self, mode: str, model_choice: str = "sac", enemy_choice: str = "adaptive"

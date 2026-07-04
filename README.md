@@ -1,51 +1,75 @@
 # AI Platform Trainer
 
-[![Build and Deploy Executables](https://github.com/life423/ai-platform-trainer/actions/workflows/deploy.yml/badge.svg)](https://github.com/life423/ai-platform-trainer/actions/workflows/deploy.yml)
+**Pixel Pursuit** - a 2D Pygame game where a player fights an AI-controlled
+enemy with homing missiles, built as a testbed for comparing supervised
+learning and reinforcement learning approaches to game AI side by side.
+
 [![Release](https://img.shields.io/github/v/release/life423/ai-platform-trainer)](https://github.com/life423/ai-platform-trainer/releases)
-[![Downloads](https://img.shields.io/github/downloads/life423/ai-platform-trainer/total)](https://github.com/life423/ai-platform-trainer/releases)
 
-## Project Structure Cleanup
+## Getting Started
 
-This project has been restructured to follow a cleaner architecture. The duplicate code that was previously in both `ai_platform_trainer/` and `src/` directories has been unified.
+```bash
+pip install -r requirements.txt
+python run_game.py
+```
+
+(equivalently: `pip install -e .` then `ai-trainer`, or `python -m ai_platform_trainer`)
+
+From the main menu:
+- **Play** - pick an enemy (scripted "Adaptive Staged AI" or the trained
+  network) and a missile guidance model (SAC, PPO, or a Supervised NN),
+  then fight.
+- **Train** - runs scripted player/enemy patterns and logs gameplay data,
+  used to retrain the Supervised NN missile model.
 
 ## Directory Structure
 
 ```
-ai-platform-trainer/  (root of repository)
-├── ai_platform_trainer/        # Python package for the game
-│   ├── __init__.py
-│   ├── entities/               # Game entities (Player, Enemy, etc.)
-│   ├── gameplay/               # Game mechanics, rules, and modes
-│   ├── utils/                  # Utility modules (config loading, helpers, etc.)
-│   ├── ai_model/               # AI agent, environment, policy network (RL code)
-│   ├── cpp/                    # C++/CUDA extension (physics engine)
-│   │   ├── CMakeLists.txt      # Single CMake for building the extension
-│   │   ├── src/…, include/…    # C++ source and headers
-│   │   └── pybind/…            # Pybind11 binding code
-│   └── (other modules as needed)
-├── assets/                     # Game assets (sprites, sounds) if any
-├── tests/                      # Test cases for the codebase
-├── README.md                   # Updated documentation (including CUDA notes)
-├── setup.py / pyproject.toml   # Build configuration for the Python package
-├── requirements.txt            # Python dependencies
-└── config.json                 # Consolidated configuration file
+ai_platform_trainer/
+├── ai/
+│   ├── inference/         # runtime missile guidance controller
+│   ├── models/             # neural net / RL model definitions
+│   ├── training/           # standalone training scripts (SAC, PPO, supervised)
+│   ├── visualization/       # training progress monitor
+│   └── missile_ai_loader.py # loads/selects the 3 missile guidance models
+├── core/                   # config manager, data logger, screen context
+├── entities/                # Player, Enemy, Missile classes
+│   └── behaviors/            # enemy AI controller logic
+├── gameplay/
+│   ├── modes/                 # Play / Train mode managers
+│   ├── game_core.py            # main game loop
+│   └── menu.py                  # main menu + submenus
+└── utils/                   # data validation/retraining pipeline, helpers
+
+assets/    # sprites
+data/      # logged training data (raw/ + timestamped backups/)
+models/    # trained model weights (.pth / stable-baselines3 .zip checkpoints)
+logs/      # training run logs (evaluation curves, etc.)
+tests/     # pytest suite, mirrors the ai_platform_trainer/ layout
 ```
 
-## Important Notes
+## Development
 
-1. The `src/` directory has been removed to avoid code duplication.
-2. All code is now maintained in the `ai_platform_trainer/` package.
-3. Configuration has been consolidated into a single `config.json` file.
+```bash
+# Run tests (headless, no real display needed)
+SDL_VIDEODRIVER=dummy python -m pytest
 
-## CUDA Support
+# Lint/format/type-check
+pre-commit run --all-files
+```
 
-The project includes CUDA extensions for physics calculations. To build and use these extensions:
+## AI Models
 
-1. Ensure you have CUDA toolkit installed
-2. Run `python build_cuda_extensions.py` to build the extensions
-3. Verify CUDA availability with `python verify_cuda_usage.py`
+Three interchangeable missile guidance models, selectable from the Play
+submenu:
 
-## Getting Started
+- **Supervised NN** - a small feedforward network trained by imitating a
+  deterministic controller's logged decisions (see Train mode above).
+- **SAC** (Soft Actor-Critic) and **PPO** (Proximal Policy Optimization) -
+  reinforcement learning models trained from scratch in self-contained
+  simulated environments (`ai/training/train_missile_sac.py` and
+  `train_missile_rl.py`), with no dependency on logged gameplay data.
 
-1. Install dependencies: `pip install -r requirements.txt`
-2. Run the game: `python -m ai_platform_trainer`
+The enemy can also use a supervised movement network (`models/enemy_ai_model.pth`),
+optionally layered with an RL policy from `ai/training/train_enemy_rl.py`
+if one has been trained to `models/enemy_rl/final_model.zip`.
