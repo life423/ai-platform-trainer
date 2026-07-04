@@ -226,9 +226,6 @@ class TestPlayerTraining:
         # Add a missile
         player_training.missiles.append(Mock())
 
-        # Store the current pattern to check it changes
-        old_pattern = player_training.current_pattern
-
         # Reset
         player_training.reset()
 

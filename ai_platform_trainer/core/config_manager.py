@@ -1,7 +1,8 @@
 # file: ai_platform_trainer/core/config_manager.py
-"""
-Configuration management system for the AI Platform Trainer.
-Provides centralized access to configuration values with validation and schema checking.
+"""Configuration management system for the AI Platform Trainer.
+
+Provides centralized access to configuration values with validation
+and schema checking.
 """
 import copy
 import json
@@ -106,9 +107,10 @@ class ValidationError(Exception):
 
 
 class ConfigManager:
-    """
-    Configuration manager for the AI Platform Trainer.
-    Provides centralized access to configuration values from various sources with validation.
+    """Configuration manager for the AI Platform Trainer.
+
+    Provides centralized access to configuration values from various
+    sources with validation.
     """
 
     def __init__(self, config_file: str = "config.json") -> None:
@@ -192,8 +194,8 @@ class ConfigManager:
                 target[key] = value
 
     def _validate_config(self) -> None:
-        """
-        Validate the configuration against the schema.
+        """Validate the configuration against the schema.
+
         Ensures that required fields exist and have the correct type.
         """
         for section, fields in CONFIG_SCHEMA.items():
@@ -238,9 +240,11 @@ class ConfigManager:
                             self.config[section][field] = expected_type(
                                 self.config[section][field]
                             )
-                            logging.warning(
-                                f"Field '{section}.{field}' has been converted to {expected_type.__name__}"
+                            converted_msg = (
+                                f"Field '{section}.{field}' has been "
+                                f"converted to {expected_type.__name__}"
                             )
+                            logging.warning(converted_msg)
                         except (ValueError, TypeError):
                             error_msg = (
                                 f"Field '{section}.{field}' has incorrect type. "
@@ -251,7 +255,11 @@ class ConfigManager:
                             # Use default if available
                             if "default" in metadata:
                                 self.config[section][field] = metadata["default"]
-                                default_msg = f"Using default value for '{section}.{field}': {metadata['default']}"
+                                default_msg = (
+                                    f"Using default value for "
+                                    f"'{section}.{field}': "
+                                    f"{metadata['default']}"
+                                )
                                 logging.warning(default_msg)
 
     def _calculate_derived_values(self) -> None:
@@ -285,7 +293,8 @@ class ConfigManager:
         Get a configuration value by key path.
 
         Args:
-            key_path: Dot-separated path to the configuration value (e.g., "display.width")
+            key_path: Dot-separated path to the configuration value
+                (e.g., "display.width")
             default: Default value to return if the key path is not found
 
         Returns:
@@ -306,7 +315,8 @@ class ConfigManager:
         Set a configuration value by key path.
 
         Args:
-            key_path: Dot-separated path to the configuration value (e.g., "display.width")
+            key_path: Dot-separated path to the configuration value
+                (e.g., "display.width")
             value: The value to set
         """
         keys = key_path.split(".")

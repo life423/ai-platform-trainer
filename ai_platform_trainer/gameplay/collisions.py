@@ -1,4 +1,4 @@
-# ai_platform_trainer/gameplay/collisions.py
+"""Collision detection helpers for gameplay entities."""
 import logging
 
 import pygame

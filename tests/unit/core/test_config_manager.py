@@ -1,6 +1,4 @@
-"""
-Unit tests for the ConfigManager class.
-"""
+"""Unit tests for the ConfigManager class."""
 import json
 import os
 import tempfile
@@ -116,8 +114,8 @@ class TestConfigManager:
         ) as temp_file:
             test_config = {
                 "display": {
-                    "width": "not an integer",  # Should be converted or use default
-                    "height": "also not an integer",  # Should be converted or use default
+                    "width": "not an integer",  # Should convert or use default
+                    "height": "also not an integer",  # Should convert or use default
                 }
             }
             json.dump(test_config, temp_file)
@@ -137,7 +135,7 @@ class TestConfigManager:
                 os.unlink(temp_file_path)
 
     def test_validation_error(self):
-        """Test that ValidationError is raised for missing required fields without defaults."""
+        """Test ValidationError is raised for missing fields with no default."""
 
         # Create a ConfigManager subclass for testing that will raise ValidationError
         class TestConfigManager(ConfigManager):

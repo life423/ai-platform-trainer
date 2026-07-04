@@ -1,0 +1,18 @@
+[flake8]
+# Align flake8 with black (line-length 88, per pyproject.toml) and isort.
+# Without this, flake8 falls back to its own defaults (79 cols, single-quote
+# preference) which directly contradict what black/isort already enforce,
+# so the flake8 pre-commit hook fails on virtually every file regardless
+# of its actual quality.
+max-line-length = 88
+
+# E203 (whitespace before ':') and W503 (line break before binary operator)
+# are black's own documented flake8 exceptions: black intentionally formats
+# code in ways that trip these two checks.
+extend-ignore = E203, W503
+
+# black enforces double quotes; tell flake8-quotes to match instead of
+# flagging every string literal.
+inline-quotes = double
+
+exclude = .git,__pycache__,.venv,venv,build,dist,*.egg-info

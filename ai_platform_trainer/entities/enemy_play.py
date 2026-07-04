@@ -6,15 +6,13 @@ for movement decisions.
 """
 import logging
 import math
-import random
-from typing import Any, Dict, Optional, Tuple
+from typing import Tuple
 
 import numpy as np
 import pygame
 import torch
 
 try:
-    import stable_baselines3
     from stable_baselines3 import PPO
 
     STABLE_BASELINES_AVAILABLE = True
@@ -90,7 +88,8 @@ class EnemyPlay:
             self.pos["y"] += move_y
 
             logging.debug(
-                f"Enemy chasing: moving ({move_x:.2f}, {move_y:.2f}) toward player at ({player_x:.0f}, {player_y:.0f})"
+                f"Enemy chasing: moving ({move_x:.2f}, {move_y:.2f}) "
+                f"toward player at ({player_x:.0f}, {player_y:.0f})"
             )
 
             # Wrap around screen edges
@@ -111,11 +110,6 @@ class EnemyPlay:
             player_y: Player's y position
             player_speed: Player's movement speed
         """
-        # Calculate distance to player
-        dx = player_x - self.pos["x"]
-        dy = player_y - self.pos["y"]
-        distance = math.sqrt(dx * dx + dy * dy)
-
         # Use ScreenContext for normalization
         screen_context = ScreenContext.get_instance()
         observation = screen_context.create_enemy_observation(
@@ -138,7 +132,8 @@ class EnemyPlay:
         with torch.no_grad():
             movement = self.model(model_input).squeeze(0)
             logging.debug(
-                f"Neural network output: [{movement[0].item():.3f}, {movement[1].item():.3f}]"
+                f"Neural network output: "
+                f"[{movement[0].item():.3f}, {movement[1].item():.3f}]"
             )
 
         # Apply movement (scale from [-1,1] to actual pixels)
@@ -149,7 +144,8 @@ class EnemyPlay:
         # Debug: Log enemy movement
         if abs(move_x) > 0.1 or abs(move_y) > 0.1:
             logging.debug(
-                f"Enemy moving: dx={move_x:.2f}, dy={move_y:.2f}, toward player at ({player_x:.0f},{player_y:.0f})"
+                f"Enemy moving: dx={move_x:.2f}, dy={move_y:.2f}, "
+                f"toward player at ({player_x:.0f},{player_y:.0f})"
             )
 
         # Update position
@@ -160,7 +156,8 @@ class EnemyPlay:
         # Debug: Log position change
         if abs(move_x) > 0.1 or abs(move_y) > 0.1:
             logging.debug(
-                f"Enemy position: ({old_x:.0f},{old_y:.0f}) -> ({self.pos['x']:.0f},{self.pos['y']:.0f})"
+                f"Enemy position: ({old_x:.0f},{old_y:.0f}) -> "
+                f"({self.pos['x']:.0f},{self.pos['y']:.0f})"
             )
 
         # Wrap around screen edges

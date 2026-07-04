@@ -21,7 +21,7 @@ from ai_platform_trainer.gameplay.collisions import handle_missile_collisions
 def mock_pygame_setup():
     """Mock pygame setup to avoid actual window creation during tests."""
     # Mock pygame.init
-    with patch("pygame.init") as mock_init:
+    with patch("pygame.init"):
         # Mock display setup
         with patch("pygame.display.set_mode") as mock_set_mode:
             # Mock display.set_caption
