@@ -1,11 +1,20 @@
 import pygame
 
+from ai_platform_trainer.ai.missile_ai_loader import MODEL_CHOICES, missile_ai_manager
+
 
 class Menu:
     def __init__(self, screen_width, screen_height):
         # Main menu options
         self.main_menu_options = ["Play", "Train", "Help", "Exit"]
         self.selected_option = 0
+
+        # Submenu shown after choosing "Play", letting the player pick which
+        # missile guidance model to play against.
+        self.show_model_menu = False
+        self.model_keys = list(MODEL_CHOICES.keys())  # ["sac", "ppo", "supervised"]
+        self.selected_model_index = 0
+        self.model_option_rects = {}
 
         # Flag to show help screen
         self.show_help = False
@@ -17,17 +26,22 @@ class Menu:
         # Fonts and colors for text rendering and background
         self.font_title = pygame.font.Font(None, 80)
         self.font_option = pygame.font.Font(None, 48)
+        self.font_small = pygame.font.Font(None, 28)
         self.color_background = (135, 206, 235)
         self.color_title = (0, 51, 102)
         self.color_option = (245, 245, 245)
         self.color_selected = (255, 223, 0)
+        self.color_unavailable = (120, 120, 120)
         self.option_rects = {}  # Store clickable rects for each menu option
 
     def handle_menu_events(self, event):
         """
         Handle user input for the menu.
-        If self.show_help is True, handle help screen.
-        Otherwise, process keyboard/mouse events to navigate or select menu options.
+
+        Returns None, or a (action, model_choice) tuple where action is one
+        of "play_learning" / "train" / "exit" and model_choice is the chosen
+        missile AI ("sac"/"ppo"/"supervised") when action is "play_learning",
+        else None.
         """
         # If the help screen is currently displayed
         if self.show_help:
@@ -37,6 +51,10 @@ class Menu:
             ]:
                 self.show_help = False
             return None
+
+        # If the "choose your opponent" submenu is currently displayed
+        if self.show_model_menu:
+            return self._handle_model_menu_event(event)
 
         # If user presses ENTER on the menu
         if event.type == pygame.KEYDOWN and event.key in [
@@ -56,7 +74,7 @@ class Menu:
                     self.main_menu_options
                 )
             elif event.key == pygame.K_ESCAPE:
-                return "exit"
+                return ("exit", None)
 
         # Mouse click detection
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -69,18 +87,58 @@ class Menu:
         return None
 
     def _handle_selection(self):
-        """Handle the current menu selection."""
+        """Handle the current main menu selection."""
         chosen = self.main_menu_options[self.selected_option]
         if chosen == "Play":
-            return "play_learning"  # Directly start the game
+            # Don't start the game yet - let the player pick an opponent
+            # model first.
+            self.show_model_menu = True
+            self.selected_model_index = 0
+            return None
         elif chosen == "Train":
-            return "train"
+            return ("train", None)
         elif chosen == "Help":
             self.show_help = True
             return None
         elif chosen == "Exit":
-            return "exit"
+            return ("exit", None)
         return None
+
+    def _handle_model_menu_event(self, event):
+        """Handle input while the "choose your opponent" submenu is shown."""
+        if event.type == pygame.KEYDOWN and event.key in [
+            pygame.K_RETURN,
+            pygame.K_KP_ENTER,
+        ]:
+            return self._handle_model_selection()
+
+        if event.type == pygame.KEYDOWN:
+            if event.key in [pygame.K_UP, pygame.K_w]:
+                self.selected_model_index = (self.selected_model_index - 1) % len(
+                    self.model_keys
+                )
+            elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                self.selected_model_index = (self.selected_model_index + 1) % len(
+                    self.model_keys
+                )
+            elif event.key == pygame.K_ESCAPE:
+                # Back out to the main menu instead of exiting the game.
+                self.show_model_menu = False
+
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            for index, rect in self.model_option_rects.items():
+                if rect.collidepoint(mouse_x, mouse_y):
+                    self.selected_model_index = index
+                    return self._handle_model_selection()
+
+        return None
+
+    def _handle_model_selection(self):
+        """Confirm the highlighted opponent model and start the game."""
+        model_choice = self.model_keys[self.selected_model_index]
+        self.show_model_menu = False
+        return ("play_learning", model_choice)
 
     def draw(self, screen):
         """
@@ -89,6 +147,10 @@ class Menu:
         """
         if self.show_help:
             self.draw_help(screen)
+            return
+
+        if self.show_model_menu:
+            self.draw_model_menu(screen)
             return
 
         screen.fill(self.color_background)
@@ -116,6 +178,50 @@ class Menu:
             )
             self.option_rects[index] = option_rect
             screen.blit(option_surface, option_rect)
+
+    def draw_model_menu(self, screen):
+        """Draw the "choose your opponent" submenu shown after selecting Play."""
+        screen.fill(self.color_background)
+
+        title_surface = self.font_title.render(
+            "Choose Your Opponent", True, self.color_title
+        )
+        title_rect = title_surface.get_rect(
+            center=(self.screen_width // 2, self.screen_height // 4)
+        )
+        screen.blit(title_surface, title_rect)
+
+        start_y = self.screen_height // 2
+        spacing = 70
+
+        for index, key in enumerate(self.model_keys):
+            label = MODEL_CHOICES[key]
+            available = missile_ai_manager.is_model_available(key)
+            if not available:
+                label += " (not trained yet - falls back to SAC)"
+
+            if index == self.selected_model_index:
+                color = self.color_selected
+            elif not available:
+                color = self.color_unavailable
+            else:
+                color = self.color_option
+
+            font = self.font_option if available else self.font_small
+            option_surface = font.render(label, True, color)
+            option_rect = option_surface.get_rect(
+                center=(self.screen_width // 2, start_y + index * spacing)
+            )
+            self.model_option_rects[index] = option_rect
+            screen.blit(option_surface, option_rect)
+
+        hint_surface = self.font_small.render(
+            "Press ESC to go back", True, self.color_title
+        )
+        hint_rect = hint_surface.get_rect(
+            center=(self.screen_width // 2, self.screen_height - 50)
+        )
+        screen.blit(hint_surface, hint_rect)
 
     def draw_help(self, screen):
         """
@@ -175,8 +281,9 @@ class Menu:
         # Text explaining the game modes
         modes_text = [
             "• Train: Collect gameplay data for AI training",
-            "• Play > Supervised AI: Fight pre-trained neural network",
-            "• Play > Learning AI: Watch AI learn and improve in real-time!",
+            "• Play: Pick which AI guides your missiles, then fight the enemy",
+            "• SAC / PPO: reinforcement learning (self-taught by trial and error)",
+            "• Supervised NN: neural net trained by imitating logged missile data",
         ]
 
         # Draw modes text

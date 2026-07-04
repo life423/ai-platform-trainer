@@ -228,7 +228,8 @@ class GameCore:
                         ):
                             selected_action = self.menu.handle_menu_events(event)
                             if selected_action:
-                                self.check_menu_selection(selected_action)
+                                action, model_choice = selected_action
+                                self.check_menu_selection(action, model_choice)
 
             if self.menu_active:
                 if (
@@ -334,19 +335,24 @@ class GameCore:
         else:
             logging.error(f"Attempted to transition to unknown state: {state_name}")
 
-    def start_game(self, mode: str) -> None:
+    def start_game(self, mode: str, model_choice: str = "sac") -> None:
         """
         Start the game in the specified mode.
 
         Args:
             mode: The game mode ("train" or "play_learning")
+            model_choice: Which missile guidance model to play against
+                ("sac", "ppo", or "supervised") - only relevant for
+                "play_learning".
         """
         self.mode = mode
-        logging.info(f"Starting game in '{mode}' mode.")
+        logging.info(f"Starting game in '{mode}' mode (model: {model_choice}).")
 
         if mode == "play_learning":
             # Play against real-time learning AI
-            self.player = PlayerPlay(self.screen_width, self.screen_height)
+            self.player = PlayerPlay(
+                self.screen_width, self.screen_height, model_choice=model_choice
+            )
             self.player.reset()
 
             # Create learning mode manager which will handle enemy creation
@@ -403,20 +409,28 @@ class GameCore:
         logging.info("Initialized PlayerPlay and EnemyPlay for play mode.")
         return player, enemy
 
-    def check_menu_selection(self, selected_action: str) -> None:
+    def check_menu_selection(
+        self, selected_action: str, model_choice: Optional[str] = None
+    ) -> None:
         """
         Handle menu selection.
 
         Args:
             selected_action: The selected menu action
+            model_choice: For "play_learning", which missile guidance model
+                was chosen ("sac", "ppo", or "supervised")
         """
         if selected_action == "exit":
             logging.info("Exit action selected from menu.")
             self.running = False
-        elif selected_action in ["train", "play_learning"]:
-            logging.info(f"'{selected_action}' selected from menu.")
+        elif selected_action == "train":
+            logging.info("'train' selected from menu.")
             self.menu_active = False
-            self.start_game(selected_action)
+            self.start_game("train")
+        elif selected_action == "play_learning":
+            logging.info(f"'play_learning' selected from menu (model: {model_choice}).")
+            self.menu_active = False
+            self.start_game("play_learning", model_choice or "sac")
 
     def _toggle_fullscreen(self) -> None:
         """Toggle between windowed and fullscreen modes."""
