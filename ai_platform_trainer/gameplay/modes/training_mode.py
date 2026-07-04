@@ -72,8 +72,12 @@ class TrainingMode:
 
         self.player.update_missiles()
 
-        # Guide missiles with the current missile model - this also fills in
-        # missile.last_action, which becomes the supervised training label.
+        # Guide missiles with pure deterministic targeting (model_blend_factor=0)
+        # rather than the current (still-learning) model's own guesses - this
+        # is what fills in missile.last_action, the supervised training label,
+        # so it needs to be a clean "correct" signal to imitate, not the model
+        # grading its own homework. It also keeps missile flight paths
+        # realistic successful intercepts, giving good state coverage.
         if self.game.missile_model and self.player.missiles:
             update_missile_ai(
                 self.player.missiles,
@@ -81,6 +85,7 @@ class TrainingMode:
                 self.enemy.pos,
                 self.game._missile_input,
                 self.game.missile_model,
+                model_blend_factor=0.0,
             )
 
         # Snapshot before collision resolution: handle_missile_collisions

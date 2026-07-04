@@ -106,9 +106,12 @@ def update_missile_ai(
             missile.vx = missile.speed * math.cos(new_angle)
             missile.vy = missile.speed * math.sin(new_angle)
 
-            # Store for training data collection
+            # Store for training data collection. This must be the turn that
+            # was actually applied (constrained_turn_rate), not the raw
+            # model output - logging the model's own guess as the "correct"
+            # label would just train it to imitate itself.
             if hasattr(missile, "last_action"):
-                missile.last_action = turn_rate
+                missile.last_action = constrained_turn_rate
 
         except Exception as e:
             logging.error(f"Error updating missile AI: {e}")

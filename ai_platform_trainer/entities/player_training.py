@@ -46,6 +46,10 @@ class PlayerTraining:
             0.2  # Lower = smoother movement, Higher = more responsive
         )
 
+        # Degrees for pygame.transform.rotate; 0 matches the sprite's
+        # native "facing up" artwork. Holds its last value while idle.
+        self.facing_angle = 0.0
+
         # Initialize a random pattern
         self.switch_pattern()
 
@@ -131,6 +135,15 @@ class PlayerTraining:
 
         self.position["x"] += self.velocity["x"]
         self.position["y"] += self.velocity["y"]
+
+        # Face the direction of travel. Unlike PlayerPlay's 8-direction
+        # WASD input, this movement is continuous (pattern-driven, e.g.
+        # circling), so the facing angle rotates smoothly rather than
+        # snapping to fixed compass directions.
+        if abs(self.velocity["x"]) > 0.01 or abs(self.velocity["y"]) > 0.01:
+            self.facing_angle = -math.degrees(
+                math.atan2(self.velocity["x"], -self.velocity["y"])
+            )
 
     def random_walk_pattern(self, enemy_x, enemy_y):
         """
