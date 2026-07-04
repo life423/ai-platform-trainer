@@ -168,6 +168,8 @@ class GameCore:
                     self.player.shoot_missile(self.enemy.pos)
                 elif event.key == pygame.K_m:
                     logging.info("M key pressed. Returning to menu.")
+                    if self.mode == "train" and self.training_mode_manager:
+                        self.training_mode_manager.finalize()
                     self.menu_active = True
                     self.reset_game_state()
 
@@ -269,9 +271,9 @@ class GameCore:
 
             self.clock.tick(config.FRAME_RATE)
 
-        # Save data if we were training
-        if self.mode == "train" and self.data_logger:
-            self.data_logger.save()
+        # Merge and retrain from collected data if we were training
+        if self.mode == "train" and self.training_mode_manager:
+            self.training_mode_manager.finalize()
 
         pygame.quit()
         logging.info("Game loop exited and Pygame quit.")
@@ -304,9 +306,9 @@ class GameCore:
             if self.display_manager:
                 self.display_manager.flip()
 
-        # Save data if we were training
-        if self.mode == "train" and self.data_logger:
-            self.data_logger.save()
+        # Merge and retrain from collected data if we were training
+        if self.mode == "train" and self.training_mode_manager:
+            self.training_mode_manager.finalize()
 
         pygame.quit()
         logging.info("Game loop exited and Pygame quit.")

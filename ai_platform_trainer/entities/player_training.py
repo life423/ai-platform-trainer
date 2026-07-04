@@ -293,9 +293,10 @@ class PlayerTraining:
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
 
-            # Random missile lifespan (matching play mode values)
-            # Increased to allow longer travel distance
-            lifespan = random.randint(8000, 12000)  # 8-12s
+            # Random lifespan from 2.5-3s, matching PlayerPlay - short enough
+            # that missiles that don't connect explode and despawn visibly
+            # instead of drifting forever.
+            lifespan = random.randint(2500, 3000)
             birth_time = pygame.time.get_ticks()
 
             missile = Missile(
@@ -315,16 +316,26 @@ class PlayerTraining:
 
     def update_missiles(self) -> None:
         """
-        Update missile positions and handle screen wrapping.
+        Update missile positions, explode them on expiry (matching
+        PlayerPlay), and handle screen wrapping.
         """
         current_time = pygame.time.get_ticks()
         for missile in self.missiles[:]:
+            # A missile that has already expired just plays out its
+            # explosion animation in place, then gets removed once it's done.
+            if missile.exploded:
+                missile.update_explosion(current_time)
+                if missile.explosion_finished(current_time):
+                    self.missiles.remove(missile)
+                    logging.debug("Missile explosion finished; removed.")
+                continue
+
             missile.update()
 
-            # Remove if it expires
+            # Explode in place once it expires, instead of vanishing.
             if current_time - missile.birth_time >= missile.lifespan:
-                self.missiles.remove(missile)
-                logging.debug("Missile removed for exceeding lifespan.")
+                missile.explode(current_time)
+                logging.debug("Missile lifespan exceeded; exploding.")
                 continue
 
             # Screen wrapping for missiles, similar to player wrapping

@@ -8,8 +8,10 @@ with the whole session visible in the GUI rather than running headless.
 """
 import logging
 import math
+import os
 
 import pygame
+import torch
 
 from ai_platform_trainer.ai.inference.missile_controller import update_missile_ai
 from ai_platform_trainer.core.data_logger import DataLogger
@@ -33,6 +35,15 @@ class TrainingMode:
     # How often (ms) the scripted player fires a missile at the enemy.
     FIRE_INTERVAL_MS = 1500
 
+    # DataLogger deletes any existing file at its target path, so this
+    # session's samples are captured in a scratch file - never directly in
+    # data/raw/training_data.json - and only merged into the real dataset
+    # by finalize(), which is safe to call repeatedly and backs up the
+    # existing file first.
+    SESSION_DATA_PATH = os.path.join(
+        os.path.dirname(config.DATA_PATH), "_training_session.json"
+    )
+
     def __init__(self, game):
         """Set up scripted entities and start a fresh data-logging session."""
         self.game = game
@@ -44,13 +55,9 @@ class TrainingMode:
 
         spawn_entities(game)
 
-        # NOTE: DataLogger deletes any existing file at this path and starts
-        # fresh each session - it captures only this session's new samples,
-        # matching how ai/utils/data_validator_and_trainer.py expects to
-        # receive a batch of *new* data to validate/merge/retrain from,
-        # rather than being handed the whole accumulated dataset.
-        self.data_logger = DataLogger(config.DATA_PATH)
+        self.data_logger = DataLogger(self.SESSION_DATA_PATH)
         game.data_logger = self.data_logger
+        self.finalized = False
 
         self.last_fire_time = 0
 
@@ -125,6 +132,80 @@ class TrainingMode:
                 "timestamp": current_time,
             }
         )
+
+    def finalize(self) -> bool:
+        """
+        Merge this session's collected samples into the master dataset and
+        retrain the missile model from it. Called when leaving Training
+        mode (menu return or app exit) - safe to call more than once, and
+        a no-op if nothing was collected.
+
+        Deliberately does not touch enemy RL training:
+        DataValidatorAndTrainer.process_new_data() would also kick off a
+        100k-timestep RL retrain, which is far too slow to run as a side
+        effect of leaving a short GUI session.
+        """
+        if self.finalized:
+            return False
+        self.finalized = True
+
+        new_data = self.data_logger.data
+        if not new_data:
+            logging.info("Training mode: no samples collected this session.")
+            return False
+
+        # Imported lazily: data_validator_and_trainer imports train_enemy_rl,
+        # which imports GameCore, which imports this module - a circular
+        # import at module load time if done at the top of this file.
+        from ai_platform_trainer.utils.data_validator_and_trainer import (
+            DataValidatorAndTrainer,
+        )
+
+        validator = DataValidatorAndTrainer(
+            training_data_path=config.DATA_PATH,
+            missile_model_path=config.MISSILE_MODEL_PATH,
+        )
+        valid, error_msg = validator.validate_data_format(new_data)
+        if not valid:
+            logging.error(
+                f"Training mode: collected data failed validation: {error_msg}"
+            )
+            return False
+
+        validator.backup_existing_data()
+        existing_data = validator.load_existing_data()
+        if not validator.merge_and_save_data(existing_data, new_data):
+            logging.error("Training mode: failed to merge session data into dataset.")
+            return False
+
+        total = len(existing_data) + len(new_data)
+        logging.info(
+            f"Training mode: merged {len(new_data)} new samples "
+            f"({total} total). Retraining missile model..."
+        )
+        if validator.train_missile_model():
+            logging.info("Training mode: missile model retrained successfully.")
+            self._reload_missile_model()
+        else:
+            logging.error("Training mode: missile model retraining failed.")
+
+        return True
+
+    def _reload_missile_model(self) -> None:
+        """
+        Hot-reload the just-retrained weights into the model object the
+        running game already holds a reference to, so the improvement is
+        visible immediately without restarting the app.
+        """
+        if self.game.missile_model is None:
+            return
+        try:
+            state_dict = torch.load(config.MISSILE_MODEL_PATH, map_location="cpu")
+            self.game.missile_model.load_state_dict(state_dict)
+            self.game.missile_model.eval()
+            logging.info("Training mode: reloaded updated missile model weights.")
+        except Exception as e:
+            logging.error(f"Training mode: failed to reload retrained model: {e}")
 
     def draw_mode_info(self, screen: pygame.Surface) -> None:
         """Draw a small overlay confirming data collection is running."""

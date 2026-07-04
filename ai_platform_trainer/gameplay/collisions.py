@@ -28,6 +28,11 @@ def handle_missile_collisions(player, enemy, respawn_callback):
 
         hit = False
         for missile in player.missiles[:]:
+            # An already-expired missile is just playing out its explosion
+            # animation in place - it shouldn't still be able to score a hit.
+            if missile.exploded:
+                continue
+
             # Create missile rect manually since get_rect() might not work
             missile_rect = pygame.Rect(
                 missile.pos["x"] - 5,  # Missile size/2

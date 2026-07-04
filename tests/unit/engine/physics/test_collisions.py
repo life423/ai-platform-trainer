@@ -17,10 +17,14 @@ def player():
     player = Mock()
 
     # Setup missiles list with one active missile
-    # handle_missile_collisions reads missile.pos directly (not get_rect()),
-    # so pos must be set for the mock to behave like a real Missile.
+    # handle_missile_collisions reads missile.pos and missile.exploded
+    # directly (not get_rect()), so both must be set for the mock to behave
+    # like a real Missile - a plain Mock() auto-vivifies any attribute
+    # access, so without exploded=False it would look truthy and the
+    # missile would be silently skipped as "already exploded".
     missile1 = Mock()
     missile1.pos = {"x": 100, "y": 100}
+    missile1.exploded = False
     missile_rect = pygame.Rect(100, 100, 20, 20)
     missile1.get_rect.return_value = missile_rect
 
@@ -107,6 +111,7 @@ class TestCollisions:
         # Add a second missile that won't collide
         missile2 = Mock()
         missile2.pos = {"x": 300, "y": 300}
+        missile2.exploded = False
         missile2_rect = pygame.Rect(300, 300, 20, 20)
         missile2.get_rect.return_value = missile2_rect
         player.missiles.append(missile2)
@@ -131,6 +136,7 @@ class TestCollisions:
         # Add a second missile that also collides
         missile2 = Mock()
         missile2.pos = {"x": 95, "y": 95}
+        missile2.exploded = False
         missile2_rect = pygame.Rect(95, 95, 20, 20)  # Also collides
         missile2.get_rect.return_value = missile2_rect
         player.missiles.append(missile2)
