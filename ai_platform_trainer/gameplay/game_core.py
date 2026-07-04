@@ -1,13 +1,9 @@
 """
 Core Game class for AI Platform Trainer.
-
-This module provides a consolidated implementation of the game that combines
-the best aspects of the standard, DI, and state machine approaches.
 """
 import logging
 import math
-import os
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import pygame
 import torch
@@ -23,7 +19,7 @@ from ai_platform_trainer.core.data_logger import DataLogger
 from ai_platform_trainer.core.logging_config import setup_logging
 from ai_platform_trainer.core.screen_context import ScreenContext
 from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
-from ai_platform_trainer.entities.enemy_play import EnemyPlay, create_enemy_play
+from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.player_play import PlayerPlay
 
 # Gameplay imports
@@ -43,26 +39,15 @@ from ai_platform_trainer.gameplay.spawner import (
 
 
 class GameCore:
-    """
-    Core implementation of the game that combines the best aspects of all approaches.
+    """Owns the main game loop, menu, and mode managers (Play / Train)."""
 
-    This class provides a unified implementation that can be used directly or
-    extended by other game classes.
-    """
-
-    def __init__(self, render_mode=None) -> None:
-        """
-        Initialize the game.
-
-        Args:
-            render_mode: Rendering mode (FULL or HEADLESS)
-        """
+    def __init__(self) -> None:
+        """Initialize the game."""
         setup_logging()
         self.running: bool = True
         self.menu_active: bool = True
         self.mode: Optional[str] = None
         self.paused: bool = False
-        self.render_mode = render_mode
 
         # Get configuration manager
         self.config_manager = get_config_manager()
@@ -71,48 +56,23 @@ class GameCore:
         self.config_manager.set("display.fullscreen", True)
         self.config_manager.save()
 
-        # Initialize display based on render mode
-        if (
-            self.render_mode
-            and hasattr(self.render_mode, "HEADLESS")
-            and self.render_mode == self.render_mode.HEADLESS
-        ):
-            # Headless mode - use dummy video driver and minimal pygame init
-            pygame.init()
-            os.environ["SDL_VIDEODRIVER"] = "dummy"
-            self.screen = pygame.Surface((1280, 720))
-            self.screen_width = 1280
-            self.screen_height = 720
-            self.display_manager = None
-        else:
-            # Normal mode with display - use DisplayManager (which calls pygame.init)
-            self.display_manager = DisplayManager(
-                fullscreen=self.config_manager.get("display.fullscreen", True)
-            )
-            self.screen = self.display_manager.get_screen()
-            (
-                self.screen_width,
-                self.screen_height,
-            ) = self.display_manager.get_dimensions()
+        # Initialize display - DisplayManager calls pygame.init()
+        self.display_manager = DisplayManager(
+            fullscreen=self.config_manager.get("display.fullscreen", True)
+        )
+        self.screen = self.display_manager.get_screen()
+        (
+            self.screen_width,
+            self.screen_height,
+        ) = self.display_manager.get_dimensions()
 
         # Initialize ScreenContext with actual screen dimensions
         ScreenContext.initialize(self.screen_width, self.screen_height)
 
         # Create clock, menu, and renderer
-        if (
-            self.render_mode
-            and hasattr(self.render_mode, "HEADLESS")
-            and self.render_mode == self.render_mode.HEADLESS
-        ):
-            # Headless mode - minimal initialization
-            self.clock = pygame.time.Clock()
-            self.menu = None
-            self.renderer = None
-        else:
-            # Normal mode with full rendering
-            self.clock = pygame.time.Clock()
-            self.menu = Menu(self.screen_width, self.screen_height)
-            self.renderer = Renderer(self.screen)
+        self.clock = pygame.time.Clock()
+        self.menu = Menu(self.screen_width, self.screen_height)
+        self.renderer = Renderer(self.screen)
 
         # Entities and managers
         self.player: Optional[PlayerPlay] = None
@@ -173,65 +133,41 @@ class GameCore:
             current_time = pygame.time.get_ticks()
 
             # Handle input events
-            if (
-                self.render_mode
-                and hasattr(self.render_mode, "HEADLESS")
-                and self.render_mode == self.render_mode.HEADLESS
-            ):
-                # Skip input handling in headless mode
-                pass
-            else:
-                should_continue, events = self.input_handler.handle_input()
-                if not should_continue:
-                    self.running = False
+            should_continue, events = self.input_handler.handle_input()
+            if not should_continue:
+                self.running = False
 
-                # Handle menu-specific events
-                if self.menu_active:
-                    for event in events:
-                        if event.type == pygame.KEYDOWN or (
-                            event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
-                        ):
-                            selected_action = self.menu.handle_menu_events(event)
-                            if selected_action:
-                                action, payload = selected_action
-                                self.check_menu_selection(action, payload)
+            # Handle menu-specific events
+            if self.menu_active:
+                for event in events:
+                    if event.type == pygame.KEYDOWN or (
+                        event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    ):
+                        selected_action = self.menu.handle_menu_events(event)
+                        if selected_action:
+                            action, payload = selected_action
+                            self.check_menu_selection(action, payload)
 
             if self.menu_active:
-                if (
-                    self.render_mode
-                    and hasattr(self.render_mode, "HEADLESS")
-                    and self.render_mode == self.render_mode.HEADLESS
-                ):
-                    # Skip menu rendering in headless mode
-                    pass
-                else:
-                    self.menu.draw(self.screen)
-                    if self.display_manager:
-                        self.display_manager.flip()
+                self.menu.draw(self.screen)
+                if self.display_manager:
+                    self.display_manager.flip()
             else:
                 self.update(current_time)
-                if (
-                    self.render_mode
-                    and hasattr(self.render_mode, "HEADLESS")
-                    and self.render_mode == self.render_mode.HEADLESS
-                ):
-                    # Skip rendering in headless mode
-                    pass
-                else:
-                    # Only pass a mode manager if it has UI to draw
-                    learning_manager: Optional[Any] = None
-                    if self.mode == "play_learning":
-                        learning_manager = self.play_learning_mode_manager
-                    elif self.mode == "train":
-                        learning_manager = self.training_mode_manager
-                    self.renderer.render(
-                        self.menu,
-                        self.player,
-                        self.enemy,
-                        self.menu_active,
-                        self.mode,
-                        learning_manager,
-                    )
+                # Only pass a mode manager if it has UI to draw
+                learning_manager: Optional[Any] = None
+                if self.mode == "play_learning":
+                    learning_manager = self.play_learning_mode_manager
+                elif self.mode == "train":
+                    learning_manager = self.training_mode_manager
+                self.renderer.render(
+                    self.menu,
+                    self.player,
+                    self.enemy,
+                    self.menu_active,
+                    self.mode,
+                    learning_manager,
+                )
 
             # Display flip is handled by renderer in game mode, menu handles its own flip
 
@@ -289,18 +225,6 @@ class GameCore:
             # Scripted data-collection mode: TrainingMode creates its own
             # player/enemy entities and spawns them.
             self.training_mode_manager = TrainingMode(self)
-
-    def _init_play_mode(self) -> Tuple[PlayerPlay, EnemyPlay]:
-        """
-        Initialize entities for play mode.
-
-        Returns:
-            Tuple of (player, enemy) entities
-        """
-        player = PlayerPlay(self.screen_width, self.screen_height)
-        enemy = create_enemy_play(self.screen_width, self.screen_height)
-        logging.info("Initialized PlayerPlay and EnemyPlay for play mode.")
-        return player, enemy
 
     def check_menu_selection(
         self, selected_action: str, payload: Optional[dict] = None
@@ -501,14 +425,9 @@ class GameCore:
         current_time = pygame.time.get_ticks()
 
         # Process pending events to avoid queue overflow
-        if not (
-            self.render_mode
-            and hasattr(self.render_mode, "HEADLESS")
-            and self.render_mode == self.render_mode.HEADLESS
-        ):
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
 
         # Update based on current mode
         if self.mode == "play" and not self.menu_active:
