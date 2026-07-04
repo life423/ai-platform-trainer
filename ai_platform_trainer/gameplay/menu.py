@@ -1,6 +1,11 @@
 import pygame
 
 from ai_platform_trainer.ai.missile_ai_loader import MODEL_CHOICES, missile_ai_manager
+from ai_platform_trainer.entities.enemy_play import (
+    ENEMY_CHOICES,
+    is_trained_enemy_available,
+    is_trained_enemy_rl_available,
+)
 
 
 class Menu:
@@ -10,7 +15,16 @@ class Menu:
         self.selected_option = 0
 
         # Submenu shown after choosing "Play", letting the player pick which
-        # missile guidance model to play against.
+        # enemy behavior to face: the scripted staged-difficulty AI, or the
+        # trained (supervised NN, optionally RL) EnemyPlay model.
+        self.show_enemy_menu = False
+        self.enemy_keys = list(ENEMY_CHOICES.keys())  # ["adaptive", "trained"]
+        self.selected_enemy_index = 0
+        self.selected_enemy_choice = "adaptive"
+        self.enemy_option_rects = {}
+
+        # Submenu shown after choosing the enemy, letting the player pick
+        # which missile guidance model to play against.
         self.show_model_menu = False
         self.model_keys = list(MODEL_CHOICES.keys())  # ["sac", "ppo", "supervised"]
         self.selected_model_index = 0
@@ -38,10 +52,10 @@ class Menu:
         """
         Handle user input for the menu.
 
-        Returns None, or a (action, model_choice) tuple where action is one
-        of "play_learning" / "train" / "exit" and model_choice is the chosen
-        missile AI ("sac"/"ppo"/"supervised") when action is "play_learning",
-        else None.
+        Returns None, or an (action, payload) tuple where action is one of
+        "play_learning" / "train" / "exit". For "play_learning", payload is
+        a dict with "enemy_choice" ("adaptive"/"trained") and "model_choice"
+        ("sac"/"ppo"/"supervised"); otherwise payload is None.
         """
         # If the help screen is currently displayed
         if self.show_help:
@@ -55,6 +69,10 @@ class Menu:
         # If the "choose your opponent" submenu is currently displayed
         if self.show_model_menu:
             return self._handle_model_menu_event(event)
+
+        # If the "choose your enemy" submenu is currently displayed
+        if self.show_enemy_menu:
+            return self._handle_enemy_menu_event(event)
 
         # If user presses ENTER on the menu
         if event.type == pygame.KEYDOWN and event.key in [
@@ -90,10 +108,10 @@ class Menu:
         """Handle the current main menu selection."""
         chosen = self.main_menu_options[self.selected_option]
         if chosen == "Play":
-            # Don't start the game yet - let the player pick an opponent
-            # model first.
-            self.show_model_menu = True
-            self.selected_model_index = 0
+            # Don't start the game yet - let the player pick an enemy, then
+            # a missile model, first.
+            self.show_enemy_menu = True
+            self.selected_enemy_index = 0
             return None
         elif chosen == "Train":
             return ("train", None)
@@ -102,6 +120,44 @@ class Menu:
             return None
         elif chosen == "Exit":
             return ("exit", None)
+        return None
+
+    def _handle_enemy_menu_event(self, event):
+        """Handle input while the "choose your enemy" submenu is shown."""
+        if event.type == pygame.KEYDOWN and event.key in [
+            pygame.K_RETURN,
+            pygame.K_KP_ENTER,
+        ]:
+            return self._handle_enemy_selection()
+
+        if event.type == pygame.KEYDOWN:
+            if event.key in [pygame.K_UP, pygame.K_w]:
+                self.selected_enemy_index = (self.selected_enemy_index - 1) % len(
+                    self.enemy_keys
+                )
+            elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                self.selected_enemy_index = (self.selected_enemy_index + 1) % len(
+                    self.enemy_keys
+                )
+            elif event.key == pygame.K_ESCAPE:
+                # Back out to the main menu instead of exiting the game.
+                self.show_enemy_menu = False
+
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            for index, rect in self.enemy_option_rects.items():
+                if rect.collidepoint(mouse_x, mouse_y):
+                    self.selected_enemy_index = index
+                    return self._handle_enemy_selection()
+
+        return None
+
+    def _handle_enemy_selection(self):
+        """Confirm the highlighted enemy, then move on to the missile submenu."""
+        self.selected_enemy_choice = self.enemy_keys[self.selected_enemy_index]
+        self.show_enemy_menu = False
+        self.show_model_menu = True
+        self.selected_model_index = 0
         return None
 
     def _handle_model_menu_event(self, event):
@@ -122,8 +178,9 @@ class Menu:
                     self.model_keys
                 )
             elif event.key == pygame.K_ESCAPE:
-                # Back out to the main menu instead of exiting the game.
+                # Back one level, to the enemy submenu, not all the way out.
                 self.show_model_menu = False
+                self.show_enemy_menu = True
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -138,7 +195,13 @@ class Menu:
         """Confirm the highlighted opponent model and start the game."""
         model_choice = self.model_keys[self.selected_model_index]
         self.show_model_menu = False
-        return ("play_learning", model_choice)
+        return (
+            "play_learning",
+            {
+                "model_choice": model_choice,
+                "enemy_choice": self.selected_enemy_choice,
+            },
+        )
 
     def draw(self, screen):
         """
@@ -151,6 +214,10 @@ class Menu:
 
         if self.show_model_menu:
             self.draw_model_menu(screen)
+            return
+
+        if self.show_enemy_menu:
+            self.draw_enemy_menu(screen)
             return
 
         screen.fill(self.color_background)
@@ -178,6 +245,57 @@ class Menu:
             )
             self.option_rects[index] = option_rect
             screen.blit(option_surface, option_rect)
+
+    def draw_enemy_menu(self, screen):
+        """Draw the "choose your enemy" submenu shown after selecting Play."""
+        screen.fill(self.color_background)
+
+        title_surface = self.font_title.render(
+            "Choose Your Enemy", True, self.color_title
+        )
+        title_rect = title_surface.get_rect(
+            center=(self.screen_width // 2, self.screen_height // 4)
+        )
+        screen.blit(title_surface, title_rect)
+
+        start_y = self.screen_height // 2
+        spacing = 70
+
+        for index, key in enumerate(self.enemy_keys):
+            label = ENEMY_CHOICES[key]
+            available = key != "trained" or is_trained_enemy_available()
+
+            if key == "trained" and available:
+                label += (
+                    " (NN + RL)"
+                    if is_trained_enemy_rl_available()
+                    else " (Neural Network)"
+                )
+            if not available:
+                label += " (not trained yet - falls back to Adaptive)"
+
+            if index == self.selected_enemy_index:
+                color = self.color_selected
+            elif not available:
+                color = self.color_unavailable
+            else:
+                color = self.color_option
+
+            font = self.font_option if available else self.font_small
+            option_surface = font.render(label, True, color)
+            option_rect = option_surface.get_rect(
+                center=(self.screen_width // 2, start_y + index * spacing)
+            )
+            self.enemy_option_rects[index] = option_rect
+            screen.blit(option_surface, option_rect)
+
+        hint_surface = self.font_small.render(
+            "Press ESC to go back", True, self.color_title
+        )
+        hint_rect = hint_surface.get_rect(
+            center=(self.screen_width // 2, self.screen_height - 50)
+        )
+        screen.blit(hint_surface, hint_rect)
 
     def draw_model_menu(self, screen):
         """Draw the "choose your opponent" submenu shown after selecting Play."""
@@ -281,7 +399,9 @@ class Menu:
         # Text explaining the game modes
         modes_text = [
             "• Train: Collect gameplay data for AI training",
-            "• Play: Pick which AI guides your missiles, then fight the enemy",
+            "• Play: pick your enemy, then which AI guides your missiles",
+            "• Adaptive Staged: hand-tuned enemy that ramps up difficulty",
+            "• Trained AI: enemy driven by a trained network (+ RL if available)",
             "• SAC / PPO: reinforcement learning (self-taught by trial and error)",
             "• Supervised NN: neural net trained by imitating logged missile data",
         ]

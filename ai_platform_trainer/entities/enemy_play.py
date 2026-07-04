@@ -6,7 +6,8 @@ for movement decisions.
 """
 import logging
 import math
-from typing import Tuple
+import os
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pygame
@@ -22,6 +23,50 @@ except ImportError:
 
 from ai_platform_trainer.ai.models.enemy_movement_model import EnemyMovementModel
 from ai_platform_trainer.core.screen_context import ScreenContext
+from ai_platform_trainer.gameplay.config import config
+
+# Display names for the two selectable enemy behaviors, keyed the same way
+# as enemy_choice throughout this module and the menu.
+ENEMY_CHOICES = {"adaptive": "Adaptive Staged AI", "trained": "Trained AI"}
+
+# Where train_enemy_rl.py (PPO + VecNormalize, driven by EnemyGameEnv) saves
+# its final checkpoint.
+ENEMY_RL_MODEL_PATH = "models/enemy_rl/final_model.zip"
+
+
+def is_trained_enemy_available() -> bool:
+    """Whether the supervised movement network has been trained at all."""
+    return os.path.exists(config.MODEL_PATH)
+
+
+def is_trained_enemy_rl_available() -> bool:
+    """Whether train_enemy_rl.py has produced a checkpoint yet."""
+    return os.path.exists(ENEMY_RL_MODEL_PATH)
+
+
+def create_enemy_play(screen_width: int, screen_height: int) -> "EnemyPlay":
+    """
+    Build a fully configured EnemyPlay: the supervised movement network,
+    with the from-scratch RL model (train_enemy_rl.py) layered on top if
+    one has been trained yet.
+    """
+    model = EnemyMovementModel(input_size=5, hidden_size=64, output_size=2)
+    model.load_state_dict(torch.load(config.MODEL_PATH, map_location="cpu"))
+    model.eval()
+
+    enemy = EnemyPlay(screen_width, screen_height, model)
+
+    if is_trained_enemy_rl_available():
+        if enemy.load_rl_model(ENEMY_RL_MODEL_PATH):
+            logging.info("Enemy AI: using RL-trained model.")
+        else:
+            logging.warning(
+                "Enemy AI: RL model found but failed to load; using supervised NN."
+            )
+    else:
+        logging.info("Enemy AI: no RL model trained yet; using supervised NN.")
+
+    return enemy
 
 
 class EnemyPlay:
@@ -58,8 +103,19 @@ class EnemyPlay:
         self.fade_start_time = 0
         self.fade_duration = 1000  # 1 second fade-in
 
+        # Simple counters so this class can report the same "learning
+        # stats" shape PlayLearningMode's UI panel expects, regardless of
+        # whether it's hosting AdaptiveStagedEnemyAI or this class.
+        self.hits_on_player = 0
+        self.times_hit_by_missile = 0
+
     def update_movement(
-        self, player_x: float, player_y: float, player_speed: float, current_time: int
+        self,
+        player_x: float,
+        player_y: float,
+        player_speed: float,
+        current_time: int,
+        missiles: Optional[List] = None,
     ) -> None:
         """
         Update the enemy's position based on AI model predictions.
@@ -69,35 +125,61 @@ class EnemyPlay:
             player_y: Player's y position
             player_speed: Player's movement speed
             current_time: Current game time in milliseconds
+            missiles: Active missiles (accepted for interface parity with
+                AdaptiveStagedEnemyAI; this class's models don't take
+                missile positions as input, so it's unused here).
         """
         if not self.visible:
             return
 
-        # TEMPORARY: Use simple chase behavior for debugging
+        if self.use_rl and self.rl_model is not None:
+            self._update_with_rl(player_x, player_y, player_speed)
+        elif self.model is not None:
+            self._update_with_nn(player_x, player_y, player_speed)
+        else:
+            self._update_with_basic_chase(player_x, player_y)
+
+        # Update fade-in effect if active
+        if self.fading_in:
+            self.update_fade_in(current_time)
+
+    def _update_with_basic_chase(self, player_x: float, player_y: float) -> None:
+        """Direct chase, used only if no model at all was loaded."""
         dx = player_x - self.pos["x"]
         dy = player_y - self.pos["y"]
 
-        # Normalize and scale movement
         distance = math.sqrt(dx * dx + dy * dy)
         if distance > 1:  # Avoid division by zero
             move_x = (dx / distance) * self.speed
             move_y = (dy / distance) * self.speed
 
-            # Update position
             self.pos["x"] += move_x
             self.pos["y"] += move_y
 
-            logging.debug(
-                f"Enemy chasing: moving ({move_x:.2f}, {move_y:.2f}) "
-                f"toward player at ({player_x:.0f}, {player_y:.0f})"
-            )
-
-            # Wrap around screen edges
             self._wrap_position()
 
-        # Update fade-in effect if active
-        if self.fading_in:
-            self.update_fade_in(current_time)
+    def on_hit_player(self) -> None:
+        """Called when this enemy successfully hits the player."""
+        self.hits_on_player += 1
+
+    def on_hit_by_missile(self) -> None:
+        """Called when this enemy is hit by a missile."""
+        self.times_hit_by_missile += 1
+
+    def get_difficulty_level(self) -> float:
+        """Difficulty value (0.0-1.0) for the shared learning-mode UI panel."""
+        return 1.0 if self.use_rl else 0.75
+
+    def get_learning_stats(self) -> dict:
+        """Stats for the shared learning-mode UI panel (see PlayLearningMode)."""
+        return {
+            "stage": "RL-Trained" if self.use_rl else "Trained NN",
+            "difficulty": self.get_difficulty_level(),
+            "frames": self.hits_on_player + self.times_hit_by_missile,
+            "hits": self.hits_on_player,
+            "deaths": self.times_hit_by_missile,
+            "speed": self.speed,
+        }
 
     def _update_with_nn(
         self, player_x: float, player_y: float, player_speed: float

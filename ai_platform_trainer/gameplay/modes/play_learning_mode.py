@@ -7,10 +7,16 @@ The AI starts weak and evolves during gameplay with visual feedback showing its 
 import logging
 import math
 import random
+from typing import Union
 
 import pygame
 
 from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
+from ai_platform_trainer.entities.enemy_play import (
+    EnemyPlay,
+    create_enemy_play,
+    is_trained_enemy_available,
+)
 
 # Color constants
 COLOR_TEXT_PRIMARY = (255, 255, 255)  # White
@@ -21,15 +27,29 @@ COLOR_SELECTED = (255, 215, 0)  # Gold
 class PlayLearningMode:
     """Play mode against real-time learning AI with visual feedback."""
 
-    def __init__(self, game):
-        """Initialize learning play mode."""
+    def __init__(self, game, enemy_choice: str = "adaptive"):
+        """
+        Initialize learning play mode.
+
+        Args:
+            enemy_choice: "adaptive" for the scripted staged-difficulty AI
+                (AdaptiveStagedEnemyAI), or "trained" for the supervised/RL
+                EnemyPlay model. Falls back to "adaptive" if "trained" was
+                requested but no model has been trained yet.
+        """
         self.game = game
         self.space_pressed_last_frame = False
+        self.enemy_choice = enemy_choice
 
-        # Create adaptive staged AI enemy
-        self.learning_enemy = AdaptiveStagedEnemyAI(
-            self.game.screen_width, self.game.screen_height
-        )
+        self.learning_enemy: Union[AdaptiveStagedEnemyAI, EnemyPlay]
+        if enemy_choice == "trained" and is_trained_enemy_available():
+            self.learning_enemy = create_enemy_play(
+                self.game.screen_width, self.game.screen_height
+            )
+        else:
+            self.learning_enemy = AdaptiveStagedEnemyAI(
+                self.game.screen_width, self.game.screen_height
+            )
 
         # Replace the regular enemy with our learning AI
         self.game.enemy = self.learning_enemy

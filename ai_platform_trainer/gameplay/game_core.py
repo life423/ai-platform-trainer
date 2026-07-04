@@ -7,14 +7,13 @@ the best aspects of the standard, DI, and state machine approaches.
 import logging
 import math
 import os
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import pygame
 import torch
 
 # AI imports
 from ai_platform_trainer.ai.missile_ai_loader import missile_ai_manager
-from ai_platform_trainer.ai.models.enemy_movement_model import EnemyMovementModel
 from ai_platform_trainer.core.config_manager import get_config_manager
 
 # Data logger and entity imports
@@ -23,7 +22,8 @@ from ai_platform_trainer.core.data_logger import DataLogger
 # Logging setup
 from ai_platform_trainer.core.logging_config import setup_logging
 from ai_platform_trainer.core.screen_context import ScreenContext
-from ai_platform_trainer.entities.enemy_play import EnemyPlay
+from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
+from ai_platform_trainer.entities.enemy_play import EnemyPlay, create_enemy_play
 from ai_platform_trainer.entities.player_play import PlayerPlay
 
 # Gameplay imports
@@ -117,7 +117,7 @@ class GameCore:
 
         # Entities and managers
         self.player: Optional[PlayerPlay] = None
-        self.enemy: Optional[EnemyPlay] = None
+        self.enemy: Optional[Union[EnemyPlay, AdaptiveStagedEnemyAI]] = None
         self.data_logger: Optional[DataLogger] = None
 
         self.play_mode_manager: Optional[PlayMode] = None
@@ -228,8 +228,8 @@ class GameCore:
                         ):
                             selected_action = self.menu.handle_menu_events(event)
                             if selected_action:
-                                action, model_choice = selected_action
-                                self.check_menu_selection(action, model_choice)
+                                action, payload = selected_action
+                                self.check_menu_selection(action, payload)
 
             if self.menu_active:
                 if (
@@ -335,7 +335,9 @@ class GameCore:
         else:
             logging.error(f"Attempted to transition to unknown state: {state_name}")
 
-    def start_game(self, mode: str, model_choice: str = "sac") -> None:
+    def start_game(
+        self, mode: str, model_choice: str = "sac", enemy_choice: str = "adaptive"
+    ) -> None:
         """
         Start the game in the specified mode.
 
@@ -344,9 +346,18 @@ class GameCore:
             model_choice: Which missile guidance model to play against
                 ("sac", "ppo", or "supervised") - only relevant for
                 "play_learning".
+            enemy_choice: Which enemy behavior to face ("adaptive" for the
+                scripted staged-difficulty AI, or "trained" for the
+                supervised/RL EnemyPlay model) - only relevant for
+                "play_learning".
         """
         self.mode = mode
-        logging.info(f"Starting game in '{mode}' mode (model: {model_choice}).")
+        self.model_choice = model_choice
+        self.enemy_choice = enemy_choice
+        logging.info(
+            f"Starting game in '{mode}' mode "
+            f"(missile: {model_choice}, enemy: {enemy_choice})."
+        )
 
         if mode == "play_learning":
             # Play against real-time learning AI
@@ -356,7 +367,9 @@ class GameCore:
             self.player.reset()
 
             # Create learning mode manager which will handle enemy creation
-            self.play_learning_mode_manager = PlayLearningMode(self)
+            self.play_learning_mode_manager = PlayLearningMode(
+                self, enemy_choice=enemy_choice
+            )
 
             # Set the enemy reference for compatibility with other systems
             self.enemy = self.play_learning_mode_manager.learning_enemy
@@ -375,50 +388,22 @@ class GameCore:
         Returns:
             Tuple of (player, enemy) entities
         """
-        # Load the traditional neural network model
-        model = EnemyMovementModel(input_size=5, hidden_size=64, output_size=2)
-        try:
-            model.load_state_dict(torch.load(config.MODEL_PATH, map_location="cpu"))
-            model.eval()
-            logging.info("Enemy AI model loaded for play mode.")
-        except Exception as e:
-            logging.error(f"Failed to load enemy model: {e}")
-            raise e
-
         player = PlayerPlay(self.screen_width, self.screen_height)
-        enemy = EnemyPlay(self.screen_width, self.screen_height, model)
-
-        # Check for RL model and try to load if available
-        rl_model_path = "models/enemy_rl/final_model.zip"
-        if os.path.exists(rl_model_path):
-            try:
-                success = enemy.load_rl_model(rl_model_path)
-                if success:
-                    logging.info(
-                        "Using reinforcement learning model for enemy behavior"
-                    )
-                else:
-                    logging.warning("RL model exists but couldn't be loaded.")
-                    logging.warning("Falling back to neural network.")
-            except Exception as e:
-                logging.error(f"Error loading RL model: {e}.")
-                logging.error("Using neural network instead.")
-        else:
-            logging.info("No RL model found, using traditional neural network")
-
+        enemy = create_enemy_play(self.screen_width, self.screen_height)
         logging.info("Initialized PlayerPlay and EnemyPlay for play mode.")
         return player, enemy
 
     def check_menu_selection(
-        self, selected_action: str, model_choice: Optional[str] = None
+        self, selected_action: str, payload: Optional[dict] = None
     ) -> None:
         """
         Handle menu selection.
 
         Args:
             selected_action: The selected menu action
-            model_choice: For "play_learning", which missile guidance model
-                was chosen ("sac", "ppo", or "supervised")
+            payload: For "play_learning", a dict with "model_choice"
+                ("sac"/"ppo"/"supervised") and "enemy_choice"
+                ("adaptive"/"trained")
         """
         if selected_action == "exit":
             logging.info("Exit action selected from menu.")
@@ -428,9 +413,15 @@ class GameCore:
             self.menu_active = False
             self.start_game("train")
         elif selected_action == "play_learning":
-            logging.info(f"'play_learning' selected from menu (model: {model_choice}).")
+            payload = payload or {}
+            model_choice = payload.get("model_choice", "sac")
+            enemy_choice = payload.get("enemy_choice", "adaptive")
+            logging.info(
+                "'play_learning' selected from menu "
+                f"(missile: {model_choice}, enemy: {enemy_choice})."
+            )
             self.menu_active = False
-            self.start_game("play_learning", model_choice or "sac")
+            self.start_game("play_learning", model_choice, enemy_choice)
 
     def _toggle_fullscreen(self) -> None:
         """Toggle between windowed and fullscreen modes."""
@@ -452,7 +443,11 @@ class GameCore:
         if not self.menu_active:
             current_mode = self.mode
             self.reset_game_state()
-            self.start_game(current_mode)
+            self.start_game(
+                current_mode,
+                getattr(self, "model_choice", "sac"),
+                getattr(self, "enemy_choice", "adaptive"),
+            )
 
     def update(self, current_time: int) -> None:
         """

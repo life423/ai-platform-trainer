@@ -85,15 +85,17 @@ class MenuState(GameState):
         return None
 
     def _handle_menu_selection(self, selected_action):
-        action, model_choice = selected_action
+        action, payload = selected_action
+        payload = payload or {}
         if action == "exit":
             logging.info("Exit action selected from menu.")
             self.game.running = False
             return None
         elif action in ["play_learning", "train"]:
-            logging.info(f"'{action}' selected from menu (model: {model_choice}).")
+            logging.info(f"'{action}' selected from menu (payload: {payload}).")
             self.game.mode = action
-            self.game.model_choice = model_choice or "sac"
+            self.game.model_choice = payload.get("model_choice", "sac")
+            self.game.enemy_choice = payload.get("enemy_choice", "adaptive")
             return action
         return None
 
@@ -104,7 +106,11 @@ class PlayLearningState(GameState):
     def enter(self):
         logging.info("Entering play_learning state")
         # NOTE: This is a scaffold. We will replace this with the real logic.
-        self.game.start_game("play_learning", getattr(self.game, "model_choice", "sac"))
+        self.game.start_game(
+            "play_learning",
+            getattr(self.game, "model_choice", "sac"),
+            getattr(self.game, "enemy_choice", "adaptive"),
+        )
 
     def exit(self):
         logging.info("Exiting play_learning state")
