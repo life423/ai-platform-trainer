@@ -6,8 +6,9 @@ It provides an abstraction layer over pygame's sprite handling to make the
 code more modular and maintainable.
 """
 import os
+from typing import Dict, List, Tuple, Union
+
 import pygame
-from typing import Dict, Tuple, Union, List
 
 # Type aliases
 Color = Tuple[int, int, int]
@@ -32,12 +33,15 @@ class SpriteManager:
         self.sprites_dir = sprites_dir
         self.sprites: Dict[str, pygame.Surface] = {}
         self.animations: Dict[str, List[pygame.Surface]] = {}
+        self._rotated_sprites: Dict[
+            Tuple[str, Tuple[int, int], int], pygame.Surface
+        ] = {}
 
         # Placeholder colors for entities
         self.placeholder_colors = {
-            "player": (0, 128, 255),    # Blue
-            "enemy": (255, 50, 50),     # Red
-            "missile": (255, 255, 50)   # Yellow
+            "player": (0, 128, 255),  # Blue
+            "enemy": (255, 50, 50),  # Red
+            "missile": (255, 255, 50),  # Yellow
         }
 
     def load_sprite(self, name: str, size: Tuple[int, int]) -> pygame.Surface:
@@ -94,9 +98,9 @@ class SpriteManager:
             # Triangle shape for player
             width, height = size
             points = [
-                (width // 2, 0),           # Top point
-                (0, height),               # Bottom left
-                (width, height)            # Bottom right
+                (width // 2, 0),  # Top point
+                (0, height),  # Bottom left
+                (width, height),  # Bottom right
             ]
             pygame.draw.polygon(sprite, color, points)
 
@@ -104,11 +108,11 @@ class SpriteManager:
             # Pentagon shape for enemy
             width, height = size
             points = [
-                (width // 2, 0),             # Top point
-                (0, height // 2),            # Middle left
-                (width // 4, height),        # Bottom left
-                (3 * width // 4, height),    # Bottom right
-                (width, height // 2)         # Middle right
+                (width // 2, 0),  # Top point
+                (0, height // 2),  # Middle left
+                (width // 4, height),  # Bottom left
+                (3 * width // 4, height),  # Bottom right
+                (width, height // 2),  # Middle right
             ]
             pygame.draw.polygon(sprite, color, points)
 
@@ -116,11 +120,11 @@ class SpriteManager:
             # Elongated pentagon for missile
             width, height = size
             points = [
-                (width // 2, 0),             # Top point
-                (width // 4, height // 4),   # Upper left
-                (0, height),                 # Bottom left
-                (width, height),             # Bottom right
-                (3 * width // 4, height // 4)  # Upper right
+                (width // 2, 0),  # Top point
+                (width // 4, height // 4),  # Upper left
+                (0, height),  # Bottom left
+                (width, height),  # Bottom right
+                (3 * width // 4, height // 4),  # Upper right
             ]
             pygame.draw.polygon(sprite, color, points)
 
@@ -136,7 +140,7 @@ class SpriteManager:
         entity_type: str,
         position: Union[Position, Tuple[float, float]],
         size: Tuple[int, int],
-        rotation: float = 0
+        rotation: float = 0,
     ) -> None:
         """
         Render a sprite to the screen.
@@ -148,27 +152,45 @@ class SpriteManager:
             size: Size (width, height) of the sprite
             rotation: Rotation angle in degrees
         """
-        # Get position as (x, y) tuple
+        # Get position as (x, y) tuple (top-left of the entity's bounding box)
         if isinstance(position, dict):
             pos = (position["x"], position["y"])
         else:
             pos = position
 
-        # Get the sprite surface
-        sprite = self.load_sprite(entity_type, size)
+        sprite = self._get_rotated_sprite(entity_type, size, rotation)
 
-        # Apply rotation if needed
-        if rotation != 0:
-            sprite = pygame.transform.rotate(sprite, rotation)
+        # A rotated surface's bounding box is larger than the original
+        # (especially at 45-degree angles), so blit it centered on the
+        # entity's logical box rather than at its unrotated top-left -
+        # otherwise it visibly drifts away from the entity's position.
+        center = (pos[0] + size[0] / 2, pos[1] + size[1] / 2)
+        rect = sprite.get_rect(center=center)
+        screen.blit(sprite, rect)
 
-        # Blit to screen
-        screen.blit(sprite, pos)
+    def _get_rotated_sprite(
+        self, entity_type: str, size: Tuple[int, int], rotation: float
+    ) -> pygame.Surface:
+        """
+        Get a sprite rotated by the given angle, caching each rotated
+        variant so repeated frames at the same angle (e.g. a player
+        facing one of 8 fixed compass directions) don't re-rotate the
+        surface every time.
+        """
+        base_sprite = self.load_sprite(entity_type, size)
+        rotation_key = round(rotation) % 360
+        if rotation_key == 0:
+            return base_sprite
+
+        cache_key = (entity_type, size, rotation_key)
+        if cache_key not in self._rotated_sprites:
+            self._rotated_sprites[cache_key] = pygame.transform.rotate(
+                base_sprite, rotation_key
+            )
+        return self._rotated_sprites[cache_key]
 
     def load_animation(
-        self,
-        name: str,
-        size: Tuple[int, int],
-        frames: int = 4
+        self, name: str, size: Tuple[int, int], frames: int = 4
     ) -> List[pygame.Surface]:
         """
         Load or create a simple animation sequence.
@@ -201,17 +223,15 @@ class SpriteManager:
                     animation_frames.append(self._create_placeholder(name, size))
             else:
                 # Create placeholder frame with slight variation
-                animation_frames.append(self._create_animation_placeholder(name, size, i, frames))
+                animation_frames.append(
+                    self._create_animation_placeholder(name, size, i, frames)
+                )
 
         self.animations[animation_key] = animation_frames
         return animation_frames
 
     def _create_animation_placeholder(
-        self,
-        name: str,
-        size: Tuple[int, int],
-        frame_index: int,
-        total_frames: int
+        self, name: str, size: Tuple[int, int], frame_index: int, total_frames: int
     ) -> pygame.Surface:
         """
         Create a placeholder animation frame.

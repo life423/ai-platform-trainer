@@ -23,6 +23,9 @@ class PlayerPlay:
         self.missiles: List[Missile] = []
         self.missile_cooldown = 500  # Cooldown in milliseconds
         self.last_missile_time = 0
+        # Degrees for pygame.transform.rotate; 0 matches the sprite's
+        # native "facing up" artwork. Holds its last value while idle.
+        self.facing_angle = 0.0
 
     def reset(self) -> None:
         self.position = {"x": self.screen_width // 4, "y": self.screen_height // 2}
@@ -34,14 +37,26 @@ class PlayerPlay:
         keys = pygame.key.get_pressed()
 
         # WASD / Arrow key movement
+        dx = 0
+        dy = 0
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.position["x"] -= self.step
+            dx -= self.step
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.position["x"] += self.step
+            dx += self.step
         if keys[pygame.K_UP] or keys[pygame.K_w]:
-            self.position["y"] -= self.step
+            dy -= self.step
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            self.position["y"] += self.step
+            dy += self.step
+
+        self.position["x"] += dx
+        self.position["y"] += dy
+
+        # Face the direction of travel. WASD/arrow combinations only ever
+        # produce 8 possible (dx, dy) vectors, so this already lands
+        # exactly on one of the 8 compass angles with no extra snapping
+        # needed. Holds the last facing angle while standing still.
+        if dx != 0 or dy != 0:
+            self.facing_angle = -math.degrees(math.atan2(dx, -dy))
 
         # Wrap-around logic
         if self.position["x"] < -self.size:

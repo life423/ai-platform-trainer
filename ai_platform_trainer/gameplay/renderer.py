@@ -1,5 +1,6 @@
-import pygame
 import logging
+
+import pygame
 
 # Import sprite manager for entity rendering
 from ai_platform_trainer.utils.sprite_manager import SpriteManager
@@ -24,7 +25,15 @@ class Renderer:
         self.frame_count = 0
         self.particle_effects = []
 
-    def render(self, menu, player, enemy, menu_active: bool, game_mode: str = None, learning_mode_manager=None) -> None:
+    def render(
+        self,
+        menu,
+        player,
+        enemy,
+        menu_active: bool,
+        game_mode: str = None,
+        learning_mode_manager=None,
+    ) -> None:
         """
         Render the game elements on the screen.
 
@@ -50,11 +59,11 @@ class Renderer:
             else:
                 # Render game elements
                 self._render_game(player, enemy)
-                
+
                 # Render learning mode UI if in learning mode
                 if game_mode == "play_learning" and learning_mode_manager:
                     learning_mode_manager.draw_mode_info(self.screen)
-                
+
                 logging.debug("Game elements rendered.")
 
             # Update display
@@ -73,16 +82,16 @@ class Renderer:
             enemy: Enemy instance
         """
         # Draw player with sprite
-        if hasattr(player, 'position') and hasattr(player, 'size'):
+        if hasattr(player, "position") and hasattr(player, "size"):
             self._render_player(player)
 
             # Render player missiles
-            if hasattr(player, 'missiles'):
+            if hasattr(player, "missiles"):
                 for missile in player.missiles:
                     self._render_missile(missile)
 
         # Draw enemy with sprite
-        if hasattr(enemy, 'pos') and hasattr(enemy, 'size') and enemy.visible:
+        if hasattr(enemy, "pos") and hasattr(enemy, "size") and enemy.visible:
             self._render_enemy(enemy)
 
         # Render particle effects if enabled
@@ -99,12 +108,13 @@ class Renderer:
         # Determine sprite size
         size = (player.size, player.size)
 
-        # Render the player sprite
+        # Render the player sprite, facing its direction of travel
         self.sprite_manager.render(
             screen=self.screen,
             entity_type="player",
             position=player.position,
-            size=size
+            size=size,
+            rotation=getattr(player, "facing_angle", 0),
         )
 
     def _render_enemy(self, enemy) -> None:
@@ -119,7 +129,7 @@ class Renderer:
 
         # Check if the enemy is fading in
         alpha = 255
-        if hasattr(enemy, 'fading_in') and enemy.fading_in:
+        if hasattr(enemy, "fading_in") and enemy.fading_in:
             alpha = enemy.fade_alpha
 
         # Render the enemy sprite
@@ -149,7 +159,7 @@ class Renderer:
         Args:
             missile: Missile instance
         """
-        if not hasattr(missile, 'pos'):
+        if not hasattr(missile, "pos"):
             return
 
         # Create a small particle effect behind the missile
@@ -158,6 +168,7 @@ class Renderer:
 
         # Trail particles
         import random
+
         for _ in range(2):
             # Random offset
             offset_x = random.randint(-3, 3)
@@ -171,12 +182,12 @@ class Renderer:
 
             # Create particle
             particle = {
-                'x': x + offset_x,
-                'y': y + offset_y,
-                'size': size,
-                'color': (255, 255, 200, 200),  # Yellowish with alpha
-                'lifetime': lifetime,
-                'max_lifetime': lifetime
+                "x": x + offset_x,
+                "y": y + offset_y,
+                "size": size,
+                "color": (255, 255, 200, 200),  # Yellowish with alpha
+                "lifetime": lifetime,
+                "max_lifetime": lifetime,
             }
 
             self.particle_effects.append(particle)
@@ -187,15 +198,15 @@ class Renderer:
         updated_particles = []
         for particle in self.particle_effects:
             # Decrease lifetime
-            particle['lifetime'] -= 1
+            particle["lifetime"] -= 1
 
             # Skip dead particles
-            if particle['lifetime'] <= 0:
+            if particle["lifetime"] <= 0:
                 continue
 
             # Calculate alpha based on remaining lifetime
-            alpha = int(255 * (particle['lifetime'] / particle['max_lifetime']))
-            color = list(particle['color'])
+            alpha = int(255 * (particle["lifetime"] / particle["max_lifetime"]))
+            color = list(particle["color"])
             if len(color) > 3:
                 color[3] = min(color[3], alpha)
             else:
@@ -205,8 +216,8 @@ class Renderer:
             pygame.draw.circle(
                 self.screen,
                 color,
-                (int(particle['x']), int(particle['y'])),
-                particle['size']
+                (int(particle["x"]), int(particle["y"])),
+                particle["size"],
             )
 
             # Keep particle for next frame
