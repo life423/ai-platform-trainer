@@ -93,8 +93,10 @@ class AdaptiveStagedEnemyAI:
         self.pos["x"] += move_x
         self.pos["y"] += move_y
 
-        # Keep in bounds
-        self._constrain_to_screen()
+        # Wrap around screen edges (matches Training mode) instead of
+        # clamping, so the enemy can actually escape off one side and
+        # reappear on the other rather than getting stuck against a wall.
+        self._wrap_position()
 
         # Update behavior analysis (for debugging/stats)
         self._update_behavior_analysis(player_x, player_y, missiles or [])
@@ -511,10 +513,17 @@ class AdaptiveStagedEnemyAI:
                 f"Survival: {survival_rate:.2f}, Stage: {self.behavior_stage}"
             )
 
-    def _constrain_to_screen(self):
-        """Keep enemy within screen bounds."""
-        self.pos["x"] = max(0, min(self.screen_width - self.size, self.pos["x"]))
-        self.pos["y"] = max(0, min(self.screen_height - self.size, self.pos["y"]))
+    def _wrap_position(self):
+        """Wrap the enemy position around screen edges, Training-mode style."""
+        if self.pos["x"] < -self.size:
+            self.pos["x"] = self.screen_width
+        elif self.pos["x"] > self.screen_width:
+            self.pos["x"] = -self.size
+
+        if self.pos["y"] < -self.size:
+            self.pos["y"] = self.screen_height
+        elif self.pos["y"] > self.screen_height:
+            self.pos["y"] = -self.size
 
     def on_hit_player(self):
         """Called when AI successfully hits the player."""
