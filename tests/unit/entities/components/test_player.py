@@ -119,7 +119,7 @@ class TestPlayerPlay:
         assert missile.pos["y"] == initial_y  # No y movement by default
 
     def test_update_missiles_expiration(self, player_play):
-        """Test that missiles expire after their lifespan."""
+        """Test that missiles explode after their lifespan, then disappear."""
         # Create a missile with a short lifespan
         with patch("pygame.time.get_ticks") as mock_time:
             # Start time
@@ -127,15 +127,21 @@ class TestPlayerPlay:
             player_play.shoot_missile()
 
             # Make missile's lifespan very short
-            player_play.missiles[0].lifespan = 500
+            missile = player_play.missiles[0]
+            missile.lifespan = 500
 
             # Update time to be after lifespan
             mock_time.return_value = 1501  # 1000 + 501
 
-            # Update missiles - should remove expired missile
+            # First update after expiring: the missile explodes in place
+            # rather than vanishing immediately.
             player_play.update_missiles()
+            assert len(player_play.missiles) == 1
+            assert missile.exploded is True
 
-            # No more missiles
+            # Once the explosion animation has played out, it's removed.
+            mock_time.return_value += missile.EXPLOSION_DURATION_MS + 1
+            player_play.update_missiles()
             assert len(player_play.missiles) == 0
 
     def test_handle_input(self, player_play):

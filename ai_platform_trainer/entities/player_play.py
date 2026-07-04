@@ -1,10 +1,15 @@
-import pygame
 import logging
-import random
 import math
-from typing import List, Optional, Dict
+import random
+from typing import Dict, List, Optional
+
+import pygame
+
+from ai_platform_trainer.ai.missile_ai_loader import (
+    create_smart_missile,
+    get_missile_ai_status,
+)
 from ai_platform_trainer.entities.missile import Missile
-from ai_platform_trainer.ai.missile_ai_loader import create_smart_missile, get_missile_ai_status
 
 
 class PlayerPlay:
@@ -52,23 +57,25 @@ class PlayerPlay:
 
     def shoot_missile(self, enemy_pos: Optional[Dict[str, float]] = None) -> None:
         current_time = pygame.time.get_ticks()
-        
+
         # Check if cooldown has elapsed
         if current_time - self.last_missile_time < self.missile_cooldown:
             logging.debug("Missile on cooldown")
             return
-            
+
         # Allow multiple missiles (up to 3)
         if len(self.missiles) >= 3:
             logging.debug("Maximum number of missiles already active")
             return
-            
+
         missile_start_x = self.position["x"] + self.size // 2
         missile_start_y = self.position["y"] + self.size // 2
 
         birth_time = current_time
-        # Random lifespan from 8-12s
-        random_lifespan = random.randint(8000, 12000)
+        # Random lifespan from 2.5-3s. Short enough that a fast, fleeing
+        # enemy has a real shot at outrunning the missile before it expires,
+        # instead of it homing in for 8-12s (long enough to always connect).
+        random_lifespan = random.randint(2500, 3000)
         missile_speed = 5.0
 
         # Determine initial velocity based on enemy position if available
@@ -89,7 +96,7 @@ class PlayerPlay:
         # Create a smart missile with AI homing capabilities
         target_x = enemy_pos["x"] if enemy_pos else missile_start_x + 200
         target_y = enemy_pos["y"] if enemy_pos else missile_start_y
-        
+
         missile = create_smart_missile(
             x=missile_start_x,
             y=missile_start_y,
@@ -108,18 +115,28 @@ class PlayerPlay:
     def update_missiles(self, enemy_pos: Optional[Dict[str, float]] = None) -> None:
         current_time = pygame.time.get_ticks()
         for missile in self.missiles[:]:
+            # A missile that has already expired just plays out its
+            # explosion animation in place, then gets removed once it's done.
+            if missile.exploded:
+                missile.update_explosion(current_time)
+                if missile.explosion_finished(current_time):
+                    self.missiles.remove(missile)
+                    logging.debug("Missile explosion finished; removed.")
+                continue
+
             # Check if it's a SmartMissile with AI capabilities
-            if hasattr(missile, 'update_with_ai') and enemy_pos:
+            if hasattr(missile, "update_with_ai") and enemy_pos:
                 # Use the AI update method with target position
                 missile.update_with_ai(self.position, enemy_pos)
             else:
                 # Fallback to basic update
                 missile.update()
 
-            # Remove if it expires
+            # Explode in place once it expires, instead of vanishing -
+            # gives a clear signal the enemy actually escaped this one.
             if current_time - missile.birth_time >= missile.lifespan:
-                self.missiles.remove(missile)
-                logging.debug("Missile removed for exceeding lifespan.")
+                missile.explode(current_time)
+                logging.debug("Missile lifespan exceeded; exploding.")
                 continue
 
             # Screen wrapping for missiles, similar to player wrapping
