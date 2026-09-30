@@ -200,7 +200,7 @@ def save_report(report: Dict[str, Any], out_dir: str, stem: str = "enemy") -> Li
     for name in (f"{stem}_{stamp}", f"{stem}_latest"):
         json_path = os.path.join(out_dir, name + ".json")
         with open(json_path, "w", encoding="utf-8") as fh:
-            json.dump(report, fh, indent=2)
+            print(json.dumps(report, indent=2), file=fh)
         md_path = os.path.join(out_dir, name + ".md")
         with open(md_path, "w", encoding="utf-8") as fh:
             fh.write(table + "\n")

@@ -89,7 +89,7 @@ def write_metadata(
         "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(meta, fh, indent=2)
+        print(json.dumps(meta, indent=2), file=fh)
 
 
 def checkpoint_steps(path: str) -> int:
