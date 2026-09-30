@@ -13,7 +13,12 @@ import os
 import sys
 from typing import List, Optional
 
-from ai_platform_trainer.ai.model_paths import BENCHMARK_DIR, ENEMY_PPO_MODEL
+from ai_platform_trainer.ai.model_paths import (
+    BENCHMARK_DIR,
+    ENEMY_PPO_DIR,
+    ENEMY_PPO_LOG_DIR,
+    ENEMY_PPO_MODEL,
+)
 from ai_platform_trainer.arena.config import DEFAULT_SCREEN
 
 
@@ -39,6 +44,14 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--seed", type=int, default=0)
     train.add_argument(
         "--resume", action="store_true", help="continue from the last checkpoint"
+    )
+    train.add_argument(
+        "--out",
+        default=ENEMY_PPO_DIR,
+        help="model directory; the game loads models/enemy_ppo",
+    )
+    train.add_argument(
+        "--logs", default=ENEMY_PPO_LOG_DIR, help="training log directory"
     )
 
     evaluate = sub.add_parser(
@@ -126,6 +139,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             n_envs=args.envs,
             seed=args.seed,
             resume=args.resume,
+            out_dir=args.out,
+            log_dir=args.logs,
         )
         return 0
     if args.command == "evaluate-enemy":

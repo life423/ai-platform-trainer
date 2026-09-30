@@ -1,10 +1,13 @@
 """The in-game PPO agent: shared encoder, movement cap, respawn behavior."""
 import json
+import shutil
 
 import pytest
 
 import ai_platform_trainer.arena.enemy_policies as enemy_policies
 from ai_platform_trainer.ai.envs.enemy_env import EnemyArenaEnv
+from ai_platform_trainer.arena.enemy_policies import SB3Enemy
+from ai_platform_trainer.arena.observations import ENEMY_DECISION_FRAMES
 from ai_platform_trainer.entities.enemy_agent import ArenaEnemyAgent, model_card_summary
 from ai_platform_trainer.entities.player_play import PlayerPlay
 
@@ -76,3 +79,11 @@ def test_panel_summarizes_the_model_card(tmp_path):
         "Decides 15 times per second",
         "Benchmark: +1.23 net catches/min",
     ]
+
+
+def test_models_run_at_their_trained_decision_rate(model_path, tmp_path):
+    custom = tmp_path / "custom.zip"
+    shutil.copy(model_path, custom)
+    (tmp_path / "custom.json").write_text(json.dumps({"decision_frames": 3}))
+    assert SB3Enemy.load(str(custom)).decision_frames == 3
+    assert SB3Enemy.load(model_path).decision_frames == ENEMY_DECISION_FRAMES

@@ -6,11 +6,10 @@ pygame entities -> arena.game_bridge.snapshot_from_game() -> SB3Enemy
 rate) -> geometry.wrapped_move(). The parity tests in tests/unit/arena pin
 each step of that path to the headless training arena.
 """
-import json
 import os
 from typing import Any, Callable, List, Optional
 
-from ai_platform_trainer.ai.model_paths import ENEMY_PPO_MODEL
+from ai_platform_trainer.ai.model_paths import ENEMY_PPO_MODEL, load_model_card
 from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import SB3Enemy
 from ai_platform_trainer.arena.game_bridge import MotionTracker, snapshot_from_game
@@ -40,11 +39,9 @@ def create_trained_enemy(
 def model_card_summary(model_path: str) -> List[str]:
     """A short, honest description of a deployed policy, from its JSON model card."""
     lines = ["Neural-network policy, no scripted rules"]
-    card_path = os.path.splitext(model_path)[0] + ".json"
-    if not os.path.exists(card_path):
+    card = load_model_card(model_path)
+    if card is None:
         return lines
-    with open(card_path, encoding="utf-8") as fh:
-        card = json.load(fh)
     millions = format(card["timesteps"] / 1e6, ".1f")
     rate = 60 // card["decision_frames"]
     net = format(card["evaluation"]["net_per_min"], "+.2f")

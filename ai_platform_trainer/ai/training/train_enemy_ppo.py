@@ -37,8 +37,8 @@ from ai_platform_trainer.ai.evaluation.enemy_benchmark import evaluate_policy
 from ai_platform_trainer.ai.model_paths import (
     ENEMY_PPO_DIR,
     ENEMY_PPO_LOG_DIR,
-    ENEMY_PPO_METADATA,
     ENEMY_PPO_MODEL,
+    model_card_path,
 )
 from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import SB3Enemy
@@ -118,7 +118,7 @@ class ArenaEvalCallback(BaseCallback):
         self.best_score = -math.inf
         self.best_eval: Optional[Dict[str, Any]] = None
         self._last = 0
-        meta_path = os.path.join(out_dir, "best_model.json")
+        meta_path = model_card_path(self.best_path)
         if os.path.exists(meta_path) and os.path.exists(self.best_path):
             with open(meta_path, encoding="utf-8") as fh:
                 self.best_eval = json.load(fh)["evaluation"]
@@ -154,7 +154,7 @@ class ArenaEvalCallback(BaseCallback):
             self.best_score = summary[SELECTION_METRIC]
             self.best_eval = summary
             self.model.save(self.best_path)
-            best_meta = os.path.join(self.out_dir, "best_model.json")
+            best_meta = model_card_path(self.best_path)
             write_metadata(best_meta, self.model, summary, self.seed)
         steps = format(self.num_timesteps, ",")
         net = format(summary["net_per_min"], "+.2f")
@@ -234,7 +234,7 @@ def train(
     )
     model_path = os.path.join(out_dir, os.path.basename(ENEMY_PPO_MODEL))
     shutil.copyfile(deploy_from, model_path)
-    meta_path = os.path.join(out_dir, os.path.basename(ENEMY_PPO_METADATA))
+    meta_path = model_card_path(model_path)
     deployed = PPO.load(model_path, device="cpu")
     write_metadata(meta_path, deployed, evaluator.best_eval or final_eval, seed)
     print(f"Deployed {deploy_from} -> {model_path}", flush=True)

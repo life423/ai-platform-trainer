@@ -9,6 +9,7 @@ import random
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Tuple
 
+from ai_platform_trainer.ai.model_paths import load_model_card
 from ai_platform_trainer.arena.observations import (
     ENEMY_DECISION_FRAMES,
     ENEMY_OBS_SIZE,
@@ -150,13 +151,18 @@ class LegacySupervisedEnemy(EnemyPolicy):
 class SB3Enemy(EnemyPolicy):
     """A trained Stable-Baselines3 policy acting through the shared encoder.
 
-    As in training, it picks a move every ENEMY_DECISION_FRAMES frames and
-    holds it in between. Training evaluation, the benchmark and the game all
-    run trained models through this one class.
+    It picks a move every decision_frames frames and holds it in between, at
+    the rate it was trained with (read from its model card when loaded from
+    disk). Training evaluation, the benchmark and the game all run models
+    through this one class.
     """
 
     def __init__(
-        self, model: Any, name: str = "ppo", deterministic: bool = True
+        self,
+        model: Any,
+        name: str = "ppo",
+        deterministic: bool = True,
+        decision_frames: int = ENEMY_DECISION_FRAMES,
     ) -> None:
         shape = tuple(model.observation_space.shape)
         if shape != (ENEMY_OBS_SIZE,):
@@ -167,6 +173,7 @@ class SB3Enemy(EnemyPolicy):
         self.model = model
         self.name = name
         self.deterministic = deterministic
+        self.decision_frames = decision_frames
         self._move: Displacement = (0.0, 0.0)
         self._frames_left = 0
 
@@ -174,7 +181,9 @@ class SB3Enemy(EnemyPolicy):
     def load(cls, path: str, name: str = "ppo") -> "SB3Enemy":
         from stable_baselines3 import PPO
 
-        return cls(PPO.load(path, device="cpu"), name=name)
+        card = load_model_card(path) or {}
+        frames = int(card.get("decision_frames", ENEMY_DECISION_FRAMES))
+        return cls(PPO.load(path, device="cpu"), name=name, decision_frames=frames)
 
     def reset(
         self, state: Optional[ArenaState] = None, rng: Optional[random.Random] = None
@@ -187,7 +196,7 @@ class SB3Enemy(EnemyPolicy):
                 build_enemy_observation(state), deterministic=self.deterministic
             )
             self._move = enemy_action_to_displacement(action, state.config)
-            self._frames_left = ENEMY_DECISION_FRAMES
+            self._frames_left = self.decision_frames
         self._frames_left -= 1
         return self._move
 

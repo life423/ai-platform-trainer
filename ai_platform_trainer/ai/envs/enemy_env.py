@@ -34,7 +34,10 @@ from ai_platform_trainer.arena.player_bots import BOT_STYLES, make_bot
 from ai_platform_trainer.arena.sim import CAUGHT, HIT
 from ai_platform_trainer.arena.state import ArenaState
 
-GAMMA = 0.995  # per decision (~13 s horizon); shaping and PPO must share it
+PLANNING_HORIZON_FRAMES = 800  # about 13 s: how far ahead rewards still count
+# Per decision, so the horizon in seconds stays fixed if the decision rate changes.
+# Potential-based shaping and the PPO trainer must use the same value.
+GAMMA = 1.0 - ENEMY_DECISION_FRAMES / PLANNING_HORIZON_FRAMES
 CATCH_REWARD = 1.0
 HIT_PENALTY = -1.0
 TIME_COST_PER_FRAME = 1.0 / DEFAULT_MAX_FRAMES
