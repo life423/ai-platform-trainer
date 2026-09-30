@@ -42,7 +42,6 @@ ENV/
 # Training artifacts
 models/checkpoints/
 models/logs/
-models/enemy_rl/
 models/*.pth
 models/*.pt
 models/*.pkl
@@ -58,3 +57,13 @@ htmlcov/
 
 # Generated runtime config (see ai_platform_trainer/core/config_manager.py)
 config.json
+
+# Enemy PPO training by-products. The deployed policy
+# (models/enemy_ppo/enemy_ppo.zip + .json) and reports/benchmarks/*_latest.*
+# are committed; checkpoints, logs and timestamped reports are not.
+models/enemy_ppo/checkpoints/
+models/enemy_ppo/best_model.*
+models/enemy_ppo/final_model.zip
+logs/enemy_ppo/
+logs/*.log
+reports/benchmarks/*_2*
