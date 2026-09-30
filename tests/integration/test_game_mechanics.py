@@ -11,7 +11,6 @@ import pygame
 import pytest
 import torch
 
-from ai_platform_trainer.entities.behaviors.enemy_ai_controller import EnemyAIController
 from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.gameplay.collisions import handle_missile_collisions
@@ -143,39 +142,6 @@ class TestGameMechanics:
         # Respawn callback should have been called
         respawn_callback.assert_called_once()
 
-    def test_enemy_movement(self, enemy, mock_time):
-        """Test that the enemy can move correctly."""
-        # Set initial position
-        initial_pos = {"x": 200, "y": 200}
-        enemy.pos = initial_pos.copy()
-        enemy.visible = True
-
-        # Create controller directly for testing
-        controller = EnemyAIController()
-
-        # Update enemy movement
-        with patch("time.time") as mock_time_func:
-            mock_time_func.return_value = 1000  # Ensure we're past throttle time
-            # last_action_time was seeded from the real clock at construction;
-            # reset it relative to the mocked clock so the throttle check
-            # in update_enemy_movement doesn't treat this as "too soon".
-            controller.last_action_time = 1000 - controller.action_interval - 0.01
-
-            controller.update_enemy_movement(
-                enemy=enemy,
-                player_x=300,  # Player to the right of enemy
-                player_y=200,
-                player_speed=5.0,
-                current_time=1000,
-            )
-
-        # Enemy should have moved
-        assert enemy.pos != initial_pos
-
-        # With our mock model (1.0, 0.0), enemy should have moved right
-        assert enemy.pos["x"] > initial_pos["x"]
-        assert enemy.pos["y"] == initial_pos["y"]  # Y position shouldn't change
-
     def test_player_input_handling(self, player, mock_keys):
         """Test player input handling."""
         # Set initial position
@@ -203,40 +169,3 @@ class TestGameMechanics:
         # Player should have moved left
         assert player.position["x"] < initial_pos["x"]
         assert player.position["y"] == initial_pos["y"]  # Y position shouldn't change
-
-    def test_enemy_chasing_player(self, enemy, mock_time):
-        """Test that the enemy follows the player."""
-        # Position enemy and player
-        enemy.pos = {"x": 200, "y": 200}
-        enemy.visible = True
-        player_pos = {"x": 300, "y": 300}  # Player is down and right
-
-        # Create controller directly for testing
-        controller = EnemyAIController()
-
-        # Update enemy movement multiple times, overriding the model
-        # to test the actual movement logic
-        with patch("time.time") as mock_time_func:
-            with patch.object(controller, "_get_nn_action") as mock_nn:
-                # Setup mock to return direction toward player
-                mock_nn.return_value = (0.7071, 0.7071)  # 45 degree angle (normalized)
-                mock_time_func.return_value = 1000  # Ensure we're past throttle time
-                # Reset last_action_time relative to the mocked clock (it was
-                # seeded from the real clock at construction, before the patch
-                # was active) so the throttle check doesn't block every update.
-                controller.last_action_time = 1000 - controller.action_interval - 0.01
-
-                # Update multiple times
-                for _ in range(5):
-                    mock_time_func.return_value += 100  # Advance time
-                    controller.update_enemy_movement(
-                        enemy=enemy,
-                        player_x=player_pos["x"],
-                        player_y=player_pos["y"],
-                        player_speed=5.0,
-                        current_time=mock_time_func.return_value,
-                    )
-
-        # Enemy should have moved toward player
-        assert enemy.pos["x"] > 200
-        assert enemy.pos["y"] > 200

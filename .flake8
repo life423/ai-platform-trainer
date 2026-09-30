@@ -27,16 +27,9 @@ inline-quotes = double
 
 exclude = .git,__pycache__,.venv,venv,build,dist,*.egg-info
 
-# Same reasoning as the mypy overrides in pyproject.toml: ai/training/ is
-# iterative ML experimentation code, cpp/ is standalone GPU/CUDA tooling,
-# and these root-level scripts are one-off dev/debug utilities, not part
-# of the tested package or its entry points.
+# The legacy missile trainers are exempt until the missile models are rebuilt
+# on the canonical arena; everything else in the package is linted.
 per-file-ignores =
-    ai_platform_trainer/ai/training/*:E,F,B,C,Q
-    ai_platform_trainer/cpp/*:E,F,B,C,Q
+    ai_platform_trainer/ai/training/train_missile_*.py:E,F,B,C,Q
+    ai_platform_trainer/ai/training/missile_dataset.py:E,F,B,C,Q
     setup.py:E,F,B,C,Q
-    cleanup_old_code.py:E,F,B,C,Q
-    debug_enemy_rl.py:E,F,B,C,Q
-    reward_function_comparison.py:E,F,B,C,Q
-    test_enemy_rl.py:E,F,B,C,Q
-    test_missile_ai.py:E,F,B,C,Q

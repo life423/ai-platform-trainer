@@ -20,6 +20,7 @@ from ai_platform_trainer.entities.player_training import PlayerTraining
 from ai_platform_trainer.gameplay.collisions import handle_missile_collisions
 from ai_platform_trainer.gameplay.config import config
 from ai_platform_trainer.gameplay.spawner import spawn_entities
+from ai_platform_trainer.utils.data_validator_and_trainer import DataValidatorAndTrainer
 
 
 class TrainingMode:
@@ -139,11 +140,6 @@ class TrainingMode:
         retrain the missile model from it. Called when leaving Training
         mode (menu return or app exit) - safe to call more than once, and
         a no-op if nothing was collected.
-
-        Deliberately does not touch enemy RL training:
-        DataValidatorAndTrainer.process_new_data() would also kick off a
-        100k-timestep RL retrain, which is far too slow to run as a side
-        effect of leaving a short GUI session.
         """
         if self.finalized:
             return False
@@ -153,13 +149,6 @@ class TrainingMode:
         if not new_data:
             logging.info("Training mode: no samples collected this session.")
             return False
-
-        # Imported lazily: data_validator_and_trainer imports train_enemy_rl,
-        # which imports GameCore, which imports this module - a circular
-        # import at module load time if done at the top of this file.
-        from ai_platform_trainer.utils.data_validator_and_trainer import (
-            DataValidatorAndTrainer,
-        )
 
         validator = DataValidatorAndTrainer(
             training_data_path=config.DATA_PATH,
