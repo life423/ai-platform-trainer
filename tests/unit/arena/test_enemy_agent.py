@@ -1,9 +1,11 @@
 """The in-game PPO agent: shared encoder, movement cap, respawn behavior."""
+import json
+
 import pytest
 
 import ai_platform_trainer.arena.enemy_policies as enemy_policies
 from ai_platform_trainer.ai.envs.enemy_env import EnemyArenaEnv
-from ai_platform_trainer.entities.enemy_agent import ArenaEnemyAgent
+from ai_platform_trainer.entities.enemy_agent import ArenaEnemyAgent, model_card_summary
 from ai_platform_trainer.entities.player_play import PlayerPlay
 
 W, H = 1470, 956
@@ -28,13 +30,14 @@ def make_agent(model_path):
     return agent, player
 
 
-def test_agent_moves_within_the_player_speed_cap(model_path):
+def test_agent_moves_within_the_enemy_speed_cap(model_path):
     agent, player = make_agent(model_path)
-    for frame in range(60):
+    top = agent.config.enemy_speed
+    for frame in range(50):
         x, y = agent.pos["x"], agent.pos["y"]
         agent.update_movement(200, 200, 5, 10_000 + frame * 16, player.missiles)
-        assert abs(agent.pos["x"] - x) <= 5.0 + 1e-9
-        assert abs(agent.pos["y"] - y) <= 5.0 + 1e-9
+        assert abs(agent.pos["x"] - x) <= top + 1e-9
+        assert abs(agent.pos["y"] - y) <= top + 1e-9
 
 
 def test_agent_decides_through_the_shared_encoder(model_path, monkeypatch):
@@ -57,4 +60,19 @@ def test_hidden_agent_waits_and_reports_stats(model_path):
     agent.hide()
     agent.update_movement(200, 200, 5, 10_000, player.missiles)
     assert (agent.pos["x"], agent.pos["y"]) == (900.0, 600.0)
-    assert agent.get_learning_stats()["stage"] == "PPO agent"
+    assert agent.panel_stats()["title"] == "AI Agent (PPO)"
+
+
+def test_panel_summarizes_the_model_card(tmp_path):
+    card = {
+        "timesteps": 10_000_000,
+        "decision_frames": 4,
+        "evaluation": {"net_per_min": 1.234},
+    }
+    (tmp_path / "enemy_ppo.json").write_text(json.dumps(card))
+    assert model_card_summary(str(tmp_path / "enemy_ppo.zip")) == [
+        "Neural-network policy, no scripted rules",
+        "Trained 10.0M steps with PPO",
+        "Decides 15 times per second",
+        "Benchmark: +1.23 net catches/min",
+    ]

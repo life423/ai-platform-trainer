@@ -13,6 +13,7 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
+from ai_platform_trainer.ai.envs.enemy_env import round_return
 from ai_platform_trainer.arena.config import FPS, ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import POLICY_NAMES, EnemyPolicy
 from ai_platform_trainer.arena.episode import DEFAULT_MAX_FRAMES, ArenaEpisode
@@ -82,6 +83,8 @@ def summarize(rounds: Sequence[RoundResult]) -> Dict[str, Any]:
         "hit_rate_ci95": _ci95(hit / n, n),
         "timeout_rate": (n - caught - hit) / n,
         "mean_return": (caught - hit) / n,
+        # The training objective: catches and hits with the per-frame time cost.
+        "objective": sum(round_return(r.outcome, r.frames) for r in rounds) / n,
         "catches_per_min": caught / seconds * 60.0,
         "hits_per_min": hit / seconds * 60.0,
         # The game score: catches minus missile hits per minute of play.
@@ -152,16 +155,28 @@ def _num(value: Optional[float], digits: int = 1) -> str:
     return "-" if value is None else f"{value:.{digits}f}"
 
 
+TABLE_COLUMNS = (
+    "Enemy",
+    "Objective",
+    "Net/min",
+    "Catch rate",
+    "Missile-hit rate",
+    "Timeout",
+    "Catches/min",
+    "Hits/min",
+    "Time to catch (s)",
+    "Closing (px/s)",
+    "Missiles evaded",
+)
+
+
 def format_table(report: Dict[str, Any]) -> str:
     """Markdown table, one row per policy."""
-    lines = [
-        "| Enemy | Net/min | Catch rate | Missile-hit rate | Timeout | Catches/min | Hits/min "
-        "| Time to catch (s) | Closing (px/s) | Missiles evaded |",
-        "|---|---|---|---|---|---|---|---|---|---|",
-    ]
+    lines = ["| " + " | ".join(TABLE_COLUMNS) + " |", "|" + "---|" * len(TABLE_COLUMNS)]
     for name, m in report["policies"].items():
         cells = [
             POLICY_NAMES.get(name, name),
+            _num(m["objective"], 3),
             _num(m["net_per_min"], 2),
             _pct(m["catch_rate"]),
             _pct(m["hit_rate"]),

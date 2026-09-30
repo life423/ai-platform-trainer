@@ -533,19 +533,17 @@ class AdaptiveStagedEnemyAI:
         """Called when AI is hit by a missile."""
         self.times_hit_by_missile += 1
 
-    def get_difficulty_level(self) -> float:
-        """Get current difficulty level (0.0 to 1.0)."""
-        return self.difficulty_level
-
-    def get_learning_stats(self) -> Dict:
-        """Get learning statistics for UI display."""
+    def panel_stats(self) -> Dict:
+        """What the Play mode enemy panel shows: rules, not learning."""
+        stage = self.behavior_stage.title()
         return {
-            "stage": self.behavior_stage.title(),
-            "difficulty": self.difficulty_level,
-            "frames": self.total_frames,
+            "title": "Scripted Baseline",
+            "summary": [
+                "Hand-written rules, no learning",
+                f"Difficulty ramp: {stage}, speed {self.speed:.1f}",
+            ],
             "hits": self.hits_on_player,
             "deaths": self.times_hit_by_missile,
-            "speed": self.speed,
         }
 
     # Standard enemy methods for compatibility

@@ -6,6 +6,7 @@ pygame entities -> arena.game_bridge.snapshot_from_game() -> SB3Enemy
 rate) -> geometry.wrapped_move(). The parity tests in tests/unit/arena pin
 each step of that path to the headless training arena.
 """
+import json
 import os
 from typing import Any, Callable, List, Optional
 
@@ -14,11 +15,7 @@ from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import SB3Enemy
 from ai_platform_trainer.arena.game_bridge import MotionTracker, snapshot_from_game
 from ai_platform_trainer.arena.geometry import wrapped_move
-from ai_platform_trainer.entities.enemy_play import (
-    EnemyPlay,
-    create_enemy_play,
-    is_trained_enemy_available,
-)
+from ai_platform_trainer.entities.enemy_play import EnemyPlay
 
 
 def is_enemy_agent_available(model_path: str = ENEMY_PPO_MODEL) -> bool:
@@ -27,23 +24,34 @@ def is_enemy_agent_available(model_path: str = ENEMY_PPO_MODEL) -> bool:
 
 
 def trained_enemy_description() -> Optional[str]:
-    """What the Trained AI menu option will run, or None if nothing is trained."""
-    if is_enemy_agent_available():
-        return "PPO"
-    if is_trained_enemy_available():
-        return "Neural Network"
-    return None
+    """What the AI Agent menu option will run, or None if nothing is trained yet."""
+    return "PPO" if is_enemy_agent_available() else None
 
 
 def create_trained_enemy(
     screen_width: int, screen_height: int, player_provider: Callable[[], Any]
 ) -> Optional[EnemyPlay]:
-    """The best trained enemy available: the arena PPO agent, else the legacy network."""
+    """The arena PPO agent, or None if train-enemy has not deployed one yet."""
     if is_enemy_agent_available():
         return ArenaEnemyAgent(screen_width, screen_height, player_provider)
-    if is_trained_enemy_available():
-        return create_enemy_play(screen_width, screen_height)
     return None
+
+
+def model_card_summary(model_path: str) -> List[str]:
+    """A short, honest description of a deployed policy, from its JSON model card."""
+    lines = ["Neural-network policy, no scripted rules"]
+    card_path = os.path.splitext(model_path)[0] + ".json"
+    if not os.path.exists(card_path):
+        return lines
+    with open(card_path, encoding="utf-8") as fh:
+        card = json.load(fh)
+    millions = format(card["timesteps"] / 1e6, ".1f")
+    rate = 60 // card["decision_frames"]
+    net = format(card["evaluation"]["net_per_min"], "+.2f")
+    lines.append(f"Trained {millions}M steps with PPO")
+    lines.append(f"Decides {rate} times per second")
+    lines.append(f"Benchmark: {net} net catches/min")
+    return lines
 
 
 class ArenaEnemyAgent(EnemyPlay):
@@ -59,9 +67,11 @@ class ArenaEnemyAgent(EnemyPlay):
         super().__init__(screen_width, screen_height, model=None)
         self.controller = SB3Enemy.load(model_path)
         self.config = ArenaConfig(width=screen_width, height=screen_height)
+        self.speed = self.config.enemy_speed  # shown in the stats panel
         self._player_provider = player_provider
         self._player_motion = MotionTracker(self.config)
         self._last_move = (0.0, 0.0)
+        self._summary = model_card_summary(model_path)
 
     def update_movement(
         self,
@@ -100,10 +110,8 @@ class ArenaEnemyAgent(EnemyPlay):
         self._last_move = (0.0, 0.0)
         self.controller.reset()
 
-    def get_difficulty_level(self) -> float:
-        return 1.0
-
-    def get_learning_stats(self) -> dict:
-        stats = super().get_learning_stats()
-        stats["stage"] = "PPO agent"
+    def panel_stats(self) -> dict:
+        stats = super().panel_stats()
+        stats["title"] = "AI Agent (PPO)"
+        stats["summary"] = self._summary
         return stats

@@ -61,9 +61,10 @@ def test_missile_slots_are_nearest_first_and_skip_explosions():
     )  # explosions count toward the cap
 
 
-def test_action_mapping_matches_the_player_speed_cap():
-    assert enemy_action_to_displacement([1.0, -1.0], CONFIG) == (5.0, -5.0)
-    assert enemy_action_to_displacement([3.0, 0.5], CONFIG) == (5.0, 2.5)
+def test_action_mapping_scales_to_the_enemy_speed_cap():
+    top = CONFIG.enemy_speed
+    assert enemy_action_to_displacement([1.0, -1.0], CONFIG) == (top, -top)
+    assert enemy_action_to_displacement([3.0, 0.5], CONFIG) == (top, 0.5 * top)
 
 
 def test_motion_tracker_measures_displacement_like_the_sim():

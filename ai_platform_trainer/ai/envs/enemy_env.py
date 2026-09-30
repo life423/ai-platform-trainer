@@ -1,14 +1,14 @@
 """Gymnasium environment for training the enemy agent on the canonical arena.
 
 The enemy picks a move every ENEMY_DECISION_FRAMES frames: a 2D action in
-[-1, 1] x [-1, 1], its velocity as a fraction of the player per-axis speed.
+[-1, 1] x [-1, 1], its velocity as a fraction of its per-axis top speed.
 The player is a scripted, human-like bot whose style is sampled every round.
 
 Reward per decision:
 - +1 for catching the player, -1 for being hit by a missile; both end the
   round. A round with neither is cut off after 15 s (truncated).
-- A small cost per frame, so stalling is a failure rather than a safe choice:
-  a full 15 s stalemate costs 0.5.
+- A cost per frame: 15 s without a catch costs as much as a missile hit. The
+  enemy is a hunter, so a round it fails to win is a loss, not a safe draw.
 - Potential-based shaping, GAMMA * phi(next) - phi(now) with
   phi = -distance / 1000, which speeds up learning without changing which
   policy is optimal (Ng, Harada and Russell, 1999).
@@ -34,15 +34,26 @@ from ai_platform_trainer.arena.player_bots import BOT_STYLES, make_bot
 from ai_platform_trainer.arena.sim import CAUGHT, HIT
 from ai_platform_trainer.arena.state import ArenaState
 
-GAMMA = 0.99  # per decision; shaping and the PPO trainer must share it
+GAMMA = 0.995  # per decision (~13 s horizon); shaping and PPO must share it
 CATCH_REWARD = 1.0
 HIT_PENALTY = -1.0
-TIME_COST_PER_FRAME = 0.5 / DEFAULT_MAX_FRAMES
+TIME_COST_PER_FRAME = 1.0 / DEFAULT_MAX_FRAMES
 POTENTIAL_SCALE = 1000.0
 REWARD_SPEC = (
-    "+1 catch, -1 missile hit, -0.5 per 15 s of play, "
+    "+1 catch, -1 missile hit, -1 per 15 s without a catch, "
     "plus potential-based distance shaping (phi = -distance / 1000)"
 )
+
+
+def round_return(outcome: str, frames: int) -> float:
+    """Unshaped, undiscounted return of one round: the objective training maximizes."""
+    if outcome == CAUGHT:
+        event = CATCH_REWARD
+    elif outcome == HIT:
+        event = HIT_PENALTY
+    else:
+        event = 0.0
+    return event - TIME_COST_PER_FRAME * frames
 
 
 def sample_training_config(rng: random.Random) -> ArenaConfig:

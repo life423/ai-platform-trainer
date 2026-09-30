@@ -9,8 +9,8 @@ Outputs in models/enemy_ppo/:
     enemy_ppo.zip + enemy_ppo.json            the policy the game loads, with metadata
 and in logs/enemy_ppo/: progress.csv (SB3 metrics) and evaluations.jsonl.
 
-Models are selected on net catches per minute (catches minus missile hits),
-measured on evaluation seeds that never overlap the benchmark seeds.
+Models are selected on the training objective (catches minus hits minus time
+spent), measured on evaluation seeds that never overlap the benchmark seeds.
 """
 import glob
 import json
@@ -51,7 +51,7 @@ from ai_platform_trainer.arena.observations import (
 
 CHECKPOINT_PREFIX = "enemy_ppo"
 EVAL_SEED = 10_000  # evaluation rounds never overlap the benchmark seeds (0..N)
-SELECTION_METRIC = "net_per_min"
+SELECTION_METRIC = "objective"
 
 
 def git_commit() -> Optional[str]:
@@ -138,6 +138,7 @@ class ArenaEvalCallback(BaseCallback):
             SB3Enemy(self.model), ArenaConfig(), self.rounds, seed=EVAL_SEED
         )
         for key in (
+            "objective",
             "net_per_min",
             "catch_rate",
             "hit_rate",
@@ -157,11 +158,12 @@ class ArenaEvalCallback(BaseCallback):
             write_metadata(best_meta, self.model, summary, self.seed)
         steps = format(self.num_timesteps, ",")
         net = format(summary["net_per_min"], "+.2f")
-        best = format(self.best_score, "+.2f")
+        best = format(self.best_score, "+.3f")
+        score = format(summary[SELECTION_METRIC], "+.3f")
         catch = format(summary["catch_rate"], ".1%")
         hit = format(summary["hit_rate"], ".1%")
         message = (
-            f"[eval at {steps} steps] net {net}/min  "
+            f"[eval at {steps} steps] objective {score}  net {net}/min  "
             f"catch {catch}  hit {hit}  (best {best})"
         )
         print(message, flush=True)

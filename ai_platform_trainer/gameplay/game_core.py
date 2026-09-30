@@ -2,7 +2,6 @@
 Core Game class for AI Platform Trainer.
 """
 import logging
-import math
 from typing import Any, Optional, Union
 
 import pygame
@@ -19,17 +18,15 @@ from ai_platform_trainer.core.data_logger import DataLogger
 from ai_platform_trainer.core.logging_config import setup_logging
 from ai_platform_trainer.core.screen_context import ScreenContext
 from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
-from ai_platform_trainer.entities.enemy_play import EnemyPlay
+from ai_platform_trainer.entities.enemy_play import DEFAULT_ENEMY_CHOICE, EnemyPlay
 from ai_platform_trainer.entities.player_play import PlayerPlay
 
 # Gameplay imports
-from ai_platform_trainer.gameplay.collisions import handle_missile_collisions
 from ai_platform_trainer.gameplay.config import config
 from ai_platform_trainer.gameplay.display_manager import DisplayManager
 from ai_platform_trainer.gameplay.input_handler import InputHandler
 from ai_platform_trainer.gameplay.menu import Menu
 from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
-from ai_platform_trainer.gameplay.modes.play_mode import PlayMode
 from ai_platform_trainer.gameplay.modes.training_mode import TrainingMode
 from ai_platform_trainer.gameplay.renderer import Renderer
 from ai_platform_trainer.gameplay.spawner import (
@@ -79,7 +76,6 @@ class GameCore:
         self.enemy: Optional[Union[EnemyPlay, AdaptiveStagedEnemyAI]] = None
         self.data_logger: Optional[DataLogger] = None
 
-        self.play_mode_manager: Optional[PlayMode] = None
         self.play_learning_mode_manager: Optional[PlayLearningMode] = None
         self.training_mode_manager: Optional[TrainingMode] = None
 
@@ -181,7 +177,10 @@ class GameCore:
         logging.info("Game loop exited and Pygame quit.")
 
     def start_game(
-        self, mode: str, model_choice: str = "sac", enemy_choice: str = "adaptive"
+        self,
+        mode: str,
+        model_choice: str = "sac",
+        enemy_choice: str = DEFAULT_ENEMY_CHOICE,
     ) -> None:
         """
         Start the game in the specified mode.
@@ -248,7 +247,7 @@ class GameCore:
         elif selected_action == "play_learning":
             payload = payload or {}
             model_choice = payload.get("model_choice", "sac")
-            enemy_choice = payload.get("enemy_choice", "adaptive")
+            enemy_choice = payload.get("enemy_choice", DEFAULT_ENEMY_CHOICE)
             logging.info(
                 "'play_learning' selected from menu "
                 f"(missile: {model_choice}, enemy: {enemy_choice})."
@@ -279,7 +278,7 @@ class GameCore:
             self.start_game(
                 current_mode,
                 getattr(self, "model_choice", "sac"),
-                getattr(self, "enemy_choice", "adaptive"),
+                getattr(self, "enemy_choice", DEFAULT_ENEMY_CHOICE),
             )
 
     def update(self, current_time: int) -> None:
@@ -298,59 +297,6 @@ class GameCore:
             else:
                 self.play_learning_mode_manager = PlayLearningMode(self)
                 self.play_learning_mode_manager.update(current_time)
-
-    def check_collision(self) -> bool:
-        """
-        Check for collision between player and enemy.
-
-        Returns:
-            True if collision detected, False otherwise
-        """
-        if not (self.player and self.enemy):
-            return False
-
-        # Make sure enemy is visible
-        if not self.enemy.visible:
-            return False
-
-        # Ensure pos is a dictionary with x and y keys
-        if (
-            not isinstance(self.enemy.pos, dict)
-            or "x" not in self.enemy.pos
-            or "y" not in self.enemy.pos
-        ):
-            logging.error(f"Invalid enemy position format: {self.enemy.pos}")
-            return False
-
-        try:
-            player_rect = pygame.Rect(
-                self.player.position["x"],
-                self.player.position["y"],
-                self.player.size,
-                self.player.size,
-            )
-            enemy_rect = pygame.Rect(
-                self.enemy.pos["x"],
-                self.enemy.pos["y"],
-                self.enemy.size,
-                self.enemy.size,
-            )
-            return player_rect.colliderect(enemy_rect)
-        except TypeError as e:
-            logging.error(f"Error in collision detection: {e}")
-            return False
-
-    def check_missile_collisions(self) -> None:
-        """Check for collisions between missiles and enemy."""
-        if not self.enemy or not self.player:
-            return
-
-        def respawn_callback() -> None:
-            self.is_respawning = True
-            self.respawn_timer = pygame.time.get_ticks() + self.respawn_delay
-            logging.info("Missile-Enemy collision in play mode, enemy will respawn.")
-
-        handle_missile_collisions(self.player, self.enemy, respawn_callback)
 
     def handle_respawn(self, current_time: int) -> None:
         """
@@ -374,65 +320,8 @@ class GameCore:
         self.data_logger = None
         self.is_respawning = False
         self.respawn_timer = 0
-        self.play_mode_manager = None
         self.play_learning_mode_manager = None
         self.training_mode_manager = None
         logging.info("Game state reset, returning to menu.")
 
-    def reset_enemy(self) -> None:
-        """
-        Reset the enemy's position but keep it in the game.
-
-        This is primarily used during RL training to reset the
-        environment without disturbing other game elements.
-        """
-        if self.enemy:
-            # Place the enemy at a random location away from the player
-            import random
-
-            if self.player:
-                # Keep enemy away from player during resets
-                while True:
-                    x = random.randint(0, self.screen_width - self.enemy.size)
-                    y = random.randint(0, self.screen_height - self.enemy.size)
-
-                    # Calculate distance to player
-                    distance = math.sqrt(
-                        (x - self.player.position["x"]) ** 2
-                        + (y - self.player.position["y"]) ** 2
-                    )
-
-                    # Ensure minimum distance
-                    min_distance = max(self.screen_width, self.screen_height) * 0.3
-                    if distance >= min_distance:
-                        break
-            else:
-                # No player present, just pick a random position
-                x = random.randint(0, self.screen_width - self.enemy.size)
-                y = random.randint(0, self.screen_height - self.enemy.size)
-
-            self.enemy.set_position(x, y)
-            self.enemy.visible = True
-            logging.debug(f"Enemy reset to position ({x}, {y})")
-
-    def update_once(self) -> None:
-        """
-        Process a single update frame for the game.
-
-        This is used during RL training to advance the game state
-        without relying on the main game loop.
-        """
-        current_time = pygame.time.get_ticks()
-
-        # Process pending events to avoid queue overflow
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-
         # Update based on current mode
-        if self.mode == "play" and not self.menu_active:
-            if self.play_mode_manager:
-                self.play_mode_manager.update(current_time)
-            else:
-                self.play_mode_manager = PlayMode(self)
-                self.play_mode_manager.update(current_time)

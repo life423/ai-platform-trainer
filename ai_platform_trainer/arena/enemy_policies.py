@@ -1,9 +1,9 @@
 """Enemy controllers that act on an ArenaState: baselines and learned agents.
 
 Every policy returns a per-frame displacement in pixels. The sim clips capped
-policies to enemy_speed per axis, which is exactly the movement ability of the
-player. The shipped Adaptive AI can opt out of the cap to reproduce its speed
-ramp to 10+ px per frame.
+policies to the arena enemy_speed per axis, the same cap for every enemy. The
+shipped Adaptive AI can opt out of the cap to reproduce its speed ramp to 10+ px
+per frame.
 """
 import random
 from types import SimpleNamespace
@@ -74,14 +74,14 @@ class AdaptiveEnemy(EnemyPolicy):
     """The shipped AdaptiveStagedEnemyAI heuristics, driven on arena state.
 
     It starts fully warmed up (nightmare stage), which is how it plays after
-    the first few seconds of a real session. equal_speed=True clips its moves
-    to the player movement ability for a fair comparison; equal_speed=False
-    keeps its own speed ramp, i.e. the enemy exactly as shipped.
+    the first few seconds of a real session. capped=True holds it to the arena
+    enemy speed like every other enemy; capped=False keeps its own speed ramp
+    (up to 10 px per frame plus a chase boost), i.e. the enemy as shipped.
     """
 
-    def __init__(self, equal_speed: bool = True, warmup_frames: int = 900) -> None:
-        self.capped = equal_speed
-        self.name = "adaptive_equal" if equal_speed else "adaptive_shipped"
+    def __init__(self, capped: bool = True, warmup_frames: int = 900) -> None:
+        self.capped = capped
+        self.name = "adaptive" if capped else "adaptive_shipped"
         self.warmup_frames = warmup_frames
         self._ai: Any = None
 
@@ -197,8 +197,8 @@ def baseline_policies() -> List[EnemyPolicy]:
     return [
         RandomEnemy(),
         ChaseEnemy(),
-        AdaptiveEnemy(equal_speed=True),
-        AdaptiveEnemy(equal_speed=False),
+        AdaptiveEnemy(capped=True),
+        AdaptiveEnemy(capped=False),
         LegacySupervisedEnemy(),
     ]
 
@@ -206,7 +206,7 @@ def baseline_policies() -> List[EnemyPolicy]:
 POLICY_NAMES: Dict[str, str] = {
     "random": "Random movement",
     "chase": "Direct chase",
-    "adaptive_equal": "Adaptive AI (equal speed)",
+    "adaptive": "Adaptive AI (scripted)",
     "adaptive_shipped": "Adaptive AI (as shipped, speed 10+)",
     "legacy_supervised": "Legacy supervised NN",
     "ppo": "PPO agent",
