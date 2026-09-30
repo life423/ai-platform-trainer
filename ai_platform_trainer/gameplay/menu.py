@@ -1,11 +1,8 @@
 import pygame
 
 from ai_platform_trainer.ai.missile_ai_loader import MODEL_CHOICES, missile_ai_manager
-from ai_platform_trainer.entities.enemy_play import (
-    ENEMY_CHOICES,
-    is_trained_enemy_available,
-    is_trained_enemy_rl_available,
-)
+from ai_platform_trainer.entities.enemy_agent import trained_enemy_description
+from ai_platform_trainer.entities.enemy_play import ENEMY_CHOICES
 
 
 class Menu:
@@ -263,14 +260,11 @@ class Menu:
 
         for index, key in enumerate(self.enemy_keys):
             label = ENEMY_CHOICES[key]
-            available = key != "trained" or is_trained_enemy_available()
+            trained = trained_enemy_description() if key == "trained" else None
+            available = key != "trained" or trained is not None
 
-            if key == "trained" and available:
-                label += (
-                    " (NN + RL)"
-                    if is_trained_enemy_rl_available()
-                    else " (Neural Network)"
-                )
+            if trained is not None:
+                label += f" ({trained})"
             if not available:
                 label += " (not trained yet - falls back to Adaptive)"
 

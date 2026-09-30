@@ -11,12 +11,9 @@ from typing import Union
 
 import pygame
 
+from ai_platform_trainer.entities.enemy_agent import create_trained_enemy
 from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
-from ai_platform_trainer.entities.enemy_play import (
-    EnemyPlay,
-    create_enemy_play,
-    is_trained_enemy_available,
-)
+from ai_platform_trainer.entities.enemy_play import EnemyPlay
 
 # Color constants
 COLOR_TEXT_PRIMARY = (255, 255, 255)  # White
@@ -33,8 +30,9 @@ class PlayLearningMode:
 
         Args:
             enemy_choice: "adaptive" for the scripted staged-difficulty AI
-                (AdaptiveStagedEnemyAI), or "trained" for the supervised/RL
-                EnemyPlay model. Falls back to "adaptive" if "trained" was
+                (AdaptiveStagedEnemyAI), or "trained" for the best trained
+                enemy (the arena PPO agent, else the legacy supervised network).
+                Falls back to "adaptive" if "trained" was
                 requested but no model has been trained yet.
         """
         self.game = game
@@ -42,14 +40,16 @@ class PlayLearningMode:
         self.enemy_choice = enemy_choice
 
         self.learning_enemy: Union[AdaptiveStagedEnemyAI, EnemyPlay]
-        if enemy_choice == "trained" and is_trained_enemy_available():
-            self.learning_enemy = create_enemy_play(
-                self.game.screen_width, self.game.screen_height
+        trained = None
+        if enemy_choice == "trained":
+            trained = create_trained_enemy(
+                self.game.screen_width,
+                self.game.screen_height,
+                player_provider=lambda: self.game.player,
             )
-        else:
-            self.learning_enemy = AdaptiveStagedEnemyAI(
-                self.game.screen_width, self.game.screen_height
-            )
+        self.learning_enemy = trained or AdaptiveStagedEnemyAI(
+            self.game.screen_width, self.game.screen_height
+        )
 
         # Replace the regular enemy with our learning AI
         self.game.enemy = self.learning_enemy
@@ -118,16 +118,10 @@ class PlayLearningMode:
             )
             self.game.player.update_missiles(enemy_pos)
 
-        # Update smart missile AI - missiles will automatically home in on the learning enemy
-        if self.game.player and self.game.player.missiles and self.learning_enemy:
-            for missile in self.game.player.missiles:
-                # Update smart missiles with AI guidance
-                if hasattr(missile, "update_with_ai"):
-                    missile.update_with_ai(
-                        self.game.player.position,
-                        self.learning_enemy.pos,
-                        getattr(self.game, "_missile_input", None),
-                    )
+        # Each missile is steered and moved exactly once per frame, inside
+        # update_missiles() above. A second update pass used to run here, which
+        # made missiles fly and turn twice as fast as their speed-5 design; the
+        # canonical arena rules (ai_platform_trainer/arena/config.py) match this.
 
         # Handle respawning
         if self.game.is_respawning and current_time >= self.game.respawn_timer:

@@ -12,8 +12,6 @@ import os
 import time
 from typing import Any, Dict, List, Tuple
 
-from ai_platform_trainer.ai.training.train_enemy_rl import train_rl_agent
-
 # Import training modules
 from ai_platform_trainer.ai.training.train_missile_model import MissileTrainer
 
@@ -48,7 +46,6 @@ class DataValidatorAndTrainer:
         self,
         training_data_path: str = "data/raw/training_data.json",
         missile_model_path: str = "models/missile_model.pth",
-        enemy_model_path: str = "models/enemy_rl",
         backup_dir: str = "data/backups",
     ):
         """
@@ -57,12 +54,10 @@ class DataValidatorAndTrainer:
         Args:
             training_data_path: Path to the main training data JSON file
             missile_model_path: Path to save the missile model
-            enemy_model_path: Directory to save enemy RL model
             backup_dir: Directory to store data backups
         """
         self.training_data_path = training_data_path
         self.missile_model_path = missile_model_path
-        self.enemy_model_path = enemy_model_path
         self.backup_dir = backup_dir
 
         # Create directories if they don't exist
@@ -223,39 +218,6 @@ class DataValidatorAndTrainer:
             logger.error(f"Error training missile model: {e}")
             return False
 
-    def train_enemy_model(self) -> bool:
-        """
-        Train the enemy RL model.
-
-        Returns:
-            Success status
-        """
-        try:
-            # Use a reduced number of timesteps for faster training
-            # This can be configured based on available time
-            logger.info("Starting enemy RL model training...")
-            timesteps = 100000  # Adjust as needed
-
-            model = train_rl_agent(
-                total_timesteps=timesteps,
-                save_path=self.enemy_model_path,
-                log_path="logs/enemy_rl",
-                headless=True,
-            )
-
-            if model:
-                model_path = self.enemy_model_path
-                logger.info(
-                    f"Enemy RL model training completed and saved to {model_path}"
-                )
-                return True
-            else:
-                logger.error("Enemy RL training returned None")
-                return False
-        except Exception as e:
-            logger.error(f"Error training enemy RL model: {e}")
-            return False
-
     def process_new_data(self, new_data: List[Dict[str, Any]]) -> bool:
         """
         Main workflow: validate new data, append to existing data, and retrain models.
@@ -286,26 +248,8 @@ class DataValidatorAndTrainer:
         if not self.merge_and_save_data(existing_data, new_data):
             return False
 
-        # Step 5: Retrain models
-        missile_success = self.train_missile_model()
-        enemy_success = self.train_enemy_model()
-
-        return missile_success and enemy_success
-
-
-# Convenience function for external use
-def process_new_training_data(new_data: List[Dict[str, Any]]) -> bool:
-    """
-    Validate, append, and retrain models with new training data.
-
-    Args:
-        new_data: New training data to process
-
-    Returns:
-        Success status
-    """
-    processor = DataValidatorAndTrainer()
-    return processor.process_new_data(new_data)
+        # Step 5: Retrain the missile model
+        return self.train_missile_model()
 
 
 if __name__ == "__main__":
