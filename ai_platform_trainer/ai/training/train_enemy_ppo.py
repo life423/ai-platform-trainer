@@ -9,8 +9,8 @@ Outputs in models/enemy_ppo/:
     enemy_ppo.zip + enemy_ppo.json            the policy the game loads, with metadata
 and in logs/enemy_ppo/: progress.csv (SB3 metrics) and evaluations.jsonl.
 
-Models are selected on net catches per minute (catches minus missile hits),
-measured on evaluation seeds that never overlap the benchmark seeds.
+Models are selected on the training objective (catches minus hits minus time
+spent), measured on evaluation seeds that never overlap the benchmark seeds.
 """
 import glob
 import json
@@ -37,8 +37,8 @@ from ai_platform_trainer.ai.evaluation.enemy_benchmark import evaluate_policy
 from ai_platform_trainer.ai.model_paths import (
     ENEMY_PPO_DIR,
     ENEMY_PPO_LOG_DIR,
-    ENEMY_PPO_METADATA,
     ENEMY_PPO_MODEL,
+    model_card_path,
 )
 from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import SB3Enemy
@@ -51,7 +51,7 @@ from ai_platform_trainer.arena.observations import (
 
 CHECKPOINT_PREFIX = "enemy_ppo"
 EVAL_SEED = 10_000  # evaluation rounds never overlap the benchmark seeds (0..N)
-SELECTION_METRIC = "net_per_min"
+SELECTION_METRIC = "objective"
 
 
 def git_commit() -> Optional[str]:
@@ -89,7 +89,7 @@ def write_metadata(
         "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(meta, fh, indent=2)
+        print(json.dumps(meta, indent=2), file=fh)
 
 
 def checkpoint_steps(path: str) -> int:
@@ -118,7 +118,7 @@ class ArenaEvalCallback(BaseCallback):
         self.best_score = -math.inf
         self.best_eval: Optional[Dict[str, Any]] = None
         self._last = 0
-        meta_path = os.path.join(out_dir, "best_model.json")
+        meta_path = model_card_path(self.best_path)
         if os.path.exists(meta_path) and os.path.exists(self.best_path):
             with open(meta_path, encoding="utf-8") as fh:
                 self.best_eval = json.load(fh)["evaluation"]
@@ -138,6 +138,7 @@ class ArenaEvalCallback(BaseCallback):
             SB3Enemy(self.model), ArenaConfig(), self.rounds, seed=EVAL_SEED
         )
         for key in (
+            "objective",
             "net_per_min",
             "catch_rate",
             "hit_rate",
@@ -153,15 +154,16 @@ class ArenaEvalCallback(BaseCallback):
             self.best_score = summary[SELECTION_METRIC]
             self.best_eval = summary
             self.model.save(self.best_path)
-            best_meta = os.path.join(self.out_dir, "best_model.json")
+            best_meta = model_card_path(self.best_path)
             write_metadata(best_meta, self.model, summary, self.seed)
         steps = format(self.num_timesteps, ",")
         net = format(summary["net_per_min"], "+.2f")
-        best = format(self.best_score, "+.2f")
+        best = format(self.best_score, "+.3f")
+        score = format(summary[SELECTION_METRIC], "+.3f")
         catch = format(summary["catch_rate"], ".1%")
         hit = format(summary["hit_rate"], ".1%")
         message = (
-            f"[eval at {steps} steps] net {net}/min  "
+            f"[eval at {steps} steps] objective {score}  net {net}/min  "
             f"catch {catch}  hit {hit}  (best {best})"
         )
         print(message, flush=True)
@@ -232,7 +234,7 @@ def train(
     )
     model_path = os.path.join(out_dir, os.path.basename(ENEMY_PPO_MODEL))
     shutil.copyfile(deploy_from, model_path)
-    meta_path = os.path.join(out_dir, os.path.basename(ENEMY_PPO_METADATA))
+    meta_path = model_card_path(model_path)
     deployed = PPO.load(model_path, device="cpu")
     write_metadata(meta_path, deployed, evaluator.best_eval or final_eval, seed)
     print(f"Deployed {deploy_from} -> {model_path}", flush=True)

@@ -1,0 +1,120 @@
+{
+  "algorithm": "PPO",
+  "observation_version": 1,
+  "observation_size": 29,
+  "observation_features": [
+    "player_dx",
+    "player_dy",
+    "player_distance",
+    "player_vx",
+    "player_vy",
+    "enemy_vx",
+    "enemy_vy",
+    "arena_width",
+    "arena_height",
+    "player_cooldown",
+    "player_missile_count",
+    "missile0_dx",
+    "missile0_dy",
+    "missile0_vx",
+    "missile0_vy",
+    "missile0_life",
+    "missile0_present",
+    "missile1_dx",
+    "missile1_dy",
+    "missile1_vx",
+    "missile1_vy",
+    "missile1_life",
+    "missile1_present",
+    "missile2_dx",
+    "missile2_dy",
+    "missile2_vx",
+    "missile2_vy",
+    "missile2_life",
+    "missile2_present"
+  ],
+  "action": "velocity in [-1, 1] per axis, times enemy_speed px per frame",
+  "decision_frames": 4,
+  "gamma": 0.995,
+  "reward": "+1 catch, -1 missile hit, -1 per 15 s without a catch, plus potential-based distance shaping (phi = -distance / 1000)",
+  "selection_metric": "objective",
+  "timesteps": 1500000,
+  "seed": 0,
+  "eval_arena": {
+    "width": 1470,
+    "height": 956,
+    "body_size": 50,
+    "player_speed": 5.0,
+    "enemy_speed": 7.5,
+    "missile_size": 10,
+    "missile_speed": 5.0,
+    "missile_substeps": 1,
+    "missile_turn_deg": 12.0,
+    "missile_prediction": 0.5,
+    "missile_aim_jitter": 0.1,
+    "missile_life_ms": [
+      2500,
+      3000
+    ],
+    "missile_cooldown_frames": 30,
+    "max_missiles": 3,
+    "explosion_frames": 18,
+    "respawn_frames": 60,
+    "min_spawn_distance": 200.0
+  },
+  "evaluation": {
+    "rounds": 240,
+    "catch_rate": 0.2708333333333333,
+    "catch_rate_ci95": 0.056223116003545626,
+    "hit_rate": 0.11666666666666667,
+    "hit_rate_ci95": 0.040614971696726884,
+    "timeout_rate": 0.6125,
+    "mean_return": 0.15416666666666667,
+    "objective": -0.5944305555555556,
+    "catches_per_min": 1.4471511530826175,
+    "hits_per_min": 0.6233881890202044,
+    "net_per_min": 0.8237629640624131,
+    "seconds_per_hit": 96.24821428571428,
+    "time_to_catch_s": 4.383846153846154,
+    "closing_px_per_s": 12.678389164930222,
+    "missile_evasion_rate": 0.985200845665962,
+    "mean_round_s": 11.228958333333333,
+    "by_bot": {
+      "idle": {
+        "catch_rate": 0.16666666666666666,
+        "hit_rate": 0.06666666666666667
+      },
+      "wander": {
+        "catch_rate": 0.4,
+        "hit_rate": 0.13333333333333333
+      },
+      "kite": {
+        "catch_rate": 0.06666666666666667,
+        "hit_rate": 0.2
+      },
+      "strafe": {
+        "catch_rate": 0.03333333333333333,
+        "hit_rate": 0.06666666666666667
+      },
+      "juke": {
+        "catch_rate": 0.06666666666666667,
+        "hit_rate": 0.03333333333333333
+      },
+      "reverser": {
+        "catch_rate": 0.43333333333333335,
+        "hit_rate": 0.06666666666666667
+      },
+      "charger": {
+        "catch_rate": 1.0,
+        "hit_rate": 0.0
+      },
+      "orbit": {
+        "catch_rate": 0.0,
+        "hit_rate": 0.36666666666666664
+      }
+    },
+    "wall_seconds": 3.634874207957182
+  },
+  "git_commit": "b9ee535",
+  "created": "2026-09-29T23:27:11"
+}

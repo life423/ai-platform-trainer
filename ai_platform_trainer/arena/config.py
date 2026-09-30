@@ -27,15 +27,17 @@ class ArenaConfig:
 
     Speeds are pixels per frame. The player moves with the keyboard, so it
     covers player_speed on each axis (about 7.07 px per frame on diagonals).
-    The enemy gets exactly the same per-axis cap by default, which is what
-    makes benchmark results a fair fight rather than a speed advantage.
+    The enemy is 50 percent faster, where the original Adaptive AI hunting
+    stages begin: at 1.2x or less, a player who kites while firing can never
+    be caught. Every enemy in the benchmark gets the same cap, so comparisons
+    stay fair.
     """
 
     width: int = DEFAULT_SCREEN[0]
     height: int = DEFAULT_SCREEN[1]
     body_size: int = 50
     player_speed: float = 5.0
-    enemy_speed: float = 5.0
+    enemy_speed: float = 7.5
     missile_size: int = 10
     # One steer-and-move per frame at 5 px, as PlayerPlay.shoot_missile and
     # the Adaptive AI comments intend. Play mode used to update each missile

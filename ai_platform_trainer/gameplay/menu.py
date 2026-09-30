@@ -15,7 +15,7 @@ class Menu:
         # enemy behavior to face: the scripted staged-difficulty AI, or the
         # trained (supervised NN, optionally RL) EnemyPlay model.
         self.show_enemy_menu = False
-        self.enemy_keys = list(ENEMY_CHOICES.keys())  # ["adaptive", "trained"]
+        self.enemy_keys = list(ENEMY_CHOICES.keys())  # ["trained", "adaptive"]
         self.selected_enemy_index = 0
         self.selected_enemy_choice = "adaptive"
         self.enemy_option_rects = {}
@@ -266,7 +266,7 @@ class Menu:
             if trained is not None:
                 label += f" ({trained})"
             if not available:
-                label += " (not trained yet - falls back to Adaptive)"
+                label += " (not trained yet - falls back to Scripted Baseline)"
 
             if index == self.selected_enemy_index:
                 color = self.color_selected

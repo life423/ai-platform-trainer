@@ -33,6 +33,8 @@ def test_summary_metrics():
     assert s["timeout_rate"] == pytest.approx(1 / 3)
     assert s["mean_return"] == 0.0
     assert s["net_per_min"] == 0.0
+    # (1 - 120/900) + (-1 - 60/900) + (-900/900), averaged over 3 rounds
+    assert s["objective"] == pytest.approx(-0.4)
     assert s["catches_per_min"] == pytest.approx(60 / 18)
     assert s["seconds_per_hit"] == pytest.approx(18.0)
     assert s["time_to_catch_s"] == pytest.approx(2.0)

@@ -65,5 +65,8 @@ models/enemy_ppo/checkpoints/
 models/enemy_ppo/best_model.*
 models/enemy_ppo/final_model.zip
 logs/enemy_ppo/
+# Experimental runs (train-enemy --out models/enemy_ppo_<name>)
+models/enemy_ppo_*/
+logs/enemy_ppo_*/
 logs/*.log
 reports/benchmarks/*_2*

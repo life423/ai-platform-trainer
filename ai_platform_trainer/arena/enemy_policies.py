@@ -1,14 +1,15 @@
 """Enemy controllers that act on an ArenaState: baselines and learned agents.
 
 Every policy returns a per-frame displacement in pixels. The sim clips capped
-policies to enemy_speed per axis, which is exactly the movement ability of the
-player. The shipped Adaptive AI can opt out of the cap to reproduce its speed
-ramp to 10+ px per frame.
+policies to the arena enemy_speed per axis, the same cap for every enemy. The
+shipped Adaptive AI can opt out of the cap to reproduce its speed ramp to 10+ px
+per frame.
 """
 import random
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Tuple
 
+from ai_platform_trainer.ai.model_paths import load_model_card
 from ai_platform_trainer.arena.observations import (
     ENEMY_DECISION_FRAMES,
     ENEMY_OBS_SIZE,
@@ -74,14 +75,14 @@ class AdaptiveEnemy(EnemyPolicy):
     """The shipped AdaptiveStagedEnemyAI heuristics, driven on arena state.
 
     It starts fully warmed up (nightmare stage), which is how it plays after
-    the first few seconds of a real session. equal_speed=True clips its moves
-    to the player movement ability for a fair comparison; equal_speed=False
-    keeps its own speed ramp, i.e. the enemy exactly as shipped.
+    the first few seconds of a real session. capped=True holds it to the arena
+    enemy speed like every other enemy; capped=False keeps its own speed ramp
+    (up to 10 px per frame plus a chase boost), i.e. the enemy as shipped.
     """
 
-    def __init__(self, equal_speed: bool = True, warmup_frames: int = 900) -> None:
-        self.capped = equal_speed
-        self.name = "adaptive_equal" if equal_speed else "adaptive_shipped"
+    def __init__(self, capped: bool = True, warmup_frames: int = 900) -> None:
+        self.capped = capped
+        self.name = "adaptive" if capped else "adaptive_shipped"
         self.warmup_frames = warmup_frames
         self._ai: Any = None
 
@@ -150,13 +151,18 @@ class LegacySupervisedEnemy(EnemyPolicy):
 class SB3Enemy(EnemyPolicy):
     """A trained Stable-Baselines3 policy acting through the shared encoder.
 
-    As in training, it picks a move every ENEMY_DECISION_FRAMES frames and
-    holds it in between. Training evaluation, the benchmark and the game all
-    run trained models through this one class.
+    It picks a move every decision_frames frames and holds it in between, at
+    the rate it was trained with (read from its model card when loaded from
+    disk). Training evaluation, the benchmark and the game all run models
+    through this one class.
     """
 
     def __init__(
-        self, model: Any, name: str = "ppo", deterministic: bool = True
+        self,
+        model: Any,
+        name: str = "ppo",
+        deterministic: bool = True,
+        decision_frames: int = ENEMY_DECISION_FRAMES,
     ) -> None:
         shape = tuple(model.observation_space.shape)
         if shape != (ENEMY_OBS_SIZE,):
@@ -167,6 +173,7 @@ class SB3Enemy(EnemyPolicy):
         self.model = model
         self.name = name
         self.deterministic = deterministic
+        self.decision_frames = decision_frames
         self._move: Displacement = (0.0, 0.0)
         self._frames_left = 0
 
@@ -174,7 +181,9 @@ class SB3Enemy(EnemyPolicy):
     def load(cls, path: str, name: str = "ppo") -> "SB3Enemy":
         from stable_baselines3 import PPO
 
-        return cls(PPO.load(path, device="cpu"), name=name)
+        card = load_model_card(path) or {}
+        frames = int(card.get("decision_frames", ENEMY_DECISION_FRAMES))
+        return cls(PPO.load(path, device="cpu"), name=name, decision_frames=frames)
 
     def reset(
         self, state: Optional[ArenaState] = None, rng: Optional[random.Random] = None
@@ -187,7 +196,7 @@ class SB3Enemy(EnemyPolicy):
                 build_enemy_observation(state), deterministic=self.deterministic
             )
             self._move = enemy_action_to_displacement(action, state.config)
-            self._frames_left = ENEMY_DECISION_FRAMES
+            self._frames_left = self.decision_frames
         self._frames_left -= 1
         return self._move
 
@@ -197,8 +206,8 @@ def baseline_policies() -> List[EnemyPolicy]:
     return [
         RandomEnemy(),
         ChaseEnemy(),
-        AdaptiveEnemy(equal_speed=True),
-        AdaptiveEnemy(equal_speed=False),
+        AdaptiveEnemy(capped=True),
+        AdaptiveEnemy(capped=False),
         LegacySupervisedEnemy(),
     ]
 
@@ -206,7 +215,7 @@ def baseline_policies() -> List[EnemyPolicy]:
 POLICY_NAMES: Dict[str, str] = {
     "random": "Random movement",
     "chase": "Direct chase",
-    "adaptive_equal": "Adaptive AI (equal speed)",
+    "adaptive": "Adaptive AI (scripted)",
     "adaptive_shipped": "Adaptive AI (as shipped, speed 10+)",
     "legacy_supervised": "Legacy supervised NN",
     "ppo": "PPO agent",

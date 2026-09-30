@@ -6,7 +6,6 @@ for movement decisions.
 """
 import logging
 import math
-import os
 from typing import List, Optional, Tuple
 
 import pygame
@@ -14,24 +13,11 @@ import torch
 
 from ai_platform_trainer.ai.models.enemy_movement_model import EnemyMovementModel
 from ai_platform_trainer.core.screen_context import ScreenContext
-from ai_platform_trainer.gameplay.config import config
 
 # Display names for the two selectable enemy behaviors, keyed the same way
 # as enemy_choice throughout this module and the menu.
-ENEMY_CHOICES = {"adaptive": "Adaptive Staged AI", "trained": "Trained AI"}
-
-
-def is_trained_enemy_available() -> bool:
-    """Whether the supervised movement network has been trained at all."""
-    return os.path.exists(config.MODEL_PATH)
-
-
-def create_enemy_play(screen_width: int, screen_height: int) -> "EnemyPlay":
-    """EnemyPlay driven by the legacy supervised movement network."""
-    model = EnemyMovementModel(input_size=5, hidden_size=64, output_size=2)
-    model.load_state_dict(torch.load(config.MODEL_PATH, map_location="cpu"))
-    model.eval()
-    return EnemyPlay(screen_width, screen_height, model)
+ENEMY_CHOICES = {"trained": "AI Agent", "adaptive": "Scripted Baseline"}
+DEFAULT_ENEMY_CHOICE = "trained"  # falls back to the scripted baseline if untrained
 
 
 class EnemyPlay:
@@ -127,19 +113,13 @@ class EnemyPlay:
         """Called when this enemy is hit by a missile."""
         self.times_hit_by_missile += 1
 
-    def get_difficulty_level(self) -> float:
-        """Difficulty value (0.0-1.0) for the shared learning-mode UI panel."""
-        return 0.75
-
-    def get_learning_stats(self) -> dict:
-        """Stats for the shared learning-mode UI panel (see PlayLearningMode)."""
+    def panel_stats(self) -> dict:
+        """What the Play mode enemy panel shows (see PlayLearningMode)."""
         return {
-            "stage": "Trained NN",
-            "difficulty": self.get_difficulty_level(),
-            "frames": self.hits_on_player + self.times_hit_by_missile,
+            "title": "Supervised Network (legacy)",
+            "summary": ["Neural network fit to recorded chases"],
             "hits": self.hits_on_player,
             "deaths": self.times_hit_by_missile,
-            "speed": self.speed,
         }
 
     def _update_with_nn(
