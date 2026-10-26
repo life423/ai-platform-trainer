@@ -26,8 +26,13 @@ CARD_MIN_WIDTH = 240
 CARD_MAX_WIDTH = 330
 
 CONTROLS_TEXT = (
-    "Move: WASD or Arrows     Fire: Space     Menu: M     Fullscreen: F     Quit: Esc"
+    "Move: WASD or Arrows     Fire: Space     V: AI overlay     "
+    "Menu: M     Fullscreen: F     Quit: Esc"
 )
+
+# Impact effects: particles and a shockwave, drawn by the renderer's Effects
+CATCH_COLOUR = (255, 90, 70)  # The enemy caught the player
+HIT_COLOUR = (255, 215, 0)  # The player's missile hit the enemy
 
 
 def draw_card(screen: pygame.Surface, rect) -> None:
@@ -39,6 +44,12 @@ def draw_card(screen: pygame.Surface, rect) -> None:
         card, CARD_BORDER, card_rect, width=2, border_radius=CARD_RADIUS
     )
     screen.blit(card, rect[:2])
+
+
+def _centre_of(entity) -> tuple:
+    """The centre of an entity, from its top-left corner (pos, or position)."""
+    origin = entity.pos if hasattr(entity, "pos") else entity.position
+    return (origin["x"] + entity.size / 2, origin["y"] + entity.size / 2)
 
 
 def wrap_text(text: str, font: pygame.font.Font, max_width: int) -> list:
@@ -69,6 +80,7 @@ class PlayLearningMode:
         """
         self.game = game
         self.space_pressed_last_frame = False
+        self.v_pressed_last_frame = False
 
         # Spawns and respawns follow the arena's rule, the one the models trained on
         self.arena_config = ArenaConfig(
@@ -106,6 +118,8 @@ class PlayLearningMode:
             self.game.player.shoot_missile(self.learning_enemy.pos)
             logging.debug("Player shot missile at learning AI")
         self.space_pressed_last_frame = keys[pygame.K_SPACE]
+
+        self._toggle_ai_overlay(keys)
 
         # Update player
         if self.game.player:
@@ -161,6 +175,12 @@ class PlayLearningMode:
         if self._entities_collide(self.game.player, self.learning_enemy):
             logging.info("Learning AI caught the player! The player respawns.")
             self.learning_enemy.on_hit_player()  # Notify AI of success
+            self._show_impact(
+                _centre_of(self.game.player),
+                CATCH_COLOUR,
+                burst_count=40,
+                ring_radius=90,
+            )
             self._respawn_player()
             return
 
@@ -175,9 +195,39 @@ class PlayLearningMode:
                 self.learning_enemy.on_hit_by_missile()  # Notify AI of failure
                 self.game.player.missiles.remove(missile)
                 self.learning_enemy.hide()
+                self._show_impact(
+                    _centre_of(self.learning_enemy),
+                    HIT_COLOUR,
+                    burst_count=32,
+                    ring_radius=80,
+                )
                 self.game.is_respawning = True
                 self.game.respawn_timer = current_time + self.game.respawn_delay
                 break
+
+    def _renderer(self):
+        """The game's renderer, or None when the game has none (e.g. in tests)."""
+        return getattr(self.game, "renderer", None)
+
+    def _toggle_ai_overlay(self, keys) -> None:
+        """V shows or hides the AI overlay drawn by the renderer, once per press."""
+        v_held = bool(keys[pygame.K_v])
+        if v_held and not self.v_pressed_last_frame:
+            renderer = self._renderer()
+            if renderer is not None:
+                renderer.show_ai_overlay = not renderer.show_ai_overlay
+        self.v_pressed_last_frame = v_held
+
+    def _show_impact(
+        self, centre, colour, burst_count: int, ring_radius: float
+    ) -> None:
+        """Visual only: a burst of particles and a shockwave at centre."""
+        renderer = self._renderer()
+        effects = getattr(renderer, "effects", None)
+        if effects is None:
+            return
+        effects.burst(centre[0], centre[1], colour, burst_count, 4.0, 36)
+        effects.ring(centre[0], centre[1], colour, ring_radius, 30)
 
     def _respawn_player(self) -> None:
         """Move the player to a spawn point away from the enemy, by the arena's rule."""

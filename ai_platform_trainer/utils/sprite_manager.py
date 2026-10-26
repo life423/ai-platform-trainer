@@ -1,18 +1,25 @@
 """
 Sprite manager for AI Platform Trainer.
 
-This module handles loading, caching, and rendering sprites for game entities.
-It provides an abstraction layer over pygame's sprite handling to make the
-code more modular and maintainable.
+This module handles loading, scaling, rotating and caching sprites for game
+entities. A sprite is scaled once per (name, size), and each rotated variant
+is made once per (name, size, angle), so the work happens on the first frame
+that needs it and is reused after that.
 """
+
 import os
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import pygame
 
 # Type aliases
 Color = Tuple[int, int, int]
+Size = Tuple[int, int]
 Position = Dict[str, float]  # {"x": x, "y": y}
+
+
+def _as_size(size) -> Size:
+    return (int(size[0]), int(size[1]))
 
 
 class SpriteManager:
@@ -31,11 +38,11 @@ class SpriteManager:
             sprites_dir: Directory containing sprite assets
         """
         self.sprites_dir = sprites_dir
-        self.sprites: Dict[str, pygame.Surface] = {}
-        self.animations: Dict[str, List[pygame.Surface]] = {}
-        self._rotated_sprites: Dict[
-            Tuple[str, Tuple[int, int], int], pygame.Surface
-        ] = {}
+        # Decoded image files before any scaling; None marks a missing file
+        self._source_images: Dict[str, Optional[pygame.Surface]] = {}
+        self.sprites: Dict[Tuple[str, Size], pygame.Surface] = {}
+        self.animations: Dict[Tuple[str, Size, int], List[pygame.Surface]] = {}
+        self._rotated_sprites: Dict[Tuple[str, Size, int], pygame.Surface] = {}
 
         # Placeholder colors for entities
         self.placeholder_colors = {
@@ -44,9 +51,12 @@ class SpriteManager:
             "missile": (255, 255, 50),  # Yellow
         }
 
-    def load_sprite(self, name: str, size: Tuple[int, int]) -> pygame.Surface:
+    def load_sprite(self, name: str, size: Size) -> pygame.Surface:
         """
-        Load a sprite image or create a placeholder if not found.
+        Load a sprite image scaled to size, or create a placeholder if not found.
+
+        Sprites are cached by (name, size), so the same name at two sizes
+        gives two surfaces.
 
         Args:
             name: Name of the sprite to load
@@ -55,29 +65,35 @@ class SpriteManager:
         Returns:
             Loaded sprite surface or a placeholder
         """
-        # Check if sprite is already cached
-        if name in self.sprites:
-            return self.sprites[name]
+        size = _as_size(size)
+        key = (name, size)
+        if key in self.sprites:
+            return self.sprites[key]
 
-        # Try to load the sprite from file
-        sprite_path = os.path.join(self.sprites_dir, f"{name}.png")
-        if os.path.exists(sprite_path):
-            try:
-                # Load and scale the sprite
-                sprite = pygame.image.load(sprite_path).convert_alpha()
-                sprite = pygame.transform.scale(sprite, size)
-                self.sprites[name] = sprite
-                return sprite
-            except pygame.error:
-                # If loading fails, fall back to placeholder
-                pass
-
-        # Create placeholder sprite
-        sprite = self._create_placeholder(name, size)
-        self.sprites[name] = sprite
+        source = self._load_source(name)
+        if source is not None:
+            # smoothscale keeps edges clean when shrinking (scale() is jagged)
+            sprite = pygame.transform.smoothscale(source, size)
+        else:
+            sprite = self._create_placeholder(name, size)
+        self.sprites[key] = sprite
         return sprite
 
-    def _create_placeholder(self, name: str, size: Tuple[int, int]) -> pygame.Surface:
+    def _load_source(self, name: str) -> Optional[pygame.Surface]:
+        """Decode assets/sprites/<name>.png once, or None if the file is missing."""
+        if name not in self._source_images:
+            image = None
+            path = os.path.join(self.sprites_dir, f"{name}.png")
+            if os.path.exists(path):
+                try:
+                    image = pygame.image.load(path).convert_alpha()
+                except pygame.error:
+                    # If loading fails, the placeholder is used instead
+                    image = None
+            self._source_images[name] = image
+        return self._source_images[name]
+
+    def _create_placeholder(self, name: str, size: Size) -> pygame.Surface:
         """
         Create a placeholder sprite with specified color.
 
@@ -139,8 +155,9 @@ class SpriteManager:
         screen: pygame.Surface,
         entity_type: str,
         position: Union[Position, Tuple[float, float]],
-        size: Tuple[int, int],
+        size: Size,
         rotation: float = 0,
+        alpha: int = 255,
     ) -> None:
         """
         Render a sprite to the screen.
@@ -148,9 +165,10 @@ class SpriteManager:
         Args:
             screen: Pygame surface to render to
             entity_type: Type of entity to render
-            position: Position (x, y) coordinates
+            position: Top-left (x, y) of the entity's logical box
             size: Size (width, height) of the sprite
-            rotation: Rotation angle in degrees
+            rotation: Rotation angle in degrees, counter-clockwise
+            alpha: Opacity from 0 to 255 (used for the fade-in)
         """
         # Get position as (x, y) tuple (top-left of the entity's bounding box)
         if isinstance(position, dict):
@@ -158,25 +176,42 @@ class SpriteManager:
         else:
             pos = position
 
+        center = (pos[0] + size[0] / 2, pos[1] + size[1] / 2)
+        self.render_centered(screen, entity_type, center, size, rotation, alpha)
+
+    def render_centered(
+        self,
+        screen: pygame.Surface,
+        entity_type: str,
+        center: Tuple[float, float],
+        size: Size,
+        rotation: float = 0,
+        alpha: int = 255,
+    ) -> None:
+        """Render a sprite centred on center, rotated by rotation degrees."""
         sprite = self._get_rotated_sprite(entity_type, size, rotation)
+        if alpha < 255:
+            # Fade on a copy, so the cached surface keeps its full opacity
+            sprite = sprite.copy()
+            sprite.set_alpha(max(0, int(alpha)))
 
         # A rotated surface's bounding box is larger than the original
-        # (especially at 45-degree angles), so blit it centered on the
-        # entity's logical box rather than at its unrotated top-left -
-        # otherwise it visibly drifts away from the entity's position.
-        center = (pos[0] + size[0] / 2, pos[1] + size[1] / 2)
-        rect = sprite.get_rect(center=center)
+        # (especially at 45-degree angles), so it is centred on the entity's
+        # logical box rather than drawn at its unrotated top-left - otherwise
+        # it visibly drifts away from the entity's position.
+        rect = sprite.get_rect(center=(int(round(center[0])), int(round(center[1]))))
         screen.blit(sprite, rect)
 
     def _get_rotated_sprite(
-        self, entity_type: str, size: Tuple[int, int], rotation: float
+        self, entity_type: str, size: Size, rotation: float
     ) -> pygame.Surface:
         """
         Get a sprite rotated by the given angle, caching each rotated
         variant so repeated frames at the same angle (e.g. a player
         facing one of 8 fixed compass directions) don't re-rotate the
-        surface every time.
+        surface every time. Angles are cached to the whole degree.
         """
+        size = _as_size(size)
         base_sprite = self.load_sprite(entity_type, size)
         rotation_key = round(rotation) % 360
         if rotation_key == 0:
@@ -184,13 +219,13 @@ class SpriteManager:
 
         cache_key = (entity_type, size, rotation_key)
         if cache_key not in self._rotated_sprites:
-            self._rotated_sprites[cache_key] = pygame.transform.rotate(
-                base_sprite, rotation_key
+            self._rotated_sprites[cache_key] = pygame.transform.rotozoom(
+                base_sprite, rotation_key, 1.0
             )
         return self._rotated_sprites[cache_key]
 
     def load_animation(
-        self, name: str, size: Tuple[int, int], frames: int = 4
+        self, name: str, size: Size, frames: int = 4
     ) -> List[pygame.Surface]:
         """
         Load or create a simple animation sequence.
@@ -203,24 +238,17 @@ class SpriteManager:
         Returns:
             List of animation frame surfaces
         """
-        # Check if animation is already cached
-        animation_key = f"{name}_{frames}"
+        size = _as_size(size)
+        animation_key = (name, size, frames)
         if animation_key in self.animations:
             return self.animations[animation_key]
 
         # Try to load animation frames from files
         animation_frames = []
         for i in range(frames):
-            frame_path = os.path.join(self.sprites_dir, f"{name}_{i}.png")
-            if os.path.exists(frame_path):
-                try:
-                    # Load and scale the frame
-                    frame = pygame.image.load(frame_path).convert_alpha()
-                    frame = pygame.transform.scale(frame, size)
-                    animation_frames.append(frame)
-                except pygame.error:
-                    # If loading fails, use placeholder
-                    animation_frames.append(self._create_placeholder(name, size))
+            source = self._load_source(f"{name}_{i}")
+            if source is not None:
+                animation_frames.append(pygame.transform.smoothscale(source, size))
             else:
                 # Create placeholder frame with slight variation
                 animation_frames.append(
@@ -231,7 +259,7 @@ class SpriteManager:
         return animation_frames
 
     def _create_animation_placeholder(
-        self, name: str, size: Tuple[int, int], frame_index: int, total_frames: int
+        self, name: str, size: Size, frame_index: int, total_frames: int
     ) -> pygame.Surface:
         """
         Create a placeholder animation frame.
@@ -268,7 +296,7 @@ class SpriteManager:
         frame = pygame.Surface(size, pygame.SRCALPHA)
 
         # Scale the base sprite and blit to the frame
-        scaled_sprite = pygame.transform.scale(base_sprite, (scaled_w, scaled_h))
+        scaled_sprite = pygame.transform.smoothscale(base_sprite, (scaled_w, scaled_h))
         frame.blit(scaled_sprite, (offset_x, offset_y))
 
         return frame
