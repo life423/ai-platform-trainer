@@ -1,5 +1,5 @@
 {
-  "created": "2026-10-26T15:56:15",
+  "created": "2026-10-26T16:48:55",
   "arena": {
     "width": 800,
     "height": 600,
@@ -37,144 +37,144 @@
   "policies": {
     "random": {
       "rounds": 1000,
-      "catches_per_round": 0.794,
-      "hits_per_round": 3.546,
-      "objective": -6.298,
-      "catches_per_min": 3.176,
-      "hits_per_min": 14.184,
-      "net_per_min": -11.008,
-      "closing_px_per_s": 1.2196939159622309,
-      "missile_evasion_rate": 0.7043768236765319,
+      "catches_per_round": 0.459,
+      "hits_per_round": 6.078,
+      "objective": -11.697,
+      "catches_per_min": 1.8359999999999999,
+      "hits_per_min": 24.312,
+      "net_per_min": -22.476,
+      "closing_px_per_s": 1.2665403058265174,
+      "missile_evasion_rate": 0.5018441111384313,
       "mean_round_s": 15.0,
       "by_bot": {
         "idle": {
-          "catches_per_min": 1.824,
-          "hits_per_min": 14.208
+          "catches_per_min": 0.384,
+          "hits_per_min": 23.776
         },
         "wander": {
-          "catches_per_min": 3.168,
-          "hits_per_min": 14.879999999999999
+          "catches_per_min": 2.304,
+          "hits_per_min": 24.352
         },
         "kite": {
-          "catches_per_min": 0.32,
-          "hits_per_min": 13.76
+          "catches_per_min": 0.192,
+          "hits_per_min": 24.192
         },
         "strafe": {
           "catches_per_min": 0.352,
-          "hits_per_min": 14.592
+          "hits_per_min": 24.352
         },
         "juke": {
           "catches_per_min": 0.352,
-          "hits_per_min": 13.536
+          "hits_per_min": 24.032
         },
         "reverser": {
-          "catches_per_min": 2.912,
-          "hits_per_min": 13.376000000000001
+          "catches_per_min": 2.24,
+          "hits_per_min": 24.096
         },
         "charger": {
-          "catches_per_min": 16.064,
-          "hits_per_min": 15.200000000000001
+          "catches_per_min": 8.576,
+          "hits_per_min": 25.951999999999998
         },
         "orbit": {
-          "catches_per_min": 0.416,
-          "hits_per_min": 13.92
+          "catches_per_min": 0.288,
+          "hits_per_min": 23.744
         }
       },
-      "wall_seconds": 86.63913769999999
+      "wall_seconds": 43.05179540000245
     },
     "chase": {
       "rounds": 1000,
-      "catches_per_round": 7.466,
-      "hits_per_round": 7.491,
-      "objective": -7.516,
-      "catches_per_min": 29.864,
-      "hits_per_min": 29.964000000000002,
-      "net_per_min": -0.1,
-      "closing_px_per_s": 8.15367664334061,
-      "missile_evasion_rate": 0.4557145971081886,
+      "catches_per_round": 4.79,
+      "hits_per_round": 9.097,
+      "objective": -13.404,
+      "catches_per_min": 19.16,
+      "hits_per_min": 36.388000000000005,
+      "net_per_min": -17.228,
+      "closing_px_per_s": 7.760739847435598,
+      "missile_evasion_rate": 0.3165802719555255,
       "mean_round_s": 15.0,
       "by_bot": {
         "idle": {
-          "catches_per_min": 35.168,
-          "hits_per_min": 31.359999999999996
+          "catches_per_min": 19.104,
+          "hits_per_min": 37.376
         },
         "wander": {
-          "catches_per_min": 31.072000000000003,
-          "hits_per_min": 29.439999999999998
+          "catches_per_min": 18.88,
+          "hits_per_min": 36.416
         },
         "kite": {
-          "catches_per_min": 14.719999999999999,
-          "hits_per_min": 31.168
+          "catches_per_min": 8.288,
+          "hits_per_min": 37.632
         },
         "strafe": {
-          "catches_per_min": 18.176,
-          "hits_per_min": 30.784
+          "catches_per_min": 11.264,
+          "hits_per_min": 36.928000000000004
         },
         "juke": {
-          "catches_per_min": 18.304,
-          "hits_per_min": 31.072000000000003
+          "catches_per_min": 10.112,
+          "hits_per_min": 37.44
         },
         "reverser": {
-          "catches_per_min": 42.016000000000005,
-          "hits_per_min": 28.0
+          "catches_per_min": 29.472,
+          "hits_per_min": 35.04
         },
         "charger": {
-          "catches_per_min": 63.071999999999996,
-          "hits_per_min": 25.887999999999998
+          "catches_per_min": 46.688,
+          "hits_per_min": 32.44799999999999
         },
         "orbit": {
-          "catches_per_min": 16.384,
-          "hits_per_min": 32.0
+          "catches_per_min": 9.472,
+          "hits_per_min": 37.824
         }
       },
-      "wall_seconds": 55.279330199999094
+      "wall_seconds": 27.610086199998477
     },
     "ppo": {
       "rounds": 1000,
-      "catches_per_round": 8.071,
-      "hits_per_round": 6.588,
-      "objective": -5.105,
-      "catches_per_min": 32.284,
-      "hits_per_min": 26.352,
-      "net_per_min": 5.932,
-      "closing_px_per_s": 7.87962661980989,
-      "missile_evasion_rate": 0.5170796070957338,
+      "catches_per_round": 5.778,
+      "hits_per_round": 8.206,
+      "objective": -10.634,
+      "catches_per_min": 23.112,
+      "hits_per_min": 32.824000000000005,
+      "net_per_min": -9.712,
+      "closing_px_per_s": 7.3725588588165625,
+      "missile_evasion_rate": 0.4015897323707431,
       "mean_round_s": 15.0,
       "by_bot": {
         "idle": {
-          "catches_per_min": 38.112,
-          "hits_per_min": 27.552
+          "catches_per_min": 21.504,
+          "hits_per_min": 36.064
         },
         "wander": {
-          "catches_per_min": 33.152,
-          "hits_per_min": 25.632
+          "catches_per_min": 25.376,
+          "hits_per_min": 31.295999999999996
         },
         "kite": {
-          "catches_per_min": 17.183999999999997,
-          "hits_per_min": 27.84
+          "catches_per_min": 10.176,
+          "hits_per_min": 34.464
         },
         "strafe": {
-          "catches_per_min": 20.992,
-          "hits_per_min": 26.592
+          "catches_per_min": 15.872,
+          "hits_per_min": 31.68
         },
         "juke": {
-          "catches_per_min": 21.567999999999998,
-          "hits_per_min": 26.592
+          "catches_per_min": 14.208,
+          "hits_per_min": 33.312000000000005
         },
         "reverser": {
-          "catches_per_min": 40.928000000000004,
-          "hits_per_min": 26.048
+          "catches_per_min": 32.832,
+          "hits_per_min": 32.256
         },
         "charger": {
-          "catches_per_min": 66.08,
-          "hits_per_min": 23.328
+          "catches_per_min": 52.224,
+          "hits_per_min": 29.568
         },
         "orbit": {
-          "catches_per_min": 20.256,
-          "hits_per_min": 27.232
+          "catches_per_min": 12.704,
+          "hits_per_min": 33.952
         }
       },
-      "wall_seconds": 212.6040118000019
+      "wall_seconds": 138.2750057000012
     }
   }
 }
