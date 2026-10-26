@@ -18,7 +18,6 @@ from typing import Callable, Optional, Tuple
 
 from ai_platform_trainer.arena.config import ArenaConfig, ms_to_frames
 from ai_platform_trainer.arena.geometry import (
-    normalize_angle,
     rects_overlap,
     wrap_coordinate,
     wrapped_move,
@@ -31,23 +30,30 @@ HIT = "hit"
 Guidance = Callable[[MissileState, float, float, ArenaConfig], None]
 
 
-def basic_homing(
-    missile: MissileState, target_x: float, target_y: float, config: ArenaConfig
-) -> None:
-    """One substep of SmartMissile basic homing: lead the target, then turn."""
-    target_vx = target_x - missile.last_target_x
-    target_vy = target_y - missile.last_target_y
-    missile.last_target_x = target_x
-    missile.last_target_y = target_y
-    predicted_x = target_x + target_vx * config.missile_prediction
-    predicted_y = target_y + target_vy * config.missile_prediction
-    desired = math.atan2(predicted_y - missile.y, predicted_x - missile.x)
-    current = math.atan2(missile.vy, missile.vx)
-    turn = math.degrees(normalize_angle(desired - current))
-    turn = max(-config.missile_turn_deg, min(config.missile_turn_deg, turn))
-    new_angle = current + math.radians(turn)
-    missile.vx = config.missile_speed * math.cos(new_angle)
-    missile.vy = config.missile_speed * math.sin(new_angle)
+def random_spawn(config: ArenaConfig, rng: random.Random) -> Tuple[float, float]:
+    """A uniformly random top-left corner for a body that fits in the world."""
+    return (
+        float(rng.randint(0, config.width - config.body_size)),
+        float(rng.randint(0, config.height - config.body_size)),
+    )
+
+
+def spawn_away(
+    config: ArenaConfig,
+    rng: random.Random,
+    other: Tuple[float, float],
+    attempts: int = 10,
+) -> Tuple[float, float]:
+    """The respawn rule for both the player and the enemy.
+
+    Up to `attempts` draws, keeping the last one if none is far enough from `other`.
+    """
+    x, y = random_spawn(config, rng)
+    for _ in range(attempts - 1):
+        if math.hypot(x - other[0], y - other[1]) > config.min_spawn_distance:
+            break
+        x, y = random_spawn(config, rng)
+    return x, y
 
 
 class ArenaSim:
@@ -57,7 +63,8 @@ class ArenaSim:
         self,
         config: ArenaConfig,
         rng: Optional[random.Random] = None,
-        guidance: Guidance = basic_homing,
+        *,
+        guidance: Guidance,
     ) -> None:
         self.config = config
         self.rng = rng if rng is not None else random.Random()
@@ -85,22 +92,12 @@ class ArenaSim:
         return self.state
 
     def random_position(self) -> Tuple[float, float]:
-        cfg = self.config
-        return (
-            float(self.rng.randint(0, cfg.width - cfg.body_size)),
-            float(self.rng.randint(0, cfg.height - cfg.body_size)),
-        )
+        return random_spawn(self.config, self.rng)
 
     def spawn_position_away_from(
         self, other: Tuple[float, float], attempts: int = 10
     ) -> Tuple[float, float]:
-        """PlayLearningMode._respawn_enemy: up to 10 draws, keep the last."""
-        x, y = self.random_position()
-        for _ in range(attempts - 1):
-            if math.hypot(x - other[0], y - other[1]) > self.config.min_spawn_distance:
-                break
-            x, y = self.random_position()
-        return x, y
+        return spawn_away(self.config, self.rng, other, attempts)
 
     def spawn_missile(
         self, x: float, y: float, angle: float, life_frames: int, age_frames: int = 0

@@ -132,7 +132,6 @@ SAC_MAX_MISSILE_SPEED = 10.0
 SAC_TARGET_SPEED_SCALE = 5.0
 # SmartMissile.RL_TURN_SCALES["sac"]: degrees per step at an action of 1.0
 SAC_TURN_SCALE_DEG = 20.0
-SAC_MISSILE_FEATURES = 11
 
 
 def sac_missile_observation(

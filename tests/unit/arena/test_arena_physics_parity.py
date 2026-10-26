@@ -21,7 +21,7 @@ from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.entities.smart_missile import SmartMissile
 from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
 
-W, H = 1470, 956
+W, H = 800, 600
 CONFIG = ArenaConfig(width=W, height=H)
 
 

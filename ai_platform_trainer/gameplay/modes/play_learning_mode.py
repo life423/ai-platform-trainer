@@ -3,15 +3,14 @@ Play mode: the player against the AI Agent, with a card showing what drives
 the enemy.
 """
 import logging
-import math
 import random
 
 import pygame
 
+from ai_platform_trainer.arena.config import ArenaConfig
+from ai_platform_trainer.arena.sim import spawn_away
 from ai_platform_trainer.entities.enemy_agent import create_trained_enemy
 from ai_platform_trainer.entities.enemy_play import EnemyPlay
-from ai_platform_trainer.gameplay.config import config
-from ai_platform_trainer.gameplay.spawn_utils import find_valid_spawn_position
 
 # Color constants
 COLOR_TEXT_PRIMARY = (255, 255, 255)  # White
@@ -71,6 +70,12 @@ class PlayLearningMode:
         self.game = game
         self.space_pressed_last_frame = False
 
+        # Spawns and respawns follow the arena's rule, the one the models trained on
+        self.arena_config = ArenaConfig(
+            width=self.game.screen_width, height=self.game.screen_height
+        )
+        self._rng = random.Random()
+
         self.learning_enemy: EnemyPlay = create_trained_enemy(
             self.game.screen_width,
             self.game.screen_height,
@@ -103,10 +108,8 @@ class PlayLearningMode:
         self.space_pressed_last_frame = keys[pygame.K_SPACE]
 
         # Update player
-        if self.game.player and not self.game.player.handle_input():
-            logging.info("Player requested to quit.")
-            self.game.running = False
-            return
+        if self.game.player:
+            self.game.player.handle_input()
 
         # Update learning enemy with missile information
         if self.learning_enemy:
@@ -133,9 +136,7 @@ class PlayLearningMode:
             self.game.player.update_missiles(enemy_pos)
 
         # Each missile is steered and moved exactly once per frame, inside
-        # update_missiles() above. A second update pass used to run here, which
-        # made missiles fly and turn twice as fast as their speed-5 design; the
-        # canonical arena rules (ai_platform_trainer/arena/config.py) match this.
+        # update_missiles() above, as in arena.sim.missile_phase.
 
         # Handle respawning
         if self.game.is_respawning and current_time >= self.game.respawn_timer:
@@ -154,12 +155,14 @@ class PlayLearningMode:
         if not self.game.player or not self.learning_enemy:
             return
 
-        # Player-Enemy collision
-        # A catch respawns the player away from the enemy. The enemies stay.
+        # Player-Enemy collision. A catch respawns the player away from the enemy
+        # and the enemy stays put. As in arena.sim.collision_phase, a catch ends
+        # the frame's collision checks, so a missile hit does not count too.
         if self._entities_collide(self.game.player, self.learning_enemy):
             logging.info("Learning AI caught the player! The player respawns.")
             self.learning_enemy.on_hit_player()  # Notify AI of success
             self._respawn_player()
+            return
 
         # Missile-Enemy collisions
         for missile in self.game.player.missiles[:]:
@@ -177,18 +180,14 @@ class PlayLearningMode:
                 break
 
     def _respawn_player(self) -> None:
-        """Move the player to a valid spot away from the enemy."""
+        """Move the player to a spawn point away from the enemy, by the arena's rule."""
         player = self.game.player
         enemy = self.learning_enemy
-        x, y = find_valid_spawn_position(
-            screen_width=self.game.screen_width,
-            screen_height=self.game.screen_height,
-            entity_size=player.size,
-            margin=config.WALL_MARGIN,
-            min_dist=config.MIN_DISTANCE,
-            other_pos=(enemy.pos["x"], enemy.pos["y"]),
+        x, y = spawn_away(
+            self.arena_config, self._rng, (enemy.pos["x"], enemy.pos["y"])
         )
         player.position["x"], player.position["y"] = x, y
+        enemy.on_player_teleport()
 
     def _entities_collide(self, entity1, entity2) -> bool:
         """Check collision between two entities."""
@@ -215,25 +214,14 @@ class PlayLearningMode:
         return missile_rect.colliderect(enemy_rect)
 
     def _respawn_enemy(self):
-        """Respawn the learning enemy at a new location."""
+        """Respawn the learning enemy away from the player, by the arena's rule."""
         if not self.game.player:
             return
 
-        # Find spawn position away from player
-        attempts = 0
-        while attempts < 10:
-            x = random.randint(0, self.game.screen_width - self.learning_enemy.size)
-            y = random.randint(0, self.game.screen_height - self.learning_enemy.size)
-
-            # Check distance from player
-            dx = x - self.game.player.position["x"]
-            dy = y - self.game.player.position["y"]
-            distance = math.sqrt(dx * dx + dy * dy)
-
-            if distance > 200:  # Minimum spawn distance
-                break
-            attempts += 1
-
+        player = self.game.player
+        x, y = spawn_away(
+            self.arena_config, self._rng, (player.position["x"], player.position["y"])
+        )
         self.learning_enemy.set_position(x, y)
         self.learning_enemy.show(pygame.time.get_ticks())
         self.game.is_respawning = False

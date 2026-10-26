@@ -7,8 +7,8 @@ import pygame
 import pytest
 
 from ai_platform_trainer.ai.model_paths import ENEMY_PPO_MODEL
+from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.entities.player_play import PlayerPlay
-from ai_platform_trainer.gameplay.config import config
 from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
 
 needs_agent = pytest.mark.skipif(
@@ -40,4 +40,4 @@ def test_a_catch_respawns_the_player_and_the_enemy_stays():
     assert not game.is_respawning
     assert (enemy.pos["x"], enemy.pos["y"]) == (300, 300)
     away = math.hypot(game.player.position["x"] - 300, game.player.position["y"] - 300)
-    assert away >= config.MIN_DISTANCE
+    assert away >= ArenaConfig().min_spawn_distance

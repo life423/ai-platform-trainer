@@ -52,22 +52,6 @@ class TestMissile:
         assert missile.pos["x"] == initial_x + 5.0 + 3.0
         assert missile.pos["y"] == initial_y + 0.0 + 4.0
 
-    def test_get_rect(self, missile):
-        """Test that get_rect returns a correctly sized and positioned rectangle."""
-        rect = missile.get_rect()
-
-        # Rect should be centered on the missile position with 2x size width/height
-        assert rect.centerx == missile.pos["x"]
-        assert rect.centery == missile.pos["y"]
-        assert rect.width == missile.size * 2
-        assert rect.height == missile.size * 2
-
-        # Check that the rect correctly encompasses the missile
-        assert rect.left == missile.pos["x"] - missile.size
-        assert rect.top == missile.pos["y"] - missile.size
-        assert rect.right == missile.pos["x"] + missile.size
-        assert rect.bottom == missile.pos["y"] + missile.size
-
     def test_draw(self, missile):
         """Test that draw calls the correct Pygame drawing function."""
         # Missile is rendered as a triangle pointing in its direction of travel

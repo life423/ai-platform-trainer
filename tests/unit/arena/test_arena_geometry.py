@@ -1,12 +1,10 @@
 """Arena geometry must match pygame and the Play mode wrap rule exactly."""
-import math
 import random
 
 import pygame
 
 from ai_platform_trainer.arena.geometry import (
     OCTANT_DIRECTIONS,
-    normalize_angle,
     quantize_direction,
     rects_overlap,
     torus_delta,
@@ -59,8 +57,3 @@ def test_quantize_direction_keeps_keyboard_directions():
     assert quantize_direction(0.0, 0.0) == (0, 0)
     assert quantize_direction(10.0, 1.0) == (1, 0)
     assert quantize_direction(-1.0, -10.0) == (0, -1)
-
-
-def test_normalize_angle_range():
-    for angle in (-10.0, -math.pi, 0.0, 3.5, 12.0):
-        assert -math.pi <= normalize_angle(angle) <= math.pi

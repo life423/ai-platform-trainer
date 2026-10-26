@@ -9,9 +9,8 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from ai_platform_trainer.arena.config import ArenaConfig, ms_to_frames
-from ai_platform_trainer.arena.sim import Guidance
-from ai_platform_trainer.arena.player_bots import PlayerAction, PlayerBot
-from ai_platform_trainer.arena.sim import ArenaSim
+from ai_platform_trainer.arena.player_bots import PlayerBot
+from ai_platform_trainer.arena.sim import ArenaSim, Guidance
 from ai_platform_trainer.arena.state import ArenaState
 
 DEFAULT_MAX_FRAMES = 900  # 15 seconds at 60 FPS
@@ -33,19 +32,15 @@ class ArenaEpisode:
         bot: PlayerBot,
         rng: random.Random,
         max_frames: int = DEFAULT_MAX_FRAMES,
-        guidance: Optional[Guidance] = None,
+        *,
+        guidance: Guidance,
     ) -> None:
-        # Training and benchmarks pass the game's SAC guidance explicitly. The
-        # default is only for the arena's own low-level tests.
-        self.sim = ArenaSim(config, rng) if guidance is None else ArenaSim(
-            config, rng, guidance=guidance
-        )
+        self.sim = ArenaSim(config, rng, guidance=guidance)
         self.bot = bot
         self.rng = rng
         self.max_frames = max_frames
         self.missiles_fired = 0
         self.missiles_expired = 0
-        self.last_player_action = PlayerAction()
 
     @property
     def state(self) -> ArenaState:
@@ -80,7 +75,6 @@ class ArenaEpisode:
         action = self.bot.act(self.sim.state)
         if self.sim.player_phase(action.dx, action.dy, action.shoot):
             self.missiles_fired += 1
-        self.last_player_action = action
 
     def _preload_missile(self) -> None:
         """A missile already homing in from 150-600 px away, roughly on target."""

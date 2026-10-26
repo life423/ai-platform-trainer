@@ -3,6 +3,7 @@ Main entry point for AI Platform Trainer.
 
 This module provides a consistent entry point for the package.
 """
+import logging
 import os
 import sys
 
@@ -11,31 +12,20 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-import logging  # noqa: E402 - must come after the sys.path setup above
-
 import pygame  # noqa: E402
 
+from ai_platform_trainer.core.logging_config import setup_logging  # noqa: E402
 from ai_platform_trainer.gameplay.game_core import GameCore  # noqa: E402
 
 
-def main():
-    """Main entry point for the AI Platform Trainer."""
-    # Setup logging
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler("game.log"), logging.StreamHandler()],
-    )
+def main() -> int:
+    """Run the game. Returns the process exit status."""
+    setup_logging(level="INFO", log_file="game.log")
     logging.info("Starting AI Platform Trainer from package entry point")
 
     try:
-        # Initialize pygame
         pygame.init()
-
-        # Create and run the game
-        game = GameCore()
-        game.run()
-
+        GameCore().run()
         logging.info("Game completed successfully")
         return 0
     except Exception as e:

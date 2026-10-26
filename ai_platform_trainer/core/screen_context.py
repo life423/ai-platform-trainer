@@ -17,13 +17,9 @@ class ScreenDimensions:
     width: int
     height: int
     max_dimension: int = 0
-    min_dimension: int = 0
-    aspect_ratio: float = 1.0
 
     def __post_init__(self):
         self.max_dimension = max(self.width, self.height)
-        self.min_dimension = min(self.width, self.height)
-        self.aspect_ratio = self.width / self.height if self.height > 0 else 1.0
 
 
 class ScreenContext:
@@ -83,25 +79,6 @@ class ScreenContext:
             raise RuntimeError("ScreenContext must be initialized before use")
         return cls._instance
 
-    @classmethod
-    def update_dimensions(cls, width: int, height: int) -> None:
-        """
-        Update the screen dimensions (e.g., after fullscreen toggle).
-
-        Args:
-            width: New screen width in pixels
-            height: New screen height in pixels
-        """
-        if cls._instance is None:
-            cls.initialize(width, height)
-        else:
-            cls._instance.dimensions = ScreenDimensions(width, height)
-            cls._instance._scale_factor = cls._instance._calculate_scale_factor()
-            logging.info(
-                f"ScreenContext updated: {width}x{height} "
-                f"(scale: {cls._instance._scale_factor:.2f})"
-            )
-
     def _calculate_scale_factor(self) -> float:
         """Calculate scale factor relative to reference resolution."""
         width_scale = self.dimensions.width / self._reference_width
@@ -119,11 +96,6 @@ class ScreenContext:
     def height(self) -> int:
         """Get screen height."""
         return self.dimensions.height
-
-    @property
-    def max_dimension(self) -> int:
-        """Get the larger of width or height."""
-        return self.dimensions.max_dimension
 
     def normalize_position(self, x: float, y: float) -> Tuple[float, float]:
         """
@@ -190,74 +162,6 @@ class ScreenContext:
             "velocity_x": norm_vel_x,
             "velocity_y": norm_vel_y,
             "distance_to_target": distance_to_target,
-        }
-
-    def create_enemy_observation(
-        self,
-        player_pos: Dict[str, float],
-        enemy_pos: Dict[str, float],
-        player_speed: float,
-        additional_data: Optional[Dict] = None,
-    ) -> Dict[str, float]:
-        """
-        Create a resolution-independent observation for enemy AI.
-
-        Args:
-            player_pos: Player position dict with x, y keys
-            enemy_pos: Enemy position dict with x, y keys
-            player_speed: Player movement speed
-            additional_data: Optional additional observation data
-
-        Returns:
-            Normalized observation dict for enemy AI
-        """
-        # Normalize positions
-        norm_player_x, norm_player_y = self.normalize_position(
-            player_pos["x"], player_pos["y"]
-        )
-        norm_enemy_x, norm_enemy_y = self.normalize_position(
-            enemy_pos["x"], enemy_pos["y"]
-        )
-
-        # Calculate normalized distance
-        dx = norm_player_x - norm_enemy_x
-        dy = norm_player_y - norm_enemy_y
-        distance = (dx**2 + dy**2) ** 0.5
-
-        # Normalize speed
-        reference_speed = 10.0
-        norm_speed = player_speed / reference_speed
-
-        observation = {
-            "player_x": norm_player_x,
-            "player_y": norm_player_y,
-            "enemy_x": norm_enemy_x,
-            "enemy_y": norm_enemy_y,
-            "distance": distance,
-            "player_speed": norm_speed,
-        }
-
-        # Add any additional normalized data
-        if additional_data:
-            observation.update(additional_data)
-
-        return observation
-
-    def get_bounds_for_entity(self, entity_size: int) -> Dict[str, float]:
-        """
-        Get movement bounds for an entity of given size.
-
-        Args:
-            entity_size: Size of the entity in pixels
-
-        Returns:
-            Dict with min_x, max_x, min_y, max_y bounds
-        """
-        return {
-            "min_x": 0.0,
-            "max_x": float(self.dimensions.width - entity_size),
-            "min_y": 0.0,
-            "max_y": float(self.dimensions.height - entity_size),
         }
 
     def __str__(self) -> str:

@@ -30,7 +30,6 @@ class Missile:
         self.size = 10
         self.color = (255, 255, 0)  # Yellow
         self.pos = {"x": x, "y": y}
-        self.position = {"x": x, "y": y}  # Add position attribute for renderer
         self.speed = speed
         # Velocity components for straight line movement
         self.vx = vx
@@ -46,7 +45,6 @@ class Missile:
         # New fields for matching training logic:
         self.birth_time = birth_time
         self.lifespan = lifespan
-        self.last_action = 0.0  # Store last AI action for training
 
         # Expiration explosion state (see explode())
         self.exploded = False
@@ -61,9 +59,6 @@ class Missile:
             return
         self.pos["x"] += self.vx
         self.pos["y"] += self.vy
-        # Keep position in sync with pos for renderer
-        self.position["x"] = self.pos["x"]
-        self.position["y"] = self.pos["y"]
 
     def explode(self, current_time: int) -> None:
         """
@@ -136,12 +131,3 @@ class Missile:
         frame = frames[self._explosion_frame_index]
         rect = frame.get_rect(center=(int(self.pos["x"]), int(self.pos["y"])))
         screen.blit(frame, rect)
-
-    def get_rect(self) -> pygame.Rect:
-        """Get the missile's rectangle for collision detection."""
-        return pygame.Rect(
-            self.pos["x"] - self.size,
-            self.pos["y"] - self.size,
-            self.size * 2,
-            self.size * 2,
-        )

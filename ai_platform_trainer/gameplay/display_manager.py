@@ -97,15 +97,6 @@ class DisplayManager:
         """
         return self.screen
 
-    def clear(self, color: Tuple[int, int, int] = config.COLOR_BACKGROUND) -> None:
-        """
-        Clear the screen with the specified color.
-
-        Args:
-            color: RGB color tuple
-        """
-        self.screen.fill(color)
-
     def flip(self) -> None:
         """Update the full display Surface to the screen."""
         pygame.display.flip()
@@ -124,12 +115,3 @@ class DisplayManager:
         self.screen.fill((0, 0, 0))
         self.screen.blit(pygame.transform.smoothscale(world, (draw_w, draw_h)), offset)
         pygame.display.flip()
-
-    def update(self, *args) -> None:
-        """
-        Update portions of the screen for software displays.
-
-        Args:
-            *args: Areas to update
-        """
-        pygame.display.update(*args)

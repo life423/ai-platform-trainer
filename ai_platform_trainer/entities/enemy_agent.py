@@ -137,6 +137,10 @@ class ArenaEnemyAgent(EnemyPlay):
         self._last_move = (0.0, 0.0)
         self.controller.reset()
 
+    def on_player_teleport(self) -> None:
+        # A catch moved the player; measure its velocity again from where it landed.
+        self._player_motion.reset()
+
     def panel_stats(self) -> dict:
         stats = super().panel_stats()
         stats["title"] = "AI Agent (PPO)"

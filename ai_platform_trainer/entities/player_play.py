@@ -16,7 +16,6 @@ class PlayerPlay:
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.size = 50
-        self.color = (0, 0, 139)  # Dark Blue
         self.position = {"x": screen_width // 4, "y": screen_height // 2}
         self.step = 5
         self.missiles: List[Missile] = []
@@ -145,7 +144,7 @@ class PlayerPlay:
             # Check if it's a SmartMissile with AI capabilities
             if hasattr(missile, "update_with_ai") and enemy_pos:
                 # Use the AI update method with target position
-                missile.update_with_ai(self.position, enemy_pos)
+                missile.update_with_ai(enemy_pos)
             else:
                 # Fallback to basic update
                 missile.update()
@@ -166,15 +165,3 @@ class PlayerPlay:
                 missile.pos["y"] = self.screen_height
             elif missile.pos["y"] > self.screen_height:
                 missile.pos["y"] = -missile.size
-
-    def draw_missiles(self, screen: pygame.Surface) -> None:
-        for missile in self.missiles:
-            missile.draw(screen)
-
-    def draw(self, screen: pygame.Surface) -> None:
-        pygame.draw.rect(
-            screen,
-            self.color,
-            (self.position["x"], self.position["y"], self.size, self.size),
-        )
-        self.draw_missiles(screen)

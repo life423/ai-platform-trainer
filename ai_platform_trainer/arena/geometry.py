@@ -60,15 +60,6 @@ def quantize_direction(dx: float, dy: float) -> Tuple[int, int]:
     return OCTANT_DIRECTIONS[octant]
 
 
-def normalize_angle(angle: float) -> float:
-    """Wrap an angle in radians into [-pi, pi], the way SmartMissile does."""
-    while angle > math.pi:
-        angle -= 2 * math.pi
-    while angle < -math.pi:
-        angle += 2 * math.pi
-    return angle
-
-
 def wrapped_move(
     x: float, y: float, dx: float, dy: float, width: int, height: int, size: int
 ) -> Tuple[float, float, float, float]:

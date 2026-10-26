@@ -59,7 +59,7 @@ def test_missile_model_errors_are_not_swallowed():
     missile = _missile(rl_model=Broken(), rl_algorithm="sac")
 
     with pytest.raises(ValueError, match="boom"):
-        missile.update_with_ai({"x": 0.0, "y": 0.0}, {"x": 300.0, "y": 300.0})
+        missile.update_with_ai({"x": 300.0, "y": 300.0})
 
 
 def test_untrained_missile_model_is_refused(no_disk_models):

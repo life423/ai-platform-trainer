@@ -49,8 +49,6 @@ class ArenaConfig:
     # missile_substeps = 2 to reproduce that old feel.
     missile_speed: float = 5.0
     missile_substeps: int = 1
-    missile_turn_deg: float = 12.0
-    missile_prediction: float = 0.5
     missile_aim_jitter: float = 0.1
     missile_life_ms: Tuple[int, int] = (2500, 3000)
     missile_cooldown_frames: int = 30

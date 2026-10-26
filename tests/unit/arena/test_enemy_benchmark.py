@@ -11,14 +11,19 @@ from ai_platform_trainer.ai.evaluation.enemy_benchmark import (
 from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import ChaseEnemy, RandomEnemy
 
-CONFIG = ArenaConfig(width=1280, height=720)
+CONFIG = ArenaConfig(width=800, height=600)
+
+
+def no_turn(missile, target_x, target_y, config):
+    """Missiles fly straight; these tests check the benchmark's bookkeeping."""
+    return None
 
 
 def test_rounds_are_reproducible_per_seed():
     for policy in (ChaseEnemy(), RandomEnemy()):
-        assert play_round(policy, CONFIG, "kite", seed=42) == play_round(
-            policy, CONFIG, "kite", seed=42
-        )
+        assert play_round(
+            policy, CONFIG, "kite", seed=42, guidance=no_turn
+        ) == play_round(policy, CONFIG, "kite", seed=42, guidance=no_turn)
 
 
 def test_summary_metrics():
@@ -40,8 +45,13 @@ def test_summary_metrics():
     assert s["missile_evasion_rate"] == pytest.approx(0.6)
 
 
+def test_summarize_refuses_an_empty_list():
+    with pytest.raises(ValueError):
+        summarize([])
+
+
 def test_evaluate_policy_breaks_results_down_by_bot():
-    summary = evaluate_policy(ChaseEnemy(), CONFIG, rounds=16, seed=0)
+    summary = evaluate_policy(ChaseEnemy(), CONFIG, rounds=16, seed=0, guidance=no_turn)
     assert summary["rounds"] == 16
     assert set(summary["by_bot"]) == {
         "idle",

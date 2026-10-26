@@ -8,9 +8,7 @@ pre-defined algorithms (not machine learning).
 import logging
 import math
 import random
-from typing import Dict, List, Tuple
-
-import pygame
+from typing import List, Tuple
 
 # Note: This module uses scripted behavior stages, not machine learning
 # The stable_baselines3 imports are kept for potential future RL implementation
@@ -59,51 +57,6 @@ class AdaptiveStagedEnemyAI:
         }
 
         logging.info("Adaptive Staged Enemy AI initialized (scripted behavior system)")
-
-    def update_movement(
-        self,
-        player_x: float,
-        player_y: float,
-        player_step: int,
-        current_time: int,
-        missiles: List = None,
-    ) -> None:
-        """
-        Update enemy movement using staged difficulty progression.
-
-        Args:
-            player_x: Player's x position
-            player_y: Player's y position
-            player_step: Player's movement step
-            current_time: Current game time
-            missiles: List of active missiles
-        """
-        if not self.visible:
-            return
-
-        self.total_frames += 1
-
-        # Update behavior stage based on experience
-        self._update_behavior_stage()
-
-        # Get movement decision based on current AI stage
-        move_x, move_y = self._get_movement_decision(player_x, player_y, missiles or [])
-
-        # Apply movement
-        self.pos["x"] += move_x
-        self.pos["y"] += move_y
-
-        # Wrap around screen edges (matches Training mode) instead of
-        # clamping, so the enemy can actually escape off one side and
-        # reappear on the other rather than getting stuck against a wall.
-        self._wrap_position()
-
-        # Update behavior analysis (for debugging/stats)
-        self._update_behavior_analysis(player_x, player_y, missiles or [])
-
-        # Update fade-in effect if active
-        if self.fading_in:
-            self.update_fade_in(current_time)
 
     def _update_behavior_stage(self):
         """Update the AI's behavior stage based on experience."""
@@ -488,107 +441,3 @@ class AdaptiveStagedEnemyAI:
             strategy_y -= 2.0  # Push from bottom
 
         return strategy_x, strategy_y
-
-    def _update_behavior_analysis(
-        self, player_x: float, player_y: float, missiles: List
-    ):
-        """Update behavior analysis for performance tracking."""
-        self.behavior_step += 1
-
-        # Every 100 frames, evaluate performance and log stats
-        if self.behavior_step % 100 == 0:
-            self._evaluate_performance()
-
-    def _evaluate_performance(self):
-        """Evaluate AI performance and adjust behavior."""
-        if self.total_frames > 0:
-            hit_rate = self.hits_on_player / max(1, self.total_frames // 100)
-            survival_rate = 1.0 - (
-                self.times_hit_by_missile / max(1, self.total_frames // 100)
-            )
-
-            # Simple performance logging
-            logging.debug(
-                f"AI Performance - Hit Rate: {hit_rate:.2f}, "
-                f"Survival: {survival_rate:.2f}, Stage: {self.behavior_stage}"
-            )
-
-    def _wrap_position(self):
-        """Wrap the enemy position around screen edges, Training-mode style."""
-        if self.pos["x"] < -self.size:
-            self.pos["x"] = self.screen_width
-        elif self.pos["x"] > self.screen_width:
-            self.pos["x"] = -self.size
-
-        if self.pos["y"] < -self.size:
-            self.pos["y"] = self.screen_height
-        elif self.pos["y"] > self.screen_height:
-            self.pos["y"] = -self.size
-
-    def on_hit_player(self):
-        """Called when AI successfully hits the player."""
-        self.hits_on_player += 1
-
-    def on_hit_by_missile(self):
-        """Called when AI is hit by a missile."""
-        self.times_hit_by_missile += 1
-
-    def panel_stats(self) -> Dict:
-        """What the Play mode enemy panel shows: rules, not learning."""
-        stage = self.behavior_stage.title()
-        return {
-            "title": "Scripted Baseline",
-            "summary": [
-                "Hand-written rules, no learning",
-                f"Difficulty ramp: {stage}, speed {self.speed:.1f}",
-            ],
-            "hits": self.hits_on_player,
-            "deaths": self.times_hit_by_missile,
-        }
-
-    # Standard enemy methods for compatibility
-    def set_position(self, x: float, y: float) -> None:
-        """Set enemy position."""
-        self.pos["x"] = float(x)
-        self.pos["y"] = float(y)
-
-    def hide(self) -> None:
-        """Hide the enemy."""
-        self.visible = False
-
-    def show(self, current_time: int) -> None:
-        """Show the enemy with fade-in effect."""
-        self.visible = True
-        self.fading_in = True
-        self.fade_alpha = 0
-        self.fade_start_time = current_time
-
-    def update_fade_in(self, current_time: int) -> None:
-        """Update fade-in effect."""
-        if not self.fading_in:
-            return
-
-        elapsed = current_time - self.fade_start_time
-        progress = min(1.0, elapsed / self.fade_duration)
-
-        self.fade_alpha = int(255 * progress)
-
-        if progress >= 1.0:
-            self.fading_in = False
-            self.fade_alpha = 255
-
-    def draw(self, screen: pygame.Surface) -> None:
-        """Draw the enemy on screen."""
-        if not self.visible:
-            return
-
-        if self.fading_in:
-            # Create a surface with per-pixel alpha
-            s = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
-            color_with_alpha = (*self.color, self.fade_alpha)
-            pygame.draw.rect(s, color_with_alpha, (0, 0, self.size, self.size))
-            screen.blit(s, (self.pos["x"], self.pos["y"]))
-        else:
-            pygame.draw.rect(
-                screen, self.color, (self.pos["x"], self.pos["y"], self.size, self.size)
-            )

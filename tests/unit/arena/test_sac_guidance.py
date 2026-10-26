@@ -86,7 +86,7 @@ def test_arena_sac_guidance_steers_like_the_game():
         last_target_x=target["x"], last_target_y=target["y"],
     )
 
-    game.update_with_ai({"x": 0.0, "y": 0.0}, target)
+    game.update_with_ai(target)
     guidance(arena, target["x"], target["y"], config)
 
     assert arena.vx == pytest.approx(game.vx, abs=1e-5)

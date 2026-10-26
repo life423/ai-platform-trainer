@@ -2,21 +2,24 @@ import os
 
 from setuptools import find_packages, setup
 
+with open("README.md", encoding="utf-8") as readme:
+    long_description = readme.read() if os.path.exists("README.md") else ""
+
 setup(
     name="ai_platform_trainer",
     version="0.1.0",
     author="AI Platform Trainer Team",
     description="A 2D game about reinforcement learning game AI",
-    long_description=open("README.md").read() if os.path.exists("README.md") else "",
+    long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
-    entry_points={"console_scripts": ["ai-trainer = run_game:main"]},
+    entry_points={"console_scripts": ["ai-trainer = ai_platform_trainer.cli:main"]},
     install_requires=[
-        "pygame>=2.1.0",
-        "torch>=1.9.0",
-        "numpy>=1.19.0",
-        "gymnasium>=0.28.0",
-        "stable-baselines3>=1.6.0",
+        "pygame>=2.6.1",
+        "torch>=2.7.0",
+        "numpy>=2.2.6",
+        "gymnasium>=1.1.1",
+        "stable-baselines3>=2.6.0",
     ],
     extras_require={
         "dev": [
@@ -36,13 +39,11 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Games/Entertainment",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     zip_safe=False,
 )

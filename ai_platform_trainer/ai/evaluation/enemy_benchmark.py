@@ -6,7 +6,6 @@ personalities), so differences come from the policies rather than from luck.
     python -m ai_platform_trainer benchmark --rounds 2000
 """
 import json
-import math
 import os
 import random
 import time
@@ -40,7 +39,8 @@ def play_round(
     bot_style: str,
     seed: int,
     max_frames: int = DEFAULT_MAX_FRAMES,
-    guidance: Optional[Guidance] = None,
+    *,
+    guidance: Guidance,
 ) -> RoundResult:
     """Play one round with independent, seeded RNG streams for bot, sim and policy."""
     rng = random.Random(seed)
@@ -71,10 +71,6 @@ def play_round(
     )
 
 
-def _ci95(p: float, n: int) -> float:
-    return 1.96 * math.sqrt(max(p * (1.0 - p), 0.0) / n) if n else 0.0
-
-
 def summarize(rounds: Sequence[RoundResult]) -> Dict[str, Any]:
     """Aggregate round results into per-minute rates and per-round averages.
 
@@ -82,6 +78,8 @@ def summarize(rounds: Sequence[RoundResult]) -> Dict[str, Any]:
     time played rather than the share of rounds that ended one way or another.
     """
     n = len(rounds)
+    if n == 0:
+        raise ValueError("summarize needs at least one round")
     catches = sum(r.catches for r in rounds)
     hits = sum(r.hits for r in rounds)
     seconds = sum(r.frames for r in rounds) / FPS
@@ -110,7 +108,8 @@ def evaluate_policy(
     seed: int = 0,
     styles: Sequence[str] = BOT_STYLES,
     max_frames: int = DEFAULT_MAX_FRAMES,
-    guidance: Optional[Guidance] = None,
+    *,
+    guidance: Guidance,
 ) -> Dict[str, Any]:
     started = time.perf_counter()
     results = [
@@ -144,12 +143,13 @@ def run_benchmark(
     seed: int = 0,
     styles: Sequence[str] = BOT_STYLES,
     max_frames: int = DEFAULT_MAX_FRAMES,
-    guidance: Optional[Guidance] = None,
+    *,
+    guidance: Guidance,
 ) -> Dict[str, Any]:
     report: Dict[str, Any] = {
         "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "arena": asdict(config),
-        "missile_guidance": getattr(guidance, "name", "basic"),
+        "missile_guidance": guidance.name,
         "rounds_per_policy": rounds,
         "seed": seed,
         "max_round_s": max_frames / FPS,

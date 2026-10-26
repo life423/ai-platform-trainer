@@ -7,15 +7,6 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
-try:
-    from stable_baselines3 import (  # noqa: F401 - import used only to check availability
-        PPO,
-    )
-
-    STABLE_BASELINES_AVAILABLE = True
-except ImportError:
-    STABLE_BASELINES_AVAILABLE = False
-
 from ai_platform_trainer.ai.model_paths import MissingModelError
 from ai_platform_trainer.arena.observations import sac_missile_observation
 from ai_platform_trainer.core.screen_context import ScreenContext
@@ -69,21 +60,13 @@ class SmartMissile(Missile):
         self.target_pos = {"x": target_x, "y": target_y}
         self.last_target_pos = {"x": target_x, "y": target_y}
 
-        # Homing parameters
-        self.prediction_strength = 0.5  # Increased prediction for better interception
-
         logging.info(f"SmartMissile created with {self.rl_algorithm or 'RL'} AI")
 
-    def update_with_ai(
-        self,
-        player_pos: Dict[str, float],
-        target_pos: Dict[str, float],
-    ) -> None:
+    def update_with_ai(self, target_pos: Dict[str, float]) -> None:
         """
         Update missile trajectory using AI guidance.
 
         Args:
-            player_pos: Player position for context
             target_pos: Current target position
         """
         if not target_pos:
@@ -94,14 +77,12 @@ class SmartMissile(Missile):
         self.last_target_pos = self.target_pos.copy()
         self.target_pos = target_pos.copy()
 
-        self._update_with_rl(player_pos, target_pos)
+        self._update_with_rl(target_pos)
 
         # Actually update the position after AI calculations
         super().update()
 
-    def _update_with_rl(
-        self, player_pos: Dict[str, float], target_pos: Dict[str, float]
-    ) -> None:
+    def _update_with_rl(self, target_pos: Dict[str, float]) -> None:
         """Update using the RL model (SAC or PPO) this missile was given."""
         # Calculate target velocity
         target_vx = target_pos["x"] - self.last_target_pos["x"]

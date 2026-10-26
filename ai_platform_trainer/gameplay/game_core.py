@@ -8,7 +8,6 @@ from ai_platform_trainer.ai.missile_ai_loader import missile_ai_manager
 from ai_platform_trainer.ai.model_paths import MissingModelError
 from ai_platform_trainer.arena.config import WORLD_HEIGHT, WORLD_WIDTH
 from ai_platform_trainer.core.config_manager import get_config_manager
-from ai_platform_trainer.core.logging_config import setup_logging
 from ai_platform_trainer.core.screen_context import ScreenContext
 from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.player_play import PlayerPlay
@@ -25,7 +24,6 @@ class GameCore:
     """Owns the window, the menu, and the Play game."""
 
     def __init__(self) -> None:
-        setup_logging()
         self.running: bool = True
         self.menu_active: bool = True
         self.model_choice: str = "sac"
@@ -100,10 +98,8 @@ class GameCore:
             else:
                 self.update(current_time)
                 self.renderer.render(
-                    self.menu,
                     self.player,
                     self.enemy,
-                    self.menu_active,
                     self.play_learning_mode_manager,
                 )
 
@@ -146,9 +142,6 @@ class GameCore:
 
     def _toggle_fullscreen(self) -> None:
         """Switch between window and fullscreen, keeping the current game going."""
-        if not self.display_manager:
-            return  # headless
-
         was_fullscreen = self.config_manager.get("display.fullscreen", False)
         self.display_manager.toggle_fullscreen()
         self.config_manager.set("display.fullscreen", not was_fullscreen)
@@ -157,10 +150,6 @@ class GameCore:
         self.screen = self.display_manager.get_screen()
         self.window_width, self.window_height = self.display_manager.get_dimensions()
         self.menu = Menu(self.window_width, self.window_height)
-
-        if not self.menu_active:
-            self.reset_game_state()
-            self.start_game(self.model_choice)
 
     def update(self, current_time: int) -> None:
         if self.play_learning_mode_manager is None:

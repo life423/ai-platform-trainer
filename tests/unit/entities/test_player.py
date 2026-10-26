@@ -27,7 +27,6 @@ class TestPlayerPlay:
         assert player_play.screen_width == 800
         assert player_play.screen_height == 600
         assert player_play.size == 50
-        assert player_play.color == (0, 0, 139)  # Dark Blue
         assert player_play.position == {"x": 800 // 4, "y": 600 // 2}
         assert player_play.step == 5
         assert player_play.missiles == []

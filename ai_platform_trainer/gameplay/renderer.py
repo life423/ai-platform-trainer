@@ -15,7 +15,6 @@ class Renderer:
         Args:
             world: The fixed-size surface the game world is drawn on
             display: DisplayManager, used to scale the world onto the window
-                and to draw the menu straight onto the window
         """
         self.screen = world
         self.display = display
@@ -31,20 +30,16 @@ class Renderer:
 
     def render(
         self,
-        menu,
         player,
         enemy,
-        menu_active: bool,
         learning_mode_manager=None,
     ) -> None:
         """
         Render the game elements on the screen.
 
         Args:
-            menu: Menu instance
             player: Player instance
             enemy: Enemy instance
-            menu_active: Boolean indicating if the menu is active
             game_mode: Current game mode (for special rendering)
             learning_mode_manager: Learning mode manager for UI rendering
         """
@@ -52,24 +47,16 @@ class Renderer:
             # Update frame counter for animations
             self.frame_count += 1
 
-            if menu_active:
-                # The menu is drawn straight onto the window
-                window = self.display.get_screen()
-                window.fill(self.BACKGROUND_COLOR)
-                menu.draw(window)
-                logging.debug("Menu rendered.")
-                self.display.flip()
-            else:
-                # The game world is drawn at its fixed size, then scaled to the window
-                self.screen.fill(self.BACKGROUND_COLOR)
-                self._render_game(player, enemy)
+            # The game world is drawn at its fixed size, then scaled to the window
+            self.screen.fill(self.BACKGROUND_COLOR)
+            self._render_game(player, enemy)
 
-                # Render mode-specific UI overlay, if this mode has one
-                if learning_mode_manager:
-                    learning_mode_manager.draw_mode_info(self.screen)
+            # Render mode-specific UI overlay, if this mode has one
+            if learning_mode_manager:
+                learning_mode_manager.draw_mode_info(self.screen)
 
-                logging.debug("Game elements rendered.")
-                self.display.present(self.screen)
+            logging.debug("Game elements rendered.")
+            self.display.present(self.screen)
             logging.debug("Frame updated on display.")
 
         except Exception as e:

@@ -27,18 +27,10 @@ def _add_arena_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--seed", type=int, default=0, help="first round seed")
     parser.add_argument("--width", type=int, default=DEFAULT_SCREEN[0])
     parser.add_argument("--height", type=int, default=DEFAULT_SCREEN[1])
-    parser.add_argument(
-        "--missile",
-        choices=["sac", "basic"],
-        default="sac",
-        help="missile guidance: sac (the game's model) or basic (the old arena homing)",
-    )
 
 
-def _guidance(name: str):
-    """The arena's missile guidance: the game's SAC model, or None for basic homing."""
-    if name == "basic":
-        return None
+def _guidance():
+    """The arena's missile guidance: the game's SAC model."""
     from ai_platform_trainer.ai.model_paths import MISSILE_SAC_MODEL
     from ai_platform_trainer.arena.missile_policies import SacGuidance
 
@@ -115,7 +107,7 @@ def _benchmark(args: argparse.Namespace) -> int:
         config,
         args.rounds,
         seed=args.seed,
-        guidance=_guidance(args.missile),
+        guidance=_guidance(),
     )
     print(format_table(report))
     for path in save_report(report, args.out):
@@ -140,7 +132,7 @@ def _evaluate(args: argparse.Namespace) -> int:
         config,
         args.rounds,
         seed=args.seed,
-        guidance=_guidance(args.missile),
+        guidance=_guidance(),
     )
     print(format_table({"policies": {"ppo": summary}}))
     for style, rates in summary["by_bot"].items():
@@ -154,8 +146,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command in (None, "play"):
         from ai_platform_trainer.main import main as play
 
-        play()
-        return 0
+        return play()
     logging.basicConfig(level=logging.WARNING)
     if args.command == "train-enemy":
         from ai_platform_trainer.ai.training.train_enemy_ppo import train

@@ -30,12 +30,16 @@ W, H = 1470, 956
 CONFIG = ArenaConfig(width=W, height=H)
 
 
+def no_turn(missile, target_x, target_y, config):
+    return None
+
+
 def named(obs):
     return dict(zip(ENEMY_OBS_FEATURES, obs))
 
 
 def test_observation_layout():
-    state = ArenaSim(CONFIG, random.Random(0)).reset()
+    state = ArenaSim(CONFIG, random.Random(0), guidance=no_turn).reset()
     obs = build_enemy_observation(state)
     assert obs.shape == (ENEMY_OBS_SIZE,)
     assert obs.dtype == np.float32
@@ -44,7 +48,7 @@ def test_observation_layout():
 
 
 def test_player_offset_takes_the_wrapped_short_way():
-    sim = ArenaSim(CONFIG)
+    sim = ArenaSim(CONFIG, guidance=no_turn)
     state = sim.reset(player_xy=(10.0, 400.0), enemy_xy=(W - 30.0, 400.0))
     obs = named(build_enemy_observation(state))
     # across the right edge: (10 - (W - 30)) wrapped by W + 50 = +90 px
@@ -53,7 +57,7 @@ def test_player_offset_takes_the_wrapped_short_way():
 
 
 def test_missile_slots_are_nearest_first_and_skip_explosions():
-    sim = ArenaSim(CONFIG)
+    sim = ArenaSim(CONFIG, guidance=no_turn)
     state = sim.reset(player_xy=(100.0, 100.0), enemy_xy=(700.0, 500.0))
     sim.spawn_missile(1100.0, 500.0, 0.0, 170)
     sim.spawn_missile(800.0, 500.0, 0.0, 170)
@@ -76,7 +80,7 @@ def test_action_mapping_scales_to_the_enemy_speed_cap():
 
 
 def test_motion_tracker_measures_displacement_like_the_sim():
-    sim = ArenaSim(CONFIG)
+    sim = ArenaSim(CONFIG, guidance=no_turn)
     sim.reset(player_xy=(W - 3.0, 5.0), enemy_xy=(700.0, 500.0))
     tracker = MotionTracker(CONFIG)
     tracker.update(sim.state.player.x, sim.state.player.y)
@@ -89,7 +93,7 @@ def test_motion_tracker_measures_displacement_like_the_sim():
 def test_game_snapshot_encodes_identically_to_sim_state():
     rng = random.Random(11)
     for _ in range(200):
-        sim = ArenaSim(CONFIG, rng)
+        sim = ArenaSim(CONFIG, rng, guidance=no_turn)
         state = sim.reset()
         for _ in range(rng.randint(0, 3)):
             missile = sim.spawn_missile(

@@ -2,8 +2,6 @@
 Enemy entity for play mode: drawing, fade-in, respawn and stats. Movement comes
 from the AI Agent subclass (entities/enemy_agent.py).
 """
-from typing import Tuple
-
 import pygame
 
 
@@ -42,6 +40,9 @@ class EnemyPlay:
         """Called when this enemy is hit by a missile."""
         self.times_hit_by_missile += 1
 
+    def on_player_teleport(self) -> None:
+        """Called when a catch moves the player. Nothing to do by default."""
+
     def panel_stats(self) -> dict:
         """What the Play mode enemy panel shows (see PlayLearningMode)."""
         return {
@@ -50,33 +51,6 @@ class EnemyPlay:
             "hits": self.hits_on_player,
             "deaths": self.times_hit_by_missile,
         }
-
-    def _wrap_position(self) -> None:
-        """Wrap the enemy position around screen edges."""
-        self.pos["x"], self.pos["y"] = self.wrap_position(self.pos["x"], self.pos["y"])
-
-    def wrap_position(self, x: float, y: float) -> Tuple[float, float]:
-        """
-        Wrap the given coordinates around screen edges.
-
-        Args:
-            x: X position to wrap
-            y: Y position to wrap
-
-        Returns:
-            Tuple of wrapped (x, y) coordinates
-        """
-        if x < -self.size:
-            x = self.screen_width
-        elif x > self.screen_width:
-            x = -self.size
-
-        if y < -self.size:
-            y = self.screen_height
-        elif y > self.screen_height:
-            y = -self.size
-
-        return x, y
 
     def set_position(self, x: float, y: float) -> None:
         """
