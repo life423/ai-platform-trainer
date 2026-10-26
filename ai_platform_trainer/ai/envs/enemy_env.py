@@ -4,15 +4,19 @@ The enemy picks a move every ENEMY_DECISION_FRAMES frames: a 2D action in
 [-1, 1] x [-1, 1], its velocity as a fraction of its per-axis top speed.
 The player is a scripted, human-like bot whose style is sampled every round.
 
+Rules match the game: a catch respawns the player away from the enemy, and a
+missile hit hides the enemy briefly and then respawns it. Nothing ends a round
+early; a round is cut off after 15 s (truncated).
+
 Reward per decision:
-- +1 for catching the player, -1 for being hit by a missile; both end the
-  round. A round with neither is cut off after 15 s (truncated).
+- +1 for each catch, -1 for each missile hit.
 - A cost per frame: 15 s without a catch costs as much as a missile hit. The
   enemy is a hunter, so a round it fails to win is a loss, not a safe draw.
 - Potential-based shaping, GAMMA * phi(next) - phi(now) with
   phi = -distance / 1000, which speeds up learning without changing which
   policy is optimal (Ng, Harada and Russell, 1999).
 """
+import math
 import random
 from typing import Any, Dict, Optional, Sequence, Tuple
 
@@ -23,6 +27,7 @@ from gymnasium import spaces
 from ai_platform_trainer.ai.model_paths import MISSILE_SAC_MODEL
 from ai_platform_trainer.arena.config import DEFAULT_SCREEN, ArenaConfig
 from ai_platform_trainer.arena.episode import DEFAULT_MAX_FRAMES, ArenaEpisode
+from ai_platform_trainer.arena.geometry import torus_delta
 from ai_platform_trainer.arena.missile_policies import SacGuidance
 from ai_platform_trainer.arena.observations import (
     ENEMY_DECISION_FRAMES,
@@ -44,21 +49,40 @@ CATCH_REWARD = 1.0
 HIT_PENALTY = -1.0
 TIME_COST_PER_FRAME = 1.0 / DEFAULT_MAX_FRAMES
 POTENTIAL_SCALE = 1000.0
+# A missile closer than this, and closing on the enemy, is a threat to dodge.
+THREAT_RADIUS_PX = 250.0
+THREAT_WEIGHT = 0.5
 REWARD_SPEC = (
-    "+1 catch, -1 missile hit, -1 per 15 s without a catch, "
-    "plus potential-based distance shaping (phi = -distance / 1000)"
+    "+1 per catch, -1 per missile hit, -1 per 15 s, plus potential-based shaping "
+    "for distance to the player (phi = -distance / 1000) and for the closest "
+    "closing missile (phi -= 0.5 * threat, threat in [0, 1])"
 )
 
 
-def round_return(outcome: str, frames: int) -> float:
+def round_return(catches: int, hits: int, frames: int) -> float:
     """Unshaped, undiscounted return of one round: the objective training maximizes."""
-    if outcome == CAUGHT:
-        event = CATCH_REWARD
-    elif outcome == HIT:
-        event = HIT_PENALTY
-    else:
-        event = 0.0
-    return event - TIME_COST_PER_FRAME * frames
+    return CATCH_REWARD * catches + HIT_PENALTY * hits - TIME_COST_PER_FRAME * frames
+
+
+def missile_threat(state: ArenaState) -> float:
+    """How urgently the worst missile is closing on the enemy, from 0 to 1."""
+    if not state.enemy_visible:
+        return 0.0
+    cfg, enemy = state.config, state.enemy
+    speed = cfg.missile_speed
+    worst = 0.0
+    for missile in state.missiles:
+        if missile.exploded:
+            continue
+        rx = torus_delta(missile.x, enemy.x, cfg.width)
+        ry = torus_delta(missile.y, enemy.y, cfg.height)
+        distance = math.hypot(rx, ry)
+        if distance < 1e-6 or distance > THREAT_RADIUS_PX:
+            continue
+        closing = (missile.vx * rx + missile.vy * ry) / distance
+        threat = max(0.0, closing / speed) * (1.0 - distance / THREAT_RADIUS_PX)
+        worst = max(worst, min(1.0, threat))
+    return worst
 
 
 def sample_training_config(rng: random.Random) -> ArenaConfig:
@@ -130,36 +154,46 @@ class EnemyArenaEnv(gymnasium.Env):
         episode = self.episode
         assert episode is not None, "call reset() before step()"
         state = episode.state
+        teleports_before = state.teleports
         dx, dy = enemy_action_to_displacement(action, state.config)
-        reward, expired = 0.0, 0
+        reward, expired, catches, hits, last_event = 0.0, 0, 0, 0, ""
         for _ in range(ENEMY_DECISION_FRAMES):
             result = episode.step(dx, dy)
             reward -= TIME_COST_PER_FRAME
             expired += result.expired
-            if result.terminated or result.truncated:
+            catches += result.event == CAUGHT
+            hits += result.event == HIT
+            last_event = result.event or last_event
+            if result.truncated:
                 break
-        if result.event == CAUGHT:
-            reward += CATCH_REWARD
-        elif result.event == HIT:
-            reward += HIT_PENALTY
-        potential = 0.0 if result.terminated else self._phi(state)
+        reward += CATCH_REWARD * catches + HIT_PENALTY * hits
+        # A respawn moves a body without the enemy moving there, so the shaping
+        # must not count that jump as progress or as a setback.
+        if state.teleports != teleports_before:
+            self._potential = self._phi(state)
+        potential = self._phi(state)
         reward += self.shaping * (GAMMA * potential - self._potential)
         self._potential = potential
-        # A round cut off by the clock is not a death. Stable-Baselines3 only
-        # bootstraps the future value of a truncated round when this key is set.
         info = {
-            "event": result.event,
+            "event": last_event,
+            "catches": catches,
+            "hits": hits,
             "missiles_expired": expired,
-            "TimeLimit.truncated": bool(result.truncated and not result.terminated),
+            # A round cut off by the clock is not a death. Stable-Baselines3 only
+            # bootstraps the future value of a truncated round when this key is set.
+            "TimeLimit.truncated": bool(result.truncated),
         }
         return (
             build_enemy_observation(state),
             float(reward),
-            result.terminated,
+            False,
             result.truncated,
             info,
         )
 
     @staticmethod
     def _phi(state: ArenaState) -> float:
-        return -enemy_player_distance(state) / POTENTIAL_SCALE
+        return (
+            -enemy_player_distance(state) / POTENTIAL_SCALE
+            - THREAT_WEIGHT * missile_threat(state)
+        )

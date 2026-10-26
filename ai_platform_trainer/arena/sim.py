@@ -165,6 +165,7 @@ class ArenaSim:
         cfg, enemy = self.config, self.state.enemy
         if not self.state.enemy_visible:
             enemy.vx = enemy.vy = 0.0
+            self._count_down_respawn()
             return
         if capped:
             dx = max(-cfg.enemy_speed, min(cfg.enemy_speed, dx))
@@ -176,7 +177,12 @@ class ArenaSim:
     # -- phase 3: collisions -------------------------------------------------
 
     def collision_phase(self) -> str:
-        """PlayLearningMode._check_collisions: a catch wins over a missile hit."""
+        """PlayLearningMode._check_collisions. The game goes on after either event.
+
+        A catch respawns the player away from the enemy; the enemies stay put.
+        A missile hit removes the missile and hides the enemy until it respawns.
+        A catch wins over a missile hit in the same frame.
+        """
         state, cfg = self.state, self.config
         if not state.enemy_visible:
             return ""
@@ -184,6 +190,7 @@ class ArenaSim:
         if rects_overlap(
             player.x, player.y, cfg.body_size, enemy.x, enemy.y, cfg.body_size
         ):
+            self._respawn_player()
             return CAUGHT
         for missile in state.missiles:
             if missile.exploded:
@@ -192,8 +199,29 @@ class ArenaSim:
                 missile.x, missile.y, cfg.missile_size, enemy.x, enemy.y, cfg.body_size
             ):
                 state.missiles.remove(missile)
+                self._hide_enemy()
                 return HIT
         return ""
+
+    def _respawn_player(self) -> None:
+        x, y = self.spawn_position_away_from((self.state.enemy.x, self.state.enemy.y))
+        player = self.state.player
+        player.x, player.y, player.vx, player.vy = float(x), float(y), 0.0, 0.0
+        self.state.teleports += 1
+
+    def _hide_enemy(self) -> None:
+        self.state.enemy_visible = False
+        self.state.enemy_respawn_frames = self.config.respawn_frames
+
+    def _count_down_respawn(self) -> None:
+        """A hidden enemy reappears away from the player when its time is up."""
+        state = self.state
+        state.enemy_respawn_frames -= 1
+        if state.enemy_respawn_frames <= 0:
+            x, y = self.spawn_position_away_from((state.player.x, state.player.y))
+            state.enemy.x, state.enemy.y = float(x), float(y)
+            state.enemy_visible = True
+            state.teleports += 1
 
     # -- phase 4: missiles and end of frame ----------------------------------
 

@@ -39,7 +39,7 @@ def test_everything_trained_starts_the_game(menu, monkeypatch):
     _open_missile_menu(menu, "sac")
 
     assert menu.handle_menu_events(_enter()) == (
-        "play_learning",
+        "play",
         {"model_choice": "sac"},
     )
 

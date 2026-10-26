@@ -34,31 +34,6 @@ CONFIG_SCHEMA: Dict[str, Any] = {
         "wall_margin": {"type": int, "required": True, "default": 50},
         "min_distance": {"type": int, "required": True, "default": 100},
     },
-    "ai": {
-        "missile_model_path": {
-            "type": str,
-            "required": True,
-            "default": "models/missile_model.pth",
-        },
-        "enemy_model_path": {
-            "type": str,
-            "required": True,
-            "default": "models/enemy_ai_model.pth",
-        },
-        "input_size": {"type": int, "required": True, "default": 5},
-        "hidden_size": {"type": int, "required": True, "default": 64},
-        "output_size": {"type": int, "required": True, "default": 2},
-        "random_speed_factor_min": {"type": float, "required": True, "default": 0.8},
-        "random_speed_factor_max": {"type": float, "required": True, "default": 1.2},
-        "enemy_min_speed": {"type": int, "required": True, "default": 2},
-    },
-    "paths": {
-        "data_path": {
-            "type": str,
-            "required": True,
-            "default": "data/raw/training_data.json",
-        }
-    },
 }
 
 # Default configuration values derived from the schema
@@ -82,17 +57,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "wall_margin": 50,
         "min_distance": 100,
     },
-    "ai": {
-        "missile_model_path": "models/missile_model.pth",
-        "enemy_model_path": "models/enemy_ai_model.pth",
-        "input_size": 5,
-        "hidden_size": 64,
-        "output_size": 2,
-        "random_speed_factor_min": 0.8,
-        "random_speed_factor_max": 1.2,
-        "enemy_min_speed": 2,
-    },
-    "paths": {"data_path": "data/raw/training_data.json"},
 }
 
 # Generate the default config values from the schema

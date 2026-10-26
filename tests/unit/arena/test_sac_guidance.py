@@ -38,7 +38,8 @@ def test_arena_default_is_the_fixed_world():
 def test_game_and_arena_build_the_same_sac_input():
     missile = SmartMissile(
         300, 200, target_x=520.0, target_y=410.0, speed=5.0, vx=3.0, vy=4.0,
-        ai_model=object(),
+        rl_model=object(),
+        rl_algorithm="sac",
     )
     target = {"x": 520.0, "y": 410.0}
 

@@ -3,7 +3,6 @@ import random
 
 import numpy as np
 import pytest
-import torch
 
 from ai_platform_trainer.arena.config import FRAME_MS, ArenaConfig
 from ai_platform_trainer.arena.game_bridge import MotionTracker, snapshot_from_game
@@ -20,11 +19,11 @@ from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.entities.smart_missile import SmartMissile
 
 
-class ZeroTurnModel(torch.nn.Module):
+class ZeroTurnModel:
     """A guidance model that never turns the missile."""
 
-    def forward(self, x):
-        return torch.zeros(x.shape[0], 1)
+    def predict(self, observation, deterministic=True):
+        return np.zeros(1, dtype=np.float32), None
 
 
 W, H = 1470, 956
@@ -124,7 +123,8 @@ def test_game_snapshot_encodes_identically_to_sim_state():
                 vy=m.vy,
                 birth_time=now - m.age_frames * FRAME_MS,
                 lifespan=m.life_frames * FRAME_MS,
-                ai_model=ZeroTurnModel(),
+                rl_model=ZeroTurnModel(),
+                rl_algorithm="sac",
             )
             game_missile.exploded = m.exploded
             player.missiles.append(game_missile)

@@ -1,38 +1,22 @@
 """
-Enemy entity for play mode.
-
-This module defines the enemy entity used in play mode, which uses AI models
-for movement decisions.
+Enemy entity for play mode: drawing, fade-in, respawn and stats. Movement comes
+from the AI Agent subclass (entities/enemy_agent.py).
 """
-import logging
-from typing import List, Optional, Tuple
+from typing import Tuple
 
 import pygame
-import torch
-
-from ai_platform_trainer.ai.model_paths import MissingModelError
-from ai_platform_trainer.ai.models.enemy_movement_model import EnemyMovementModel
-from ai_platform_trainer.core.screen_context import ScreenContext
 
 
 class EnemyPlay:
-    """
-    Enemy entity for play mode with AI-controlled movement.
+    """The enemy in Play mode. Subclasses decide how it moves."""
 
-    This class represents the enemy in play mode, which can be controlled
-    by either a neural network or a reinforcement learning model.
-    """
-
-    def __init__(
-        self, screen_width: int, screen_height: int, model: EnemyMovementModel
-    ) -> None:
+    def __init__(self, screen_width: int, screen_height: int) -> None:
         """
         Initialize the enemy entity.
 
         Args:
             screen_width: Width of the game screen
             screen_height: Height of the game screen
-            model: Neural network model for enemy movement
         """
         self.screen_width = screen_width
         self.screen_height = screen_height
@@ -40,7 +24,6 @@ class EnemyPlay:
         self.color = (139, 0, 0)  # Dark red
         self.pos = {"x": float(screen_width // 2), "y": float(screen_height // 2)}
         self.speed = 5.0
-        self.model = model
         self.visible = True
         self.fading_in = False
         self.fade_alpha = 255
@@ -50,43 +33,6 @@ class EnemyPlay:
         # Simple counters for the stats panel.
         self.hits_on_player = 0
         self.times_hit_by_missile = 0
-
-    def update_movement(
-        self,
-        player_x: float,
-        player_y: float,
-        player_speed: float,
-        current_time: int,
-        missiles: Optional[List] = None,
-    ) -> None:
-        """
-        Update the enemy's position based on AI model predictions.
-
-        Args:
-            player_x: Player's x position
-            player_y: Player's y position
-            player_speed: Player's movement speed
-            current_time: Current game time in milliseconds
-            missiles: Active missiles (accepted for interface parity with the
-                other enemies; this class's models don't take missile
-                positions as input, so it's unused here).
-
-        Raises:
-            MissingModelError: if this enemy was built without a model. There
-                is no scripted fallback.
-        """
-        if self.model is None:
-            raise MissingModelError(
-                "This enemy has no model. Play uses the AI Agent only."
-            )
-        if not self.visible:
-            return
-
-        self._update_with_nn(player_x, player_y, player_speed)
-
-        # Update fade-in effect if active
-        if self.fading_in:
-            self.update_fade_in(current_time)
 
     def on_hit_player(self) -> None:
         """Called when this enemy successfully hits the player."""
@@ -99,75 +45,11 @@ class EnemyPlay:
     def panel_stats(self) -> dict:
         """What the Play mode enemy panel shows (see PlayLearningMode)."""
         return {
-            "title": "Supervised Network (legacy)",
-            "summary": ["Neural network fit to recorded chases"],
+            "title": "Enemy",
+            "summary": [],
             "hits": self.hits_on_player,
             "deaths": self.times_hit_by_missile,
         }
-
-    def _update_with_nn(
-        self, player_x: float, player_y: float, player_speed: float
-    ) -> None:
-        """
-        Update enemy position using the neural network model.
-
-        Args:
-            player_x: Player's x position
-            player_y: Player's y position
-            player_speed: Player's movement speed
-        """
-        # Use ScreenContext for normalization
-        screen_context = ScreenContext.get_instance()
-        observation = screen_context.create_enemy_observation(
-            {"x": player_x, "y": player_y}, self.pos, player_speed
-        )
-
-        # Prepare input tensor for the model using normalized values
-        model_input = torch.tensor(
-            [
-                observation["player_x"],
-                observation["player_y"],
-                observation["enemy_x"],
-                observation["enemy_y"],
-                observation["distance"],
-            ],
-            dtype=torch.float32,
-        ).unsqueeze(0)
-
-        # Get model prediction
-        with torch.no_grad():
-            movement = self.model(model_input).squeeze(0)
-            logging.debug(
-                f"Neural network output: "
-                f"[{movement[0].item():.3f}, {movement[1].item():.3f}]"
-            )
-
-        # Apply movement (scale from [-1,1] to actual pixels)
-        move_x = movement[0].item() * self.speed
-        move_y = movement[1].item() * self.speed
-        logging.debug(f"Scaled movement: dx={move_x:.3f}, dy={move_y:.3f}")
-
-        # Debug: Log enemy movement
-        if abs(move_x) > 0.1 or abs(move_y) > 0.1:
-            logging.debug(
-                f"Enemy moving: dx={move_x:.2f}, dy={move_y:.2f}, "
-                f"toward player at ({player_x:.0f},{player_y:.0f})"
-            )
-
-        # Update position
-        old_x, old_y = self.pos["x"], self.pos["y"]
-        self.pos["x"] += move_x
-        self.pos["y"] += move_y
-
-        # Debug: Log position change
-        if abs(move_x) > 0.1 or abs(move_y) > 0.1:
-            logging.debug(
-                f"Enemy position: ({old_x:.0f},{old_y:.0f}) -> "
-                f"({self.pos['x']:.0f},{self.pos['y']:.0f})"
-            )
-
-        # Wrap around screen edges
-        self._wrap_position()
 
     def _wrap_position(self) -> None:
         """Wrap the enemy position around screen edges."""

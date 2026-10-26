@@ -45,5 +45,7 @@ class ArenaState:
     enemy: Body
     missiles: List[MissileState] = field(default_factory=list)
     enemy_visible: bool = True
+    enemy_respawn_frames: int = 0  # frames left before a hidden enemy reappears
+    teleports: int = 0  # respawns so far; shaping ignores the jump they cause
     cooldown_left: int = 0  # frames until the player may fire again
     frame: int = 0

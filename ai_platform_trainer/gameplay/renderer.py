@@ -35,7 +35,6 @@ class Renderer:
         player,
         enemy,
         menu_active: bool,
-        game_mode: str = None,
         learning_mode_manager=None,
     ) -> None:
         """
@@ -66,7 +65,7 @@ class Renderer:
                 self._render_game(player, enemy)
 
                 # Render mode-specific UI overlay, if this mode has one
-                if game_mode in ("play_learning", "train") and learning_mode_manager:
+                if learning_mode_manager:
                     learning_mode_manager.draw_mode_info(self.screen)
 
                 logging.debug("Game elements rendered.")

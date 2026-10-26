@@ -1,7 +1,7 @@
 """
 Unit tests for the Player classes.
 
-Tests both PlayerPlay and PlayerTraining classes, focusing on
+Tests PlayerPlay, focusing on
 movement, missile management, and input handling.
 """
 from collections import defaultdict
@@ -11,19 +11,12 @@ import pygame
 import pytest
 
 from ai_platform_trainer.entities.player_play import PlayerPlay
-from ai_platform_trainer.entities.player_training import PlayerTraining
 
 
 @pytest.fixture
 def player_play():
     """Return a fresh PlayerPlay instance for testing."""
     return PlayerPlay(screen_width=800, screen_height=600)
-
-
-@pytest.fixture
-def player_training():
-    """Return a fresh PlayerTraining instance for testing."""
-    return PlayerTraining(screen_width=800, screen_height=600)
 
 
 class TestPlayerPlay:
@@ -207,108 +200,3 @@ class TestPlayerPlay:
             player_play.position["y"] = -player_play.size - 1
             player_play.handle_input()  # Should wrap
         assert player_play.position["y"] == player_play.screen_height
-
-
-class TestPlayerTraining:
-    """Tests for the PlayerTraining class."""
-
-    def test_initialization(self, player_training):
-        """Test that a training player initializes correctly."""
-        assert player_training.screen_width == 800
-        assert player_training.screen_height == 600
-        assert player_training.size == 50
-        assert player_training.color == (0, 0, 139)
-        # Position is randomized, so just check it's within bounds
-        assert 0 <= player_training.position["x"] <= 800 - player_training.size
-        assert 0 <= player_training.position["y"] <= 600 - player_training.size
-        assert player_training.step == 5
-        assert player_training.missiles == []
-
-        # Should have a movement pattern set
-        assert player_training.current_pattern in player_training.PATTERNS
-
-    def test_reset(self, player_training):
-        """Test that reset correctly resets the training player state."""
-        # Add a missile
-        player_training.missiles.append(Mock())
-
-        # Reset
-        player_training.reset()
-
-        # Missiles should be cleared
-        assert player_training.missiles == []
-
-        # Position should be within bounds (randomized)
-        assert 0 <= player_training.position["x"] <= 800 - player_training.size
-        assert 0 <= player_training.position["y"] <= 600 - player_training.size
-
-        # Pattern might have changed (but might not due to randomness)
-        # so we don't assert anything about it
-
-    def test_switch_pattern(self, player_training):
-        """Test pattern switching."""
-        # Force a specific pattern
-        player_training.current_pattern = "random_walk"
-
-        # Keep switching until we get a different pattern
-        for _ in range(10):  # Limit iterations to avoid infinite loop
-            player_training.switch_pattern()
-            if player_training.current_pattern != "random_walk":
-                break
-
-        # Should have a new pattern or timeout after 10 tries
-        assert player_training.current_pattern != "random_walk" or _ == 9
-
-        # State timer should be set to a reasonable value
-        assert player_training.state_timer >= 180
-        assert player_training.state_timer <= 300
-
-    def test_update(self, player_training):
-        """Test the update method."""
-        # Store initial position
-        initial_pos = player_training.position.copy()
-
-        # Update with an enemy far away
-        player_training.update(enemy_x=700, enemy_y=500)
-
-        # Position should have changed
-        assert player_training.position != initial_pos
-
-    def test_shoot_missile(self, player_training):
-        """Test shooting missiles in training mode."""
-        # Mock pygame time
-        with patch("pygame.time.get_ticks") as mock_time:
-            mock_time.return_value = 1000
-
-            # Shoot a missile
-            player_training.shoot_missile(enemy_pos={"x": 500, "y": 300})
-
-            # Should have one missile
-            assert len(player_training.missiles) == 1
-
-            # Missile should have correct birth time
-            missile = player_training.missiles[0]
-            assert missile.birth_time == 1000
-
-            # Should aim toward the target
-            assert missile.vx != 0
-            assert missile.vy != 0
-
-    def test_movement_patterns(self, player_training):
-        """Test different movement patterns."""
-        # Test each pattern
-        for pattern in player_training.PATTERNS:
-            # Force the specific pattern
-            player_training.current_pattern = pattern
-            player_training.circle_angle = 0
-            player_training.circle_center = (400, 300)
-            player_training.circle_radius = 100
-
-            # Reset to a known position
-            player_training.position = {"x": 400, "y": 300}
-
-            # Update with enemy at a fixed position
-            player_training.update(enemy_x=500, enemy_y=300)
-
-            # Should have moved
-            assert player_training.position != {"x": 400, "y": 300}

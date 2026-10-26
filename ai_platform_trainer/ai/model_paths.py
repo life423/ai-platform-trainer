@@ -22,7 +22,6 @@ MODEL_NAMES = {
     "enemy": "AI Agent",
     "sac": "SAC",
     "ppo": "PPO",
-    "supervised": "Supervised NN",
 }
 
 # The command that produces each model, shown when one is missing.
@@ -30,10 +29,6 @@ TRAINING_COMMANDS = {
     "enemy": "python -m ai_platform_trainer train-enemy",
     "sac": "python -m ai_platform_trainer.ai.training.train_missile_sac",
     "ppo": "python -m ai_platform_trainer.ai.training.train_missile_rl",
-    "supervised": (
-        "collect data in Train mode, then "
-        "python -m ai_platform_trainer.ai.training.train_missile_model"
-    ),
 }
 
 

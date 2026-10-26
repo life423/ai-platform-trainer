@@ -23,23 +23,21 @@ def test_rounds_are_reproducible_per_seed():
 
 def test_summary_metrics():
     rounds = [
-        RoundResult("idle", "caught", 120, 500.0, 40.0, 1, 0),
-        RoundResult("idle", "hit", 60, 300.0, 250.0, 2, 1),
-        RoundResult("kite", "timeout", 900, 400.0, 400.0, 5, 5),
+        RoundResult("idle", 1, 0, 120, 500.0, 40.0, 1, 0),
+        RoundResult("idle", 0, 1, 60, 300.0, 250.0, 2, 1),
+        RoundResult("kite", 2, 3, 900, 400.0, 400.0, 5, 5),
     ]
-    s = summarize(rounds)  # 1080 frames = 18 s
-    assert s["catch_rate"] == pytest.approx(1 / 3)
-    assert s["hit_rate"] == pytest.approx(1 / 3)
-    assert s["timeout_rate"] == pytest.approx(1 / 3)
-    assert s["mean_return"] == 0.0
-    assert s["net_per_min"] == 0.0
-    # (1 - 120/900) + (-1 - 60/900) + (-900/900), averaged over 3 rounds
-    assert s["objective"] == pytest.approx(-0.4)
-    assert s["catches_per_min"] == pytest.approx(60 / 18)
-    assert s["seconds_per_hit"] == pytest.approx(18.0)
-    assert s["time_to_catch_s"] == pytest.approx(2.0)
+    s = summarize(rounds)  # 1080 frames = 18 s; 3 catches, 4 hits
+    assert s["catches_per_round"] == pytest.approx(1.0)
+    assert s["hits_per_round"] == pytest.approx(4 / 3)
+    assert s["catches_per_min"] == pytest.approx(10.0)
+    assert s["hits_per_min"] == pytest.approx(40 / 3)
+    assert s["net_per_min"] == pytest.approx(-10 / 3)
+    # per round: (1 - 120/900), (-1 - 60/900), (2 - 3 - 900/900), averaged over 3
+    assert s["objective"] == pytest.approx(-2.2 / 3)
     assert s["closing_px_per_s"] == pytest.approx(510.0 / 18.0)
-    assert s["missile_evasion_rate"] == pytest.approx(6 / 7)
+    # 6 missiles ran out of fuel, 4 hit; 6 / (6 + 4) of the missiles were evaded
+    assert s["missile_evasion_rate"] == pytest.approx(0.6)
 
 
 def test_evaluate_policy_breaks_results_down_by_bot():

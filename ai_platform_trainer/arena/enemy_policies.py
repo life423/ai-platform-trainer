@@ -105,49 +105,6 @@ class AdaptiveEnemy(EnemyPolicy):
         return ai._get_movement_decision(state.player.x, state.player.y, missiles)
 
 
-class LegacySupervisedEnemy(EnemyPolicy):
-    """models/enemy_ai_model.pth, the network behind the old Trained AI option."""
-
-    name = "legacy_supervised"
-
-    def __init__(self, model_path: str = "models/enemy_ai_model.pth") -> None:
-        import torch
-
-        from ai_platform_trainer.ai.models.enemy_movement_model import (
-            EnemyMovementModel,
-        )
-
-        self._torch = torch
-        self.model = EnemyMovementModel(input_size=5, hidden_size=64, output_size=2)
-        self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
-        self.model.eval()
-        self._context: Any = None
-
-    def reset(self, state: ArenaState, rng: random.Random) -> None:
-        from ai_platform_trainer.core.screen_context import ScreenContext
-
-        ScreenContext.initialize(state.config.width, state.config.height)
-        self._context = ScreenContext.get_instance()
-
-    def act(self, state: ArenaState) -> Displacement:
-        obs = self._context.create_enemy_observation(
-            {"x": state.player.x, "y": state.player.y},
-            {"x": state.enemy.x, "y": state.enemy.y},
-            state.config.player_speed,
-        )
-        row = [
-            obs["player_x"],
-            obs["player_y"],
-            obs["enemy_x"],
-            obs["enemy_y"],
-            obs["distance"],
-        ]
-        with self._torch.no_grad():
-            out = self.model(self._torch.tensor([row], dtype=self._torch.float32))[0]
-        speed = 5.0  # EnemyPlay.speed
-        return float(out[0]) * speed, float(out[1]) * speed
-
-
 class SB3Enemy(EnemyPolicy):
     """A trained Stable-Baselines3 policy acting through the shared encoder.
 
@@ -202,13 +159,12 @@ class SB3Enemy(EnemyPolicy):
 
 
 def baseline_policies() -> List[EnemyPolicy]:
-    """Scripted and legacy enemies every learned agent is compared against."""
+    """Scripted enemies every learned agent is compared against."""
     return [
         RandomEnemy(),
         ChaseEnemy(),
         AdaptiveEnemy(capped=True),
         AdaptiveEnemy(capped=False),
-        LegacySupervisedEnemy(),
     ]
 
 
@@ -217,6 +173,5 @@ POLICY_NAMES: Dict[str, str] = {
     "chase": "Direct chase",
     "adaptive": "Adaptive AI (scripted)",
     "adaptive_shipped": "Adaptive AI (as shipped, speed 10+)",
-    "legacy_supervised": "Legacy supervised NN",
     "ppo": "PPO agent",
 }

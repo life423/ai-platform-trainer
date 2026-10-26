@@ -6,7 +6,7 @@ setup(
     name="ai_platform_trainer",
     version="0.1.0",
     author="AI Platform Trainer Team",
-    description="A 2D game comparing supervised learning and reinforcement learning game AI",
+    description="A 2D game about reinforcement learning game AI",
     long_description=open("README.md").read() if os.path.exists("README.md") else "",
     long_description_content_type="text/markdown",
     packages=find_packages(),

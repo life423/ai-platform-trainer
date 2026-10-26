@@ -1,15 +1,11 @@
 """
-Smart Missile with AI homing capabilities.
-
-This module provides an enhanced missile that can use either traditional neural networks
-or reinforcement learning models for intelligent homing behavior.
+Smart Missile: a homing missile steered by a reinforcement learning model.
 """
 import logging
 import math
 from typing import Any, Dict, Optional
 
 import numpy as np
-import torch
 
 try:
     from stable_baselines3 import (  # noqa: F401 - import used only to check availability
@@ -20,29 +16,25 @@ try:
 except ImportError:
     STABLE_BASELINES_AVAILABLE = False
 
-from ai_platform_trainer.ai.missile_features import missile_features
 from ai_platform_trainer.ai.model_paths import MissingModelError
 from ai_platform_trainer.arena.observations import sac_missile_observation
-from ai_platform_trainer.ai.models.missile_model import MissileModel
 from ai_platform_trainer.core.screen_context import ScreenContext
 from ai_platform_trainer.entities.missile import Missile
 
 
 class SmartMissile(Missile):
     """
-    Enhanced missile with AI-powered homing capabilities.
+    Homing missile guided by a reinforcement learning model (SAC or PPO).
 
-    Can use a supervised neural network or an RL model (SAC or PPO) for
-    guidance. SAC and PPO were trained with different observation formats
-    and turn-rate scales (see _create_sac_observation()/
+    SAC and PPO were trained with different observation formats and turn-rate
+    scales (see _create_sac_observation()/
     _create_ppo_observation() below), so rl_algorithm must be set
     correctly for whichever rl_model is passed in - the two are not
     interchangeable despite both being "an RL model".
     """
 
     # Degrees per step each RL model's action of 1.0 was actually trained
-    # to mean - not interchangeable, and different from the 12.0 used for
-    # the supervised turn-rate clamp below.
+    # to mean - not interchangeable.
     RL_TURN_SCALES = {"sac": 20.0, "ppo": 15.0}
 
     def __init__(
@@ -56,43 +48,36 @@ class SmartMissile(Missile):
         vy: float = 0.0,
         birth_time: int = 0,
         lifespan: int = 5000,  # Reduced lifespan to prevent endless circling
-        ai_model: Optional[MissileModel] = None,
         rl_model: Optional[Any] = None,
         rl_algorithm: Optional[str] = None,
     ):
         super().__init__(x, y, speed, vx, vy, birth_time, lifespan)
 
-        if (ai_model is None) == (rl_model is None):
+        if rl_model is None:
             raise MissingModelError(
-                "A SmartMissile needs exactly one guidance model, a supervised "
-                "network or an RL model. There is no basic-homing fallback."
+                "A SmartMissile needs a reinforcement learning model (SAC or PPO). "
+                "There is no basic-homing fallback."
             )
 
-        # AI components
-        self.ai_model = ai_model
+        if rl_algorithm not in self.RL_TURN_SCALES:
+            raise ValueError(f"Unknown RL missile algorithm '{rl_algorithm}'")
+
         self.rl_model = rl_model
         self.rl_algorithm = rl_algorithm  # "sac" or "ppo"
-        self.use_rl = rl_model is not None
 
         # Target tracking
         self.target_pos = {"x": target_x, "y": target_y}
         self.last_target_pos = {"x": target_x, "y": target_y}
 
         # Homing parameters
-        self.max_turn_rate = 12.0  # Turn-rate clamp for the supervised NN
         self.prediction_strength = 0.5  # Increased prediction for better interception
 
-        if self.use_rl:
-            ai_kind = self.rl_algorithm.upper() if self.rl_algorithm else "RL"
-        else:
-            ai_kind = "Neural Network"
-        logging.info(f"SmartMissile created with {ai_kind} AI")
+        logging.info(f"SmartMissile created with {self.rl_algorithm or 'RL'} AI")
 
     def update_with_ai(
         self,
         player_pos: Dict[str, float],
         target_pos: Dict[str, float],
-        shared_input_tensor: Optional[torch.Tensor] = None,
     ) -> None:
         """
         Update missile trajectory using AI guidance.
@@ -100,7 +85,6 @@ class SmartMissile(Missile):
         Args:
             player_pos: Player position for context
             target_pos: Current target position
-            shared_input_tensor: Pre-allocated tensor for efficiency
         """
         if not target_pos:
             logging.warning("update_with_ai called with no target_pos")
@@ -110,12 +94,7 @@ class SmartMissile(Missile):
         self.last_target_pos = self.target_pos.copy()
         self.target_pos = target_pos.copy()
 
-        if self.use_rl:
-            self._update_with_rl(player_pos, target_pos)
-        else:
-            self._update_with_neural_network(
-                player_pos, target_pos, shared_input_tensor
-            )
+        self._update_with_rl(player_pos, target_pos)
 
         # Actually update the position after AI calculations
         super().update()
@@ -139,39 +118,13 @@ class SmartMissile(Missile):
             observation = self._create_sac_observation(
                 target_pos, target_vx, target_vy
             )
-        turn_scale = self.RL_TURN_SCALES.get(self.rl_algorithm, self.max_turn_rate)
+        turn_scale = self.RL_TURN_SCALES[self.rl_algorithm]
 
         # Get action from RL model
         action, _ = self.rl_model.predict(observation, deterministic=True)
         turn_rate = action[0] * turn_scale
 
         # Apply the turn
-        self._apply_turn(turn_rate)
-
-    def _update_with_neural_network(
-        self,
-        player_pos: Dict[str, float],
-        target_pos: Dict[str, float],
-        shared_input_tensor: Optional[torch.Tensor] = None,
-    ) -> None:
-        """Update using traditional neural network model."""
-        # Same feature vector the supervised model was trained on
-        features = missile_features(
-            player_pos, target_pos, self.pos, {"x": self.vx, "y": self.vy}
-        )
-
-        if shared_input_tensor is not None:
-            input_tensor = shared_input_tensor
-            input_tensor[0] = torch.tensor(features)
-        else:
-            input_tensor = torch.tensor([features], dtype=torch.float32)
-
-        # Get prediction from neural network
-        with torch.no_grad():
-            turn_rate = self.ai_model(input_tensor).item()
-
-        # Apply turn rate limits
-        turn_rate = max(-self.max_turn_rate, min(self.max_turn_rate, turn_rate))
         self._apply_turn(turn_rate)
 
     def _apply_turn(self, turn_rate_degrees: float) -> None:

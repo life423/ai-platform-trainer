@@ -1,17 +1,15 @@
 """
-Missile AI Model Loader
+Missile AI model loader.
 
-Loads the trained missile guidance models and creates the missiles that use
-them. Nothing here falls back to a scripted or basic behavior: a missile
-whose model is missing or failed to load raises MissingModelError, and the
-menu reports it.
+Loads the trained reinforcement learning missile models (SAC and PPO) and
+creates the missiles that use them. Nothing here falls back to a scripted or
+basic behavior: a missile whose model is missing or failed to load raises
+MissingModelError, and the menu reports it.
 """
 import logging
 import os
 import sys
 from typing import Any, Callable, Dict, List, Optional
-
-import torch
 
 try:
     from stable_baselines3 import PPO, SAC
@@ -22,28 +20,21 @@ except ImportError:
     logging.warning("stable_baselines3 not available. RL missile AI disabled.")
 
 from ai_platform_trainer.ai.model_paths import MissingModelError, missing_model_message
-from ai_platform_trainer.ai.models.missile_model import MissileModel
 from ai_platform_trainer.entities.smart_missile import SmartMissile
 
-# Display names for each selectable guidance model, keyed the same way as
-# model_choice throughout this module and the menu.
+# Display names for each selectable missile AI, keyed the same way as the menu.
 MODEL_CHOICES = {
     "sac": "SAC",
     "ppo": "PPO",
-    "supervised": "Supervised NN",
 }
 
 
 class MissileAIManager:
-    """
-    Loads every missile guidance model independently, so the menu can offer
-    each one and report exactly which ones are missing or failed to load.
-    """
+    """Loads each missile model independently, so the menu can report which are missing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.sac_model: Optional[Any] = None
         self.ppo_model: Optional[Any] = None
-        self.neural_network_model: Optional[MissileModel] = None
         # Why a model that is on disk could not be loaded, keyed by model_choice
         self.load_errors: Dict[str, str] = {}
 
@@ -66,39 +57,22 @@ class MissileAIManager:
     def _load_rl_model(
         self, loader: Callable[[str], Any], filename: str, key: str
     ) -> Optional[Any]:
-        """Load an RL model (SAC or PPO). A file that exists but won't load is recorded."""
+        """Load an RL model. A file that exists but won't load is recorded."""
         path = self._find(filename)
         if path is None:
             return None
         try:
             model = loader(path)
         except Exception as e:
-            self.load_errors[key] = f"{MODEL_CHOICES[key]} model at {path} failed to load: {e}"
+            self.load_errors[key] = (
+                f"{MODEL_CHOICES[key]} model at {path} failed to load: {e}"
+            )
             logging.error(self.load_errors[key])
             return None
         logging.info(f"Loaded {MODEL_CHOICES[key]} missile AI model from {path}")
         return model
 
-    def _load_nn_model(self) -> Optional[MissileModel]:
-        """Load the supervised neural network model."""
-        path = self._find("missile_model.pth")
-        if path is None:
-            return None
-        try:
-            model = MissileModel()
-            model.load_state_dict(torch.load(path, map_location="cpu"))
-            model.eval()
-        except Exception as e:
-            self.load_errors["supervised"] = (
-                f"Supervised NN model at {path} failed to load: {e}"
-            )
-            logging.error(self.load_errors["supervised"])
-            return None
-        logging.info(f"Loaded supervised neural network missile model from {path}")
-        return model
-
     def _load_models(self) -> None:
-        """Load every available missile AI model independently."""
         if STABLE_BASELINES_AVAILABLE:
             self.sac_model = self._load_rl_model(
                 SAC.load, "missile_sac_model_final.zip", "sac"
@@ -110,25 +84,18 @@ class MissileAIManager:
             self.load_errors["sac"] = "stable-baselines3 is not installed"
             self.load_errors["ppo"] = "stable-baselines3 is not installed"
 
-        self.neural_network_model = self._load_nn_model()
-
         available = [key for key in MODEL_CHOICES if self.is_model_available(key)]
         logging.info(
             "Missile AI models available: "
             + (", ".join(MODEL_CHOICES[key] for key in available) or "none")
         )
 
-    @staticmethod
-    def _attr_for(model_choice: str) -> str:
-        return {
-            "sac": "sac_model",
-            "ppo": "ppo_model",
-            "supervised": "neural_network_model",
-        }[model_choice]
-
     def is_model_available(self, model_choice: str) -> bool:
-        """Whether the given model_choice ("sac"/"ppo"/"supervised") is loaded."""
-        return getattr(self, self._attr_for(model_choice), None) is not None
+        """Whether the given model_choice ("sac" or "ppo") is loaded."""
+        return self._model_for(model_choice) is not None
+
+    def _model_for(self, model_choice: str) -> Optional[Any]:
+        return {"sac": self.sac_model, "ppo": self.ppo_model}[model_choice]
 
     def problem_with(self, model_choice: str) -> Optional[str]:
         """Why this model cannot be used right now, or None if it can."""
@@ -164,21 +131,6 @@ class MissileAIManager:
         if problem is not None:
             raise MissingModelError(problem)
 
-        if model_choice == "supervised":
-            return SmartMissile(
-                x=x,
-                y=y,
-                target_x=target_x,
-                target_y=target_y,
-                speed=speed,
-                vx=vx,
-                vy=vy,
-                birth_time=birth_time,
-                lifespan=lifespan,
-                ai_model=self.neural_network_model,
-            )
-
-        rl_model = self.sac_model if model_choice == "sac" else self.ppo_model
         return SmartMissile(
             x=x,
             y=y,
@@ -189,7 +141,7 @@ class MissileAIManager:
             vy=vy,
             birth_time=birth_time,
             lifespan=lifespan,
-            rl_model=rl_model,
+            rl_model=self._model_for(model_choice),
             rl_algorithm=model_choice,
         )
 
@@ -210,12 +162,7 @@ def create_smart_missile(
     lifespan: int = 20000,
     model_choice: str = "sac",
 ) -> SmartMissile:
-    """
-    Convenience function to create a smart missile.
-
-    This function uses the global missile AI manager to create
-    missiles with the requested (model_choice) AI guidance.
-    """
+    """Create a smart missile with the requested AI, through the global manager."""
     return missile_ai_manager.create_smart_missile(
         x, y, target_x, target_y, speed, vx, vy, birth_time, lifespan, model_choice
     )

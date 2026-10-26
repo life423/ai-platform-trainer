@@ -10,6 +10,8 @@ import pygame
 
 from ai_platform_trainer.entities.enemy_agent import create_trained_enemy
 from ai_platform_trainer.entities.enemy_play import EnemyPlay
+from ai_platform_trainer.gameplay.config import config
+from ai_platform_trainer.gameplay.spawn_utils import find_valid_spawn_position
 
 # Color constants
 COLOR_TEXT_PRIMARY = (255, 255, 255)  # White
@@ -123,12 +125,11 @@ class PlayLearningMode:
             return
 
         # Player-Enemy collision
+        # A catch respawns the player away from the enemy. The enemies stay.
         if self._entities_collide(self.game.player, self.learning_enemy):
-            logging.info("Learning AI caught the player!")
+            logging.info("Learning AI caught the player! The player respawns.")
             self.learning_enemy.on_hit_player()  # Notify AI of success
-            self.learning_enemy.hide()
-            self.game.is_respawning = True
-            self.game.respawn_timer = current_time + self.game.respawn_delay
+            self._respawn_player()
 
         # Missile-Enemy collisions
         for missile in self.game.player.missiles[:]:
@@ -144,6 +145,20 @@ class PlayLearningMode:
                 self.game.is_respawning = True
                 self.game.respawn_timer = current_time + self.game.respawn_delay
                 break
+
+    def _respawn_player(self) -> None:
+        """Move the player to a valid spot away from the enemy."""
+        player = self.game.player
+        enemy = self.learning_enemy
+        x, y = find_valid_spawn_position(
+            screen_width=self.game.screen_width,
+            screen_height=self.game.screen_height,
+            entity_size=player.size,
+            margin=config.WALL_MARGIN,
+            min_dist=config.MIN_DISTANCE,
+            other_pos=(enemy.pos["x"], enemy.pos["y"]),
+        )
+        player.position["x"], player.position["y"] = x, y
 
     def _entities_collide(self, entity1, entity2) -> bool:
         """Check collision between two entities."""

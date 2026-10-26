@@ -1,255 +1,153 @@
-"""
-Core Game class for AI Platform Trainer.
-"""
+"""The game: the window, the menu, and Play mode."""
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 import pygame
 
-# AI imports
 from ai_platform_trainer.ai.missile_ai_loader import missile_ai_manager
-from ai_platform_trainer.arena.config import WORLD_HEIGHT, WORLD_WIDTH
 from ai_platform_trainer.ai.model_paths import MissingModelError
+from ai_platform_trainer.arena.config import WORLD_HEIGHT, WORLD_WIDTH
 from ai_platform_trainer.core.config_manager import get_config_manager
-
-# Data logger and entity imports
-from ai_platform_trainer.core.data_logger import DataLogger
-
-# Logging setup
 from ai_platform_trainer.core.logging_config import setup_logging
 from ai_platform_trainer.core.screen_context import ScreenContext
 from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.player_play import PlayerPlay
-
-# Gameplay imports
 from ai_platform_trainer.gameplay.config import config
 from ai_platform_trainer.gameplay.display_manager import DisplayManager
 from ai_platform_trainer.gameplay.input_handler import InputHandler
 from ai_platform_trainer.gameplay.menu import Menu
 from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
-from ai_platform_trainer.gameplay.modes.training_mode import TrainingMode
 from ai_platform_trainer.gameplay.renderer import Renderer
-from ai_platform_trainer.gameplay.spawner import (
-    respawn_enemy_with_fade_in,
-    spawn_entities,
-)
+from ai_platform_trainer.gameplay.spawner import spawn_entities
 
 
 class GameCore:
-    """Owns the main game loop, menu, and mode managers (Play / Train)."""
+    """Owns the window, the menu, and the Play game."""
 
     def __init__(self) -> None:
-        """Initialize the game."""
         setup_logging()
         self.running: bool = True
         self.menu_active: bool = True
-        self.mode: Optional[str] = None
-        self.paused: bool = False
+        self.model_choice: str = "sac"
 
-        # Get configuration manager
         self.config_manager = get_config_manager()
 
-        # Start in a window; press F to switch to fullscreen
-        # Initialize display - DisplayManager calls pygame.init()
-        self.display_manager = DisplayManager(
-            fullscreen=self.config_manager.get("display.fullscreen", False)
-        )
         # The window is whatever the display gives us. The game world is always
         # WORLD_WIDTH x WORLD_HEIGHT and is scaled onto the window, so every
         # model sees the coordinates it was trained on.
+        self.display_manager = DisplayManager(
+            fullscreen=self.config_manager.get("display.fullscreen", False)
+        )
         self.screen = self.display_manager.get_screen()
         self.window_width, self.window_height = self.display_manager.get_dimensions()
         self.screen_width, self.screen_height = WORLD_WIDTH, WORLD_HEIGHT
         self.world = pygame.Surface((self.screen_width, self.screen_height))
-
         ScreenContext.initialize(self.screen_width, self.screen_height)
 
-        # Create clock, menu, and renderer
         self.clock = pygame.time.Clock()
         self.menu = Menu(self.window_width, self.window_height)
         self.renderer = Renderer(self.world, self.display_manager)
 
-        # Entities and managers
         self.player: Optional[PlayerPlay] = None
         self.enemy: Optional[EnemyPlay] = None
-        self.data_logger: Optional[DataLogger] = None
-
         self.play_learning_mode_manager: Optional[PlayLearningMode] = None
-        self.training_mode_manager: Optional[TrainingMode] = None
 
-        # Use shared missile AI manager for missile models
-        self.missile_model = missile_ai_manager.neural_network_model
-
-        # Initialize input handler
-        self.input_handler = InputHandler()
-        self._setup_input_callbacks()
-
-        # Additional logic
+        # Set by Play mode when the enemy is caught or hit
         self.respawn_delay = 1000
         self.respawn_timer = 0
         self.is_respawning = False
 
+        self.input_handler = InputHandler()
+        self._setup_input_callbacks()
         logging.info("Game initialized.")
 
     def _setup_input_callbacks(self) -> None:
-        """Set up input handler callbacks for key events."""
-
         def handle_keydown(event):
             if event.key == pygame.K_f:
-                logging.debug("F pressed - toggling fullscreen.")
                 self._toggle_fullscreen()
             elif not self.menu_active:
                 if event.key == pygame.K_ESCAPE:
-                    logging.info("Escape key pressed. Exiting game.")
+                    logging.info("Escape pressed. Quitting.")
                     self.running = False
-                elif (
-                    event.key == pygame.K_SPACE
-                    and self.mode == "play_learning"
-                    and self.player
-                    and self.enemy
-                ):
-                    logging.debug("Space key pressed in event handler")
+                elif event.key == pygame.K_SPACE and self.player and self.enemy:
                     self.player.shoot_missile(self.enemy.pos)
                 elif event.key == pygame.K_m:
-                    logging.info("M key pressed. Returning to menu.")
-                    if self.mode == "train" and self.training_mode_manager:
-                        self.training_mode_manager.finalize()
+                    logging.info("M pressed. Returning to the menu.")
                     self.menu_active = True
                     self.reset_game_state()
 
         self.input_handler.register_callback(pygame.KEYDOWN, handle_keydown)
 
     def run(self) -> None:
-        """Main game loop."""
-        self._run_standard()
-
-    def _run_standard(self) -> None:
-        """Standard game loop without state machine."""
+        """The main loop: menu or game, then display."""
         while self.running:
             current_time = pygame.time.get_ticks()
 
-            # Handle input events
             should_continue, events = self.input_handler.handle_input()
             if not should_continue:
                 self.running = False
 
-            # Handle menu-specific events
             if self.menu_active:
                 for event in events:
                     if event.type == pygame.KEYDOWN or (
                         event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
                     ):
-                        selected_action = self.menu.handle_menu_events(event)
-                        if selected_action:
-                            action, payload = selected_action
-                            self.check_menu_selection(action, payload)
-
-            if self.menu_active:
+                        selected = self.menu.handle_menu_events(event)
+                        if selected:
+                            self.check_menu_selection(*selected)
                 self.menu.draw(self.screen)
-                if self.display_manager:
-                    self.display_manager.flip()
+                self.display_manager.flip()
             else:
                 self.update(current_time)
-                # Only pass a mode manager if it has UI to draw
-                learning_manager: Optional[Any] = None
-                if self.mode == "play_learning":
-                    learning_manager = self.play_learning_mode_manager
-                elif self.mode == "train":
-                    learning_manager = self.training_mode_manager
                 self.renderer.render(
                     self.menu,
                     self.player,
                     self.enemy,
                     self.menu_active,
-                    self.mode,
-                    learning_manager,
+                    self.play_learning_mode_manager,
                 )
 
-            # Display flip is handled by renderer in game mode, menu handles its own flip
-
             self.clock.tick(config.FRAME_RATE)
-
-        # Merge and retrain from collected data if we were training
-        if self.mode == "train" and self.training_mode_manager:
-            self.training_mode_manager.finalize()
 
         pygame.quit()
         logging.info("Game loop exited and Pygame quit.")
 
-    def start_game(self, mode: str, model_choice: str = "sac") -> None:
-        """
-        Start the game in the specified mode.
-
-        Args:
-            mode: The game mode ("train" or "play_learning")
-            model_choice: Which missile guidance model to play against
-                ("sac", "ppo", or "supervised") - only relevant for
-                "play_learning".
+    def start_game(self, model_choice: str = "sac") -> None:
+        """Start a Play game against the AI Agent with the chosen missile AI.
 
         Raises:
             MissingModelError: if the chosen missile model or the AI Agent
                 has not been trained.
         """
-        self.mode = mode
         self.model_choice = model_choice
-        logging.info(f"Starting game in '{mode}' mode (missile: {model_choice}).")
+        logging.info(f"Starting Play (missile: {model_choice}).")
 
-        if mode == "play_learning":
-            # Refuse up front rather than failing when the first missile is fired
-            problem = missile_ai_manager.problem_with(model_choice)
-            if problem is not None:
-                raise MissingModelError(problem)
+        # Refuse up front rather than failing when the first missile is fired
+        problem = missile_ai_manager.problem_with(model_choice)
+        if problem is not None:
+            raise MissingModelError(problem)
 
-            # Play against real-time learning AI
-            self.player = PlayerPlay(
-                self.screen_width, self.screen_height, model_choice=model_choice
-            )
-            self.player.reset()
+        self.player = PlayerPlay(
+            self.screen_width, self.screen_height, model_choice=model_choice
+        )
+        self.player.reset()
+        self.play_learning_mode_manager = PlayLearningMode(self)
+        self.enemy = self.play_learning_mode_manager.learning_enemy
+        spawn_entities(self)
 
-            # Create learning mode manager which will handle enemy creation
-            self.play_learning_mode_manager = PlayLearningMode(self)
-
-            # Set the enemy reference for compatibility with other systems
-            self.enemy = self.play_learning_mode_manager.learning_enemy
-
-            # Now spawn entities with both player and enemy available
-            spawn_entities(self)
-        elif mode == "train":
-            # Scripted data-collection mode: TrainingMode creates its own
-            # player/enemy entities and spawns them.
-            self.training_mode_manager = TrainingMode(self)
-
-    def check_menu_selection(
-        self, selected_action: str, payload: Optional[dict] = None
-    ) -> None:
-        """
-        Handle menu selection.
-
-        Args:
-            selected_action: The selected menu action
-            payload: For "play_learning", a dict with "model_choice"
-                ("sac"/"ppo"/"supervised")
-        """
-        if selected_action == "exit":
-            logging.info("Exit action selected from menu.")
+    def check_menu_selection(self, action: str, payload: Optional[dict] = None) -> None:
+        """Handle a menu choice. For "play", payload has the "model_choice"."""
+        if action == "exit":
+            logging.info("Exit selected from the menu.")
             self.running = False
-        elif selected_action == "train":
-            logging.info("'train' selected from menu.")
+        elif action == "play":
             self.menu_active = False
-            self.start_game("train")
-        elif selected_action == "play_learning":
-            payload = payload or {}
-            model_choice = payload.get("model_choice", "sac")
-            logging.info(
-                f"'play_learning' selected from menu (missile: {model_choice})."
-            )
-            self.menu_active = False
-            self.start_game("play_learning", model_choice)
+            self.start_game((payload or {}).get("model_choice", "sac"))
 
     def _toggle_fullscreen(self) -> None:
-        """Toggle between windowed and fullscreen modes."""
+        """Switch between window and fullscreen, keeping the current game going."""
         if not self.display_manager:
-            return  # Skip in headless mode
+            return  # headless
 
         was_fullscreen = self.config_manager.get("display.fullscreen", False)
         self.display_manager.toggle_fullscreen()
@@ -261,54 +159,19 @@ class GameCore:
         self.menu = Menu(self.window_width, self.window_height)
 
         if not self.menu_active:
-            current_mode = self.mode
-            # Keep this session's samples before its state is thrown away.
-            if self.training_mode_manager:
-                self.training_mode_manager.finalize(retrain=False)
             self.reset_game_state()
-            self.start_game(current_mode, getattr(self, "model_choice", "sac"))
+            self.start_game(self.model_choice)
 
     def update(self, current_time: int) -> None:
-        """
-        Update game state.
-
-        Args:
-            current_time: Current game time in milliseconds
-        """
-        if self.mode == "train" and self.training_mode_manager:
-            self.training_mode_manager.update(current_time)
-
-        elif self.mode == "play_learning":
-            if self.play_learning_mode_manager:
-                self.play_learning_mode_manager.update(current_time)
-            else:
-                self.play_learning_mode_manager = PlayLearningMode(self)
-                self.play_learning_mode_manager.update(current_time)
-
-    def handle_respawn(self, current_time: int) -> None:
-        """
-        Handle respawning the enemy after a delay.
-
-        Args:
-            current_time: Current game time in milliseconds
-        """
-        if (
-            self.is_respawning
-            and current_time >= self.respawn_timer
-            and self.enemy
-            and self.player
-        ):
-            respawn_enemy_with_fade_in(self, current_time)
+        if self.play_learning_mode_manager is None:
+            self.play_learning_mode_manager = PlayLearningMode(self)
+        self.play_learning_mode_manager.update(current_time)
 
     def reset_game_state(self) -> None:
-        """Reset game state, typically when returning to menu."""
+        """Clear the game, for example when returning to the menu."""
         self.player = None
         self.enemy = None
-        self.data_logger = None
         self.is_respawning = False
         self.respawn_timer = 0
         self.play_learning_mode_manager = None
-        self.training_mode_manager = None
-        logging.info("Game state reset, returning to menu.")
-
-        # Update based on current mode
+        logging.info("Game state reset, returning to the menu.")

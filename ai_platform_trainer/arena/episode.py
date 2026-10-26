@@ -21,8 +21,7 @@ DEFAULT_MAX_FRAMES = 900  # 15 seconds at 60 FPS
 class StepResult:
     event: str  # '', 'caught' or 'hit'
     expired: int  # missiles that ran out of fuel this frame
-    terminated: bool
-    truncated: bool
+    truncated: bool  # the round's clock ran out
 
 
 class ArenaEpisode:
@@ -72,12 +71,10 @@ class ArenaEpisode:
         sim = self.sim
         sim.enemy_phase(dx, dy, capped)
         event = sim.collision_phase()
-        if event:
-            return StepResult(event, 0, True, False)
         expired = sim.missile_phase()
         self.missiles_expired += expired
         self._player_turn()
-        return StepResult("", expired, False, sim.state.frame >= self.max_frames)
+        return StepResult(event, expired, sim.state.frame >= self.max_frames)
 
     def _player_turn(self) -> None:
         action = self.bot.act(self.sim.state)

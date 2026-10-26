@@ -91,7 +91,7 @@ class ArenaEnemyAgent(EnemyPlay):
         player_provider: Callable[[], Any],
         model_path: str = ENEMY_PPO_MODEL,
     ) -> None:
-        super().__init__(screen_width, screen_height, model=None)
+        super().__init__(screen_width, screen_height)
         self.controller = SB3Enemy.load(model_path)
         self.config = ArenaConfig(width=screen_width, height=screen_height)
         self.speed = self.config.enemy_speed  # shown in the stats panel

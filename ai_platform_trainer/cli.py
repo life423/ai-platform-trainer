@@ -144,8 +144,8 @@ def _evaluate(args: argparse.Namespace) -> int:
     )
     print(format_table({"policies": {"ppo": summary}}))
     for style, rates in summary["by_bot"].items():
-        catch, hit = rates["catch_rate"], rates["hit_rate"]
-        print(f"  vs {style:9s} catch {catch:6.1%}   hit {hit:6.1%}")
+        catches, hits = rates["catches_per_min"], rates["hits_per_min"]
+        print(f"  vs {style:9s} catches {catches:6.2f}/min   hits {hits:6.2f}/min")
     return 0
 
 

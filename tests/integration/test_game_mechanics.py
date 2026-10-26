@@ -5,40 +5,18 @@ These tests check the interaction between various components of the game,
 ensuring that they work together correctly in a simulated game loop.
 """
 from collections import defaultdict
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pygame
 import pytest
-import torch
 
-from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.player_play import PlayerPlay
-from ai_platform_trainer.gameplay.collisions import handle_missile_collisions
-
-
-@pytest.fixture
-def mock_model():
-    """Create a mock enemy AI model."""
-    model = Mock()
-    # Create a mock output tensor
-    output_tensor = torch.tensor([[1.0, 0.0]])  # Move right
-    model.return_value = output_tensor
-    # Add load_state_dict method that just returns
-    model.load_state_dict = Mock(return_value=None)
-    model.eval = Mock(return_value=None)
-    return model
 
 
 @pytest.fixture
 def player():
     """Create a player instance for testing."""
     return PlayerPlay(screen_width=800, screen_height=600)
-
-
-@pytest.fixture
-def enemy(mock_model):
-    """Create an enemy instance for testing."""
-    return EnemyPlay(screen_width=800, screen_height=600, model=mock_model)
 
 
 @pytest.fixture
@@ -92,40 +70,6 @@ class TestGameMechanics:
 
         # Missile should have moved
         assert missile.pos != {"x": player.position["x"], "y": player.position["y"]}
-
-    def test_missile_enemy_collision(self, player, enemy, mock_time):
-        """Test collision detection between missiles and enemies."""
-        # Position enemy and player for a clean test
-        player.position = {"x": 100, "y": 100}
-        enemy.pos = {"x": 500, "y": 100}
-        enemy.visible = True
-
-        # Fire a missile directly at the enemy. shoot_missile() checks a
-        # cooldown against pygame.time.get_ticks(), so the mocked clock
-        # (mock_time) must be active for the shot to actually fire.
-        player.shoot_missile(enemy_pos=enemy.pos)
-
-        # Should have one missile
-        assert len(player.missiles) == 1
-
-        # Mock the missile to be at the enemy position to guarantee collision
-        missile = player.missiles[0]
-        missile.pos = {"x": enemy.pos["x"], "y": enemy.pos["y"]}
-
-        # Create a mock respawn callback
-        respawn_callback = Mock()
-
-        # Check for collision
-        handle_missile_collisions(player, enemy, respawn_callback)
-
-        # Missile should be removed
-        assert len(player.missiles) == 0
-
-        # Enemy should be hidden
-        assert not enemy.visible
-
-        # Respawn callback should have been called
-        respawn_callback.assert_called_once()
 
     def test_player_input_handling(self, player, mock_keys):
         """Test player input handling."""

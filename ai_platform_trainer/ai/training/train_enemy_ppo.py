@@ -157,10 +157,10 @@ class ArenaEvalCallback(BaseCallback):
         for key in (
             "objective",
             "net_per_min",
-            "catch_rate",
-            "hit_rate",
-            "timeout_rate",
-            "mean_return",
+            "catches_per_min",
+            "hits_per_min",
+            "catches_per_round",
+            "hits_per_round",
         ):
             self.logger.record("eval/" + key, summary[key])
         with open(self.log_path, "a", encoding="utf-8") as fh:
@@ -177,11 +177,11 @@ class ArenaEvalCallback(BaseCallback):
         net = format(summary["net_per_min"], "+.2f")
         best = format(self.best_score, "+.3f")
         score = format(summary[SELECTION_METRIC], "+.3f")
-        catch = format(summary["catch_rate"], ".1%")
-        hit = format(summary["hit_rate"], ".1%")
+        catches = format(summary["catches_per_min"], ".2f")
+        hits = format(summary["hits_per_min"], ".2f")
         message = (
             f"[eval at {steps} steps] objective {score}  net {net}/min  "
-            f"catch {catch}  hit {hit}  (best {best})"
+            f"catches {catches}/min  hits {hits}/min  (best {best})"
         )
         print(message, flush=True)
         return summary

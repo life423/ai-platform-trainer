@@ -19,13 +19,14 @@ from ai_platform_trainer.arena.enemy_policies import POLICY_NAMES, EnemyPolicy
 from ai_platform_trainer.arena.episode import DEFAULT_MAX_FRAMES, ArenaEpisode
 from ai_platform_trainer.arena.observations import enemy_player_distance
 from ai_platform_trainer.arena.player_bots import BOT_STYLES, make_bot
-from ai_platform_trainer.arena.sim import Guidance
+from ai_platform_trainer.arena.sim import CAUGHT, HIT, Guidance
 
 
 @dataclass(frozen=True)
 class RoundResult:
     bot_style: str
-    outcome: str  # caught, hit or timeout
+    catches: int
+    hits: int
     frames: int
     start_distance: float
     end_distance: float
@@ -50,15 +51,19 @@ def play_round(
     state = episode.reset()
     policy.reset(state, random.Random(rng.getrandbits(32)))
     start = enemy_player_distance(state)
+    catches = hits = 0
     while True:
         dx, dy = policy.act(state)
         result = episode.step(dx, dy, capped=policy.capped)
-        if result.terminated or result.truncated:
+        catches += result.event == CAUGHT
+        hits += result.event == HIT
+        if result.truncated:
             break
     return RoundResult(
         bot_style=bot_style,
-        outcome=result.event or "timeout",
-        frames=state.frame + (1 if result.terminated else 0),
+        catches=catches,
+        hits=hits,
+        frames=state.frame,
         start_distance=start,
         end_distance=enemy_player_distance(state),
         missiles_fired=episode.missiles_fired,
@@ -71,34 +76,29 @@ def _ci95(p: float, n: int) -> float:
 
 
 def summarize(rounds: Sequence[RoundResult]) -> Dict[str, Any]:
-    """Aggregate round results into rates, per-minute figures and 95% intervals."""
+    """Aggregate round results into per-minute rates and per-round averages.
+
+    Rounds continue after a catch or a hit, so the figures count events over the
+    time played rather than the share of rounds that ended one way or another.
+    """
     n = len(rounds)
-    caught = sum(r.outcome == "caught" for r in rounds)
-    hit = sum(r.outcome == "hit" for r in rounds)
+    catches = sum(r.catches for r in rounds)
+    hits = sum(r.hits for r in rounds)
     seconds = sum(r.frames for r in rounds) / FPS
-    catch_frames = [r.frames for r in rounds if r.outcome == "caught"]
     expired = sum(r.missiles_expired for r in rounds)
     closed = sum(r.start_distance - r.end_distance for r in rounds)
     return {
         "rounds": n,
-        "catch_rate": caught / n,
-        "catch_rate_ci95": _ci95(caught / n, n),
-        "hit_rate": hit / n,
-        "hit_rate_ci95": _ci95(hit / n, n),
-        "timeout_rate": (n - caught - hit) / n,
-        "mean_return": (caught - hit) / n,
-        # The training objective: catches and hits with the per-frame time cost.
-        "objective": sum(round_return(r.outcome, r.frames) for r in rounds) / n,
-        "catches_per_min": caught / seconds * 60.0,
-        "hits_per_min": hit / seconds * 60.0,
+        "catches_per_round": catches / n,
+        "hits_per_round": hits / n,
+        # The training objective, per round: catches minus hits minus the time cost.
+        "objective": sum(round_return(r.catches, r.hits, r.frames) for r in rounds) / n,
+        "catches_per_min": catches / seconds * 60.0,
+        "hits_per_min": hits / seconds * 60.0,
         # The game score: catches minus missile hits per minute of play.
-        "net_per_min": (caught - hit) / seconds * 60.0,
-        "seconds_per_hit": seconds / hit if hit else None,
-        "time_to_catch_s": (sum(catch_frames) / len(catch_frames) / FPS)
-        if catch_frames
-        else None,
+        "net_per_min": (catches - hits) / seconds * 60.0,
         "closing_px_per_s": closed / seconds,
-        "missile_evasion_rate": expired / (expired + hit) if expired + hit else None,
+        "missile_evasion_rate": expired / (expired + hits) if expired + hits else None,
         "mean_round_s": seconds / n,
     }
 
@@ -130,7 +130,9 @@ def evaluate_policy(
         subset = [r for r in results if r.bot_style == style]
         if subset:
             part = summarize(subset)
-            summary["by_bot"][style] = {k: part[k] for k in ("catch_rate", "hit_rate")}
+            summary["by_bot"][style] = {
+                k: part[k] for k in ("catches_per_min", "hits_per_min")
+            }
     summary["wall_seconds"] = time.perf_counter() - started
     return summary
 
@@ -173,13 +175,10 @@ TABLE_COLUMNS = (
     "Enemy",
     "Objective",
     "Net/min",
-    "Catch rate",
-    "Missile-hit rate",
-    "Timeout",
     "Catches/min",
     "Hits/min",
-    "Time to catch (s)",
-    "Closing (px/s)",
+    "Catches/round",
+    "Hits/round",
     "Missiles evaded",
 )
 
@@ -192,13 +191,10 @@ def format_table(report: Dict[str, Any]) -> str:
             POLICY_NAMES.get(name, name),
             _num(m["objective"], 3),
             _num(m["net_per_min"], 2),
-            _pct(m["catch_rate"]),
-            _pct(m["hit_rate"]),
-            _pct(m["timeout_rate"]),
             _num(m["catches_per_min"], 2),
             _num(m["hits_per_min"], 2),
-            _num(m["time_to_catch_s"], 2),
-            _num(m["closing_px_per_s"], 0),
+            _num(m["catches_per_round"], 2),
+            _num(m["hits_per_round"], 2),
             _pct(m["missile_evasion_rate"]),
         ]
         lines.append("| " + " | ".join(cells) + " |")

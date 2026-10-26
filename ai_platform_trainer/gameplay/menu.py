@@ -10,13 +10,13 @@ from ai_platform_trainer.entities.enemy_agent import enemy_agent_problem
 class Menu:
     def __init__(self, screen_width, screen_height):
         # Main menu options
-        self.main_menu_options = ["Play", "Train", "Help", "Exit"]
+        self.main_menu_options = ["Play", "Help", "Exit"]
         self.selected_option = 0
 
         # Submenu shown after choosing "Play": which AI guides your missiles.
         # The opponent is always the AI Agent.
         self.show_model_menu = False
-        self.model_keys = list(MODEL_CHOICES.keys())  # ["sac", "ppo", "supervised"]
+        self.model_keys = list(MODEL_CHOICES.keys())  # ["sac", "ppo"]
         self.selected_model_index = 0
         self.model_option_rects = {}
 
@@ -47,8 +47,8 @@ class Menu:
         Handle user input for the menu.
 
         Returns None, or an (action, payload) tuple where action is one of
-        "play_learning" / "train" / "exit". For "play_learning", payload is
-        a dict with "model_choice" ("sac"/"ppo"/"supervised"); otherwise
+        "play" / "exit". For "play", payload is
+        a dict with "model_choice" ("sac"/"ppo"); otherwise
         payload is None.
         """
         # If the help screen is currently displayed
@@ -103,8 +103,6 @@ class Menu:
             self.selected_model_index = 0
             self.error_message = None
             return None
-        elif chosen == "Train":
-            return ("train", None)
         elif chosen == "Help":
             self.show_help = True
             return None
@@ -160,7 +158,7 @@ class Menu:
 
         self.show_model_menu = False
         self.error_message = None
-        return ("play_learning", {"model_choice": model_choice})
+        return ("play", {"model_choice": model_choice})
 
     def draw(self, screen):
         """
@@ -322,11 +320,9 @@ class Menu:
 
         # Text explaining the game modes
         modes_text = [
-            "• Train: Collect gameplay data for the supervised missile model",
             "• Play: the enemy is the AI Agent; pick the AI that guides your missiles",
             "• AI Agent: a PPO reinforcement-learning policy",
             "• SAC / PPO: reinforcement-learning missile AIs",
-            "• Supervised NN: a neural net trained by imitating logged missile data",
         ]
 
         # Draw modes text

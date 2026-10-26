@@ -3,7 +3,6 @@ Configuration constants for the AI Platform Trainer.
 
 This module provides a centralized location for all configuration constants.
 """
-import os
 
 
 class Config:
@@ -29,12 +28,6 @@ class Config:
     COLOR_MISSILE = (255, 255, 0)  # Yellow
 
     # Paths
-    ROOT_DIR = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
-    DATA_PATH = os.path.join(ROOT_DIR, "data", "raw", "training_data.json")
-    MODEL_PATH = os.path.join(ROOT_DIR, "models", "enemy_ai_model.pth")
-    MISSILE_MODEL_PATH = os.path.join(ROOT_DIR, "models", "missile_model.pth")
 
     # Game mechanics
     RESPAWN_DELAY = 1000  # milliseconds

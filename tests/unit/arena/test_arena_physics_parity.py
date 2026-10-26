@@ -9,9 +9,9 @@ from collections import defaultdict
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import numpy as np
 import pygame
 import pytest
-import torch
 
 from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.arena.sim import CAUGHT, HIT, ArenaSim
@@ -31,11 +31,11 @@ def screen_context():
     ScreenContext.initialize(W, H)
 
 
-class ZeroTurnModel(torch.nn.Module):
+class ZeroTurnModel:
     """A guidance model that never turns the missile."""
 
-    def forward(self, x):
-        return torch.zeros(x.shape[0], 1)
+    def predict(self, observation, deterministic=True):
+        return np.zeros(1, dtype=np.float32), None
 
 
 def no_turn(missile, target_x, target_y, config):
@@ -69,7 +69,8 @@ def straight_missile(**kwargs) -> SmartMissile:
         vy=kwargs["vy"],
         birth_time=kwargs["birth_time"],
         lifespan=kwargs["lifespan"],
-        ai_model=ZeroTurnModel(),
+        rl_model=ZeroTurnModel(),
+        rl_algorithm="sac",
     )
 
 

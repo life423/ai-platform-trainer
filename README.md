@@ -1,8 +1,8 @@
 # AI Platform Trainer
 
-**Pixel Pursuit** - a 2D Pygame game where a player fights an AI-controlled
-enemy with homing missiles, built as a testbed for comparing supervised
-learning and reinforcement learning approaches to game AI side by side.
+**Pixel Pursuit** - a 2D Pygame game. You fire homing missiles at an enemy that
+chases you. The enemy and the missiles are reinforcement-learning agents: each
+is trained headlessly, then runs in the game.
 
 [![Release](https://img.shields.io/github/v/release/life423/ai-platform-trainer)](https://github.com/life423/ai-platform-trainer/releases)
 
@@ -15,34 +15,42 @@ python run_game.py
 
 (equivalently: `pip install -e .` then `ai-trainer`, or `python -m ai_platform_trainer`)
 
-From the main menu:
-- **Play** - the opponent is the AI Agent (a PPO policy trained by `train-enemy`). Pick the missile AI (SAC, PPO, or Supervised NN) and fight. Play refuses to start if a model it needs is missing, and the menu names the command that trains it.
-- **Train** - runs scripted player/enemy patterns and logs gameplay data,
-  used to retrain the Supervised NN missile model.
+Choose **Play** from the main menu, then pick the missile AI (SAC or PPO). The
+opponent is the AI Agent. Play refuses to start if a model it needs is missing,
+and the menu names the command that trains it.
+
+### Controls
+
+| Key | Action |
+|---|---|
+| Arrow keys / WASD | Move |
+| Space | Fire a missile |
+| M | Back to the menu |
+| F | Toggle fullscreen |
+| Esc | Quit |
 
 ## Directory Structure
 
 ```
 ai_platform_trainer/
 ├── ai/
-│   ├── inference/         # runtime missile guidance controller
-│   ├── models/             # neural net / RL model definitions
-│   ├── training/           # standalone training scripts (SAC, PPO, supervised)
-│   └── missile_ai_loader.py # loads/selects the 3 missile guidance models
-├── core/                   # config manager, data logger, screen context
-├── entities/                # Player, Enemy, Missile classes
-│   └── behaviors/            # enemy AI controller logic
-├── gameplay/
-│   ├── modes/                 # Play / Train mode managers
-│   ├── game_core.py            # main game loop
-│   └── menu.py                  # main menu + submenus
-└── utils/                   # data validation/retraining pipeline, helpers
+│   ├── envs/enemy_env.py               # Gymnasium env the enemy PPO trains in
+│   ├── evaluation/enemy_benchmark.py   # seeded benchmark of every enemy
+│   ├── training/                       # train-enemy, SAC and PPO missile trainers
+│   ├── missile_ai_loader.py            # loads the SAC and PPO missile models for the game
+│   └── model_paths.py                  # where models live, the missing-model error
+├── arena/                              # headless simulation for training and benchmarks
+├── core/                               # config manager, screen context, logging
+├── entities/                           # player, enemy and missile classes
+├── gameplay/                           # the pygame game: menu, renderer, Play mode
+├── cli.py                              # play, train-enemy, evaluate-enemy, benchmark
+└── __main__.py                         # python -m ai_platform_trainer
 
-assets/    # sprites
-data/      # logged training data (raw/ + timestamped backups/)
-models/    # trained model weights (.pth / stable-baselines3 .zip checkpoints)
-logs/      # training run logs (evaluation curves, etc.)
-tests/     # pytest suite, mirrors the ai_platform_trainer/ layout
+assets/      # sprites
+logs/        # training logs
+models/      # trained models (see AI Models below)
+reports/     # benchmark output (reports/benchmarks)
+tests/       # pytest suite, mirrors the package layout
 ```
 
 ## Development
@@ -57,14 +65,27 @@ pre-commit run --all-files
 
 ## AI Models
 
-Three interchangeable missile guidance models, selectable from the Play
-submenu:
+The game runs three trained models. None of them has a scripted fallback: if a
+model is missing or fails to load, Play says which command trains it and refuses
+to start.
 
-- **Supervised NN** - a small feedforward network trained by imitating a
-  deterministic controller's logged decisions (see Train mode above).
-- **SAC** (Soft Actor-Critic) and **PPO** (Proximal Policy Optimization) -
-  reinforcement learning models trained from scratch in self-contained
-  simulated environments (`ai/training/train_missile_sac.py` and
-  `train_missile_rl.py`), with no dependency on logged gameplay data.
+| Model | File | Trained by |
+|---|---|---|
+| AI Agent (enemy, PPO) | `models/enemy_ppo/enemy_ppo.zip` + JSON model card | `python -m ai_platform_trainer train-enemy` |
+| Missile AI: SAC | `models/missile_sac_model_final.zip` | `python -m ai_platform_trainer.ai.training.train_missile_sac` |
+| Missile AI: PPO | `models/missile_rl_model_final.zip` | `python -m ai_platform_trainer.ai.training.train_missile_rl` |
 
-The opponent is the AI Agent: a PPO policy trained by `train-enemy` and saved to `models/enemy_ppo/enemy_ppo.zip`. Play has no scripted fallback.
+The enemy trains in `arena/`, a simulation with no window, against the same
+missile guidance the game uses. `train-enemy` saves checkpoints as it goes;
+`--resume` continues from the last one.
+
+The model card next to the enemy records how it was trained. The game only loads
+an enemy whose card says it was trained on the game's 800×600 world.
+
+To compare every enemy on the same seeded rounds:
+
+```bash
+python -m ai_platform_trainer benchmark
+```
+
+Results are written to `reports/benchmarks/`.

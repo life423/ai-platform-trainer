@@ -64,7 +64,7 @@ class TestConfigManager:
         assert config_manager.get("display.nonexistent", "default") == "default"
 
         # Test getting nested values
-        assert config_manager.get("ai.missile_model_path") == "models/missile_model.pth"
+        assert config_manager.get("gameplay.wall_margin") == 50
 
     def test_set_value(self):
         """Test setting configuration values."""
