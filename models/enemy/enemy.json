@@ -26,30 +26,30 @@
   },
   "missile_guidance": "sac",
   "clone_rounds": 300,
-  "clone_loss": 0.00040460750460624695,
+  "clone_loss": 0.00021267494594212621,
   "timesteps": 1000448,
   "reward": "+1 per catch, -2 per missile hit, potential shaping for distance to the player and for closing missiles (threat weight 1); no time cost",
   "seed": 0,
-  "minutes": 26.5,
+  "minutes": 20.4,
   "evaluation": {
     "source": "ai_platform_trainer.ai.evaluation.enemy_benchmark.evaluate_policy",
     "rounds": 160,
     "seed": 0,
-    "missile_guidance": "sac",
-    "objective": -4.575,
-    "objective_definition": "per round: +1 per catch, -1 per missile hit, no time cost",
-    "catches_per_min": 32.9,
-    "hits_per_min": 25.6,
-    "net_per_min": 7.3,
+    "missile_guidance": "sac (models/missile_sac_model_final.zip, trained on the arena's rules)",
+    "objective": -10.781,
+    "objective_definition": "per round: +1 per catch, -2 per missile hit, no time cost",
+    "catches_per_min": 22.47,
+    "hits_per_min": 32.8,
+    "net_per_min": -10.33,
     "by_bot": {
-      "idle_catches_per_min": 34.6,
-      "charger_catches_per_min": 76.2
+      "idle_catches_per_min": 21.0,
+      "charger_catches_per_min": 50.0
     },
-    "chase_baseline": {
-      "objective": -6.925,
-      "catches_per_min": 31.15,
-      "hits_per_min": 29.43,
-      "net_per_min": 1.73
+    "chase_baseline_same_missile": {
+      "objective": -13.15,
+      "catches_per_min": 19.85,
+      "hits_per_min": 36.23,
+      "net_per_min": -16.38
     }
   }
 }
