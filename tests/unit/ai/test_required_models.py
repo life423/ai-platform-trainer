@@ -2,12 +2,18 @@
 Play must fail loudly when a trained model is missing or broken.
 
 These tests pin that there is no scripted or basic-homing fallback left in
-the game's missiles or enemy.
+the game's missiles or enemy, and that the SAC missile is the only missile AI.
 """
+import inspect
+
 import pytest
 
 from ai_platform_trainer.ai.missile_ai_loader import MissileAIManager
-from ai_platform_trainer.ai.model_paths import MissingModelError
+from ai_platform_trainer.ai.model_paths import (
+    MODEL_NAMES,
+    TRAINING_COMMANDS,
+    MissingModelError,
+)
 from ai_platform_trainer.core.screen_context import ScreenContext
 from ai_platform_trainer.entities import enemy_agent
 from ai_platform_trainer.entities.smart_missile import SmartMissile
@@ -45,9 +51,14 @@ def test_missile_has_no_basic_homing_to_fall_back_to():
     assert not hasattr(SmartMissile, "_update_with_basic_homing")
 
 
-def test_missile_rejects_an_unknown_algorithm():
-    with pytest.raises(ValueError):
-        _missile(rl_model=object(), rl_algorithm="basic")
+def test_missile_takes_no_algorithm_choice():
+    assert "rl_algorithm" not in inspect.signature(SmartMissile).parameters
+
+
+def test_sac_is_the_only_missile_model(no_disk_models):
+    assert not hasattr(no_disk_models, "ppo_model")
+    assert set(MODEL_NAMES) == {"enemy", "sac"}
+    assert set(TRAINING_COMMANDS) == {"enemy", "sac"}
 
 
 def test_missile_model_errors_are_not_swallowed():
@@ -56,20 +67,16 @@ def test_missile_model_errors_are_not_swallowed():
             raise ValueError("boom")
 
     ScreenContext.initialize(1280, 720)
-    missile = _missile(rl_model=Broken(), rl_algorithm="sac")
+    missile = _missile(rl_model=Broken())
 
     with pytest.raises(ValueError, match="boom"):
         missile.update_with_ai({"x": 300.0, "y": 300.0})
 
 
-def test_untrained_missile_model_is_refused(no_disk_models):
+def test_untrained_sac_model_is_refused(no_disk_models):
+    assert "SAC is not trained yet" in no_disk_models.problem_with()
     with pytest.raises(MissingModelError, match="SAC is not trained yet"):
-        no_disk_models.create_smart_missile(0, 0, model_choice="sac")
-
-
-def test_unknown_missile_model_is_an_error(no_disk_models):
-    with pytest.raises(ValueError):
-        no_disk_models.create_smart_missile(0, 0, model_choice="basic")
+        no_disk_models.create_smart_missile(0, 0)
 
 
 def test_model_that_fails_to_load_is_reported(no_disk_models, monkeypatch):
@@ -85,9 +92,9 @@ def test_model_that_fails_to_load_is_reported(no_disk_models, monkeypatch):
     )
 
     assert loaded is None
-    assert "corrupt zip" in no_disk_models.problem_with("sac")
+    assert "corrupt zip" in no_disk_models.problem_with()
     with pytest.raises(MissingModelError, match="corrupt zip"):
-        no_disk_models.create_smart_missile(0, 0, model_choice="sac")
+        no_disk_models.create_smart_missile(0, 0)
 
 
 def test_agent_enemy_is_required(monkeypatch):

@@ -1,5 +1,5 @@
 """
-Smart Missile: a homing missile steered by a reinforcement learning model.
+Smart Missile: a homing missile steered by the SAC reinforcement learning model.
 """
 import logging
 import math
@@ -8,25 +8,22 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 from ai_platform_trainer.ai.model_paths import MissingModelError
-from ai_platform_trainer.arena.observations import sac_missile_observation
+from ai_platform_trainer.arena.observations import (
+    SAC_TURN_SCALE_DEG,
+    sac_missile_observation,
+)
 from ai_platform_trainer.core.screen_context import ScreenContext
 from ai_platform_trainer.entities.missile import Missile
 
 
 class SmartMissile(Missile):
     """
-    Homing missile guided by a reinforcement learning model (SAC or PPO).
+    Homing missile guided by the trained SAC reinforcement learning model.
 
-    SAC and PPO were trained with different observation formats and turn-rate
-    scales (see _create_sac_observation()/
-    _create_ppo_observation() below), so rl_algorithm must be set
-    correctly for whichever rl_model is passed in - the two are not
-    interchangeable despite both being "an RL model".
+    The observation format and turn-rate scale are the ones the model was
+    trained with, shared with the arena (see arena.observations), so the game
+    and the arena steer missiles the same way.
     """
-
-    # Degrees per step each RL model's action of 1.0 was actually trained
-    # to mean - not interchangeable.
-    RL_TURN_SCALES = {"sac": 20.0, "ppo": 15.0}
 
     def __init__(
         self,
@@ -40,27 +37,22 @@ class SmartMissile(Missile):
         birth_time: int = 0,
         lifespan: int = 5000,  # Reduced lifespan to prevent endless circling
         rl_model: Optional[Any] = None,
-        rl_algorithm: Optional[str] = None,
     ):
         super().__init__(x, y, speed, vx, vy, birth_time, lifespan)
 
         if rl_model is None:
             raise MissingModelError(
-                "A SmartMissile needs a reinforcement learning model (SAC or PPO). "
+                "A SmartMissile needs the SAC reinforcement learning model. "
                 "There is no basic-homing fallback."
             )
 
-        if rl_algorithm not in self.RL_TURN_SCALES:
-            raise ValueError(f"Unknown RL missile algorithm '{rl_algorithm}'")
-
         self.rl_model = rl_model
-        self.rl_algorithm = rl_algorithm  # "sac" or "ppo"
 
         # Target tracking
         self.target_pos = {"x": target_x, "y": target_y}
         self.last_target_pos = {"x": target_x, "y": target_y}
 
-        logging.info(f"SmartMissile created with {self.rl_algorithm or 'RL'} AI")
+        logging.info("SmartMissile created with SAC AI")
 
     def update_with_ai(self, target_pos: Dict[str, float]) -> None:
         """
@@ -83,27 +75,16 @@ class SmartMissile(Missile):
         super().update()
 
     def _update_with_rl(self, target_pos: Dict[str, float]) -> None:
-        """Update using the RL model (SAC or PPO) this missile was given."""
+        """Update using the SAC model this missile was given."""
         # Calculate target velocity
         target_vx = target_pos["x"] - self.last_target_pos["x"]
         target_vy = target_pos["y"] - self.last_target_pos["y"]
 
-        # Each algorithm needs its own observation format and turn-rate
-        # scale - they were trained with different conventions, not
-        # just different weights for the same inputs.
-        if self.rl_algorithm == "ppo":
-            observation = self._create_ppo_observation(
-                target_pos, target_vx, target_vy
-            )
-        else:
-            observation = self._create_sac_observation(
-                target_pos, target_vx, target_vy
-            )
-        turn_scale = self.RL_TURN_SCALES[self.rl_algorithm]
+        observation = self._create_sac_observation(target_pos, target_vx, target_vy)
 
         # Get action from RL model
         action, _ = self.rl_model.predict(observation, deterministic=True)
-        turn_rate = action[0] * turn_scale
+        turn_rate = action[0] * SAC_TURN_SCALE_DEG
 
         # Apply the turn
         self._apply_turn(turn_rate)
@@ -143,50 +124,4 @@ class SmartMissile(Missile):
             target_vy,
             screen_context.width,
             screen_context.height,
-        )
-
-    def _create_ppo_observation(
-        self, target_pos: Dict[str, float], target_vx: float, target_vy: float
-    ) -> np.ndarray:
-        """
-        Create the observation vector for the trained PPO missile model.
-
-        This must exactly match MissileRLEnvironment._get_observation() in
-        ai/training/train_missile_rl.py: 10 features using
-        ScreenContext.create_missile_observation()'s [0, 1] position
-        convention (not SAC's [-1, 1] scale) and a distance computed from
-        the difference of those normalized positions (not the raw screen
-        diagonal SAC uses) - a different, older convention than SAC's,
-        not a subset of it.
-        """
-        screen_context = ScreenContext.get_instance()
-        observation = screen_context.create_missile_observation(
-            {"x": 0, "y": 0},  # Player pos not needed for this observation
-            target_pos,
-            self.pos,
-            {"x": self.vx, "y": self.vy},
-        )
-
-        target_vx_norm = target_vx / 5.0
-        target_vy_norm = target_vy / 5.0
-
-        angle_to_target = math.atan2(
-            target_pos["y"] - self.pos["y"], target_pos["x"] - self.pos["x"]
-        )
-        angle_norm = angle_to_target / math.pi
-
-        return np.array(
-            [
-                observation["missile_x"],
-                observation["missile_y"],
-                observation["velocity_x"],
-                observation["velocity_y"],
-                observation["target_x"],
-                observation["target_y"],
-                target_vx_norm,
-                target_vy_norm,
-                observation["distance_to_target"],
-                angle_norm,
-            ],
-            dtype=np.float32,
         )

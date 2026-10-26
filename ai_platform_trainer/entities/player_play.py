@@ -10,9 +10,7 @@ from ai_platform_trainer.entities.missile import Missile
 
 
 class PlayerPlay:
-    def __init__(
-        self, screen_width: int, screen_height: int, model_choice: str = "sac"
-    ):
+    def __init__(self, screen_width: int, screen_height: int):
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.size = 50
@@ -21,9 +19,6 @@ class PlayerPlay:
         self.missiles: List[Missile] = []
         self.missile_cooldown = 500  # Cooldown in milliseconds
         self.last_missile_time = 0
-        # Which missile guidance model to request: "sac" or "ppo".
-        # See ai/missile_ai_loader.py for what each means.
-        self.model_choice = model_choice
         # Degrees for pygame.transform.rotate; 0 matches the sprite's
         # native "facing up" artwork. Holds its last value while idle.
         self.facing_angle = 0.0
@@ -123,7 +118,6 @@ class PlayerPlay:
             vy=vy,
             birth_time=birth_time,
             lifespan=random_lifespan,
-            model_choice=self.model_choice,
         )
         self.missiles.append(missile)
         self.last_missile_time = current_time

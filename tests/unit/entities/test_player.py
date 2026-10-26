@@ -70,6 +70,16 @@ class TestPlayerPlay:
             # Still only one missile (can't fire while one is active)
             assert len(player_play.missiles) == 1
 
+    def test_missiles_are_requested_from_the_sac_model(self, player_play):
+        """Play has one missile AI, so a shot asks for it without choosing a model."""
+        with patch("pygame.time.get_ticks", return_value=1000), patch(
+            "ai_platform_trainer.entities.player_play.create_smart_missile"
+        ) as make_missile:
+            player_play.shoot_missile()
+
+        assert "model_choice" not in make_missile.call_args.kwargs
+        assert not hasattr(player_play, "model_choice")
+
     def test_shoot_missile_with_target(self, player_play):
         """Test missile creation when shooting at a target."""
         # Mock pygame time

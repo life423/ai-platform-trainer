@@ -15,9 +15,9 @@ python run_game.py
 
 (equivalently: `pip install -e .` then `ai-trainer`, or `python -m ai_platform_trainer`)
 
-Choose **Play** from the main menu, then pick the missile AI (SAC or PPO). The
-opponent is the AI Agent. Play refuses to start if a model it needs is missing,
-and the menu names the command that trains it.
+Choose **Play** from the main menu. Your missiles are guided by the SAC model and
+the opponent is the AI Agent. Play refuses to start if a model it needs is
+missing, and the menu names the command that trains it.
 
 ### Controls
 
@@ -65,7 +65,7 @@ pre-commit run --all-files
 
 ## AI Models
 
-The game runs three trained models. None of them has a scripted fallback: if a
+The game runs two trained models. None of them has a scripted fallback: if a
 model is missing or fails to load, Play says which command trains it and refuses
 to start.
 
@@ -73,7 +73,6 @@ to start.
 |---|---|---|
 | AI Agent (enemy, PPO) | `models/enemy_ppo/enemy_ppo.zip` + JSON model card | `python -m ai_platform_trainer train-enemy` |
 | Missile AI: SAC | `models/missile_sac_model_final.zip` | `python -m ai_platform_trainer.ai.training.train_missile_sac` |
-| Missile AI: PPO | `models/missile_rl_model_final.zip` | `python -m ai_platform_trainer.ai.training.train_missile_rl` |
 
 The enemy trains in `arena/`, a simulation with no window, against the same
 missile guidance the game uses. `train-enemy` saves checkpoints as it goes;

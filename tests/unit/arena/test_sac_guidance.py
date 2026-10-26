@@ -39,7 +39,6 @@ def test_game_and_arena_build_the_same_sac_input():
     missile = SmartMissile(
         300, 200, target_x=520.0, target_y=410.0, speed=5.0, vx=3.0, vy=4.0,
         rl_model=object(),
-        rl_algorithm="sac",
     )
     target = {"x": 520.0, "y": 410.0}
 
@@ -79,7 +78,7 @@ def test_arena_sac_guidance_steers_like_the_game():
     game = SmartMissile(
         start["x"], start["y"], target_x=target["x"], target_y=target["y"],
         speed=config.missile_speed, vx=start["vx"], vy=start["vy"],
-        rl_model=sac_model, rl_algorithm="sac",
+        rl_model=sac_model,
     )
     arena = MissileState(
         start["x"], start["y"], start["vx"], start["vy"], life_frames=600,

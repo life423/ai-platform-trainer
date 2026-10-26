@@ -128,7 +128,6 @@ def test_game_snapshot_encodes_identically_to_sim_state():
                 birth_time=now - m.age_frames * FRAME_MS,
                 lifespan=m.life_frames * FRAME_MS,
                 rl_model=ZeroTurnModel(),
-                rl_algorithm="sac",
             )
             game_missile.exploded = m.exploded
             player.missiles.append(game_missile)

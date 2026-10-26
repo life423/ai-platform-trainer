@@ -9,6 +9,7 @@ from ai_platform_trainer.ai.model_paths import MissingModelError
 from ai_platform_trainer.arena.config import WORLD_HEIGHT, WORLD_WIDTH
 from ai_platform_trainer.core.config_manager import get_config_manager
 from ai_platform_trainer.core.screen_context import ScreenContext
+from ai_platform_trainer.entities.enemy_agent import enemy_agent_problem
 from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.gameplay.config import config
@@ -26,7 +27,6 @@ class GameCore:
     def __init__(self) -> None:
         self.running: bool = True
         self.menu_active: bool = True
-        self.model_choice: str = "sac"
 
         self.config_manager = get_config_manager()
 
@@ -108,37 +108,36 @@ class GameCore:
         pygame.quit()
         logging.info("Game loop exited and Pygame quit.")
 
-    def start_game(self, model_choice: str = "sac") -> None:
-        """Start a Play game against the AI Agent with the chosen missile AI.
+    def start_game(self) -> None:
+        """Start a Play game: the AI Agent against the SAC missile AI.
 
         Raises:
-            MissingModelError: if the chosen missile model or the AI Agent
+            MissingModelError: if the SAC missile model or the AI Agent
                 has not been trained.
         """
-        self.model_choice = model_choice
-        logging.info(f"Starting Play (missile: {model_choice}).")
+        logging.info("Starting Play.")
 
         # Refuse up front rather than failing when the first missile is fired
-        problem = missile_ai_manager.problem_with(model_choice)
+        problem = enemy_agent_problem()
+        if problem is None:
+            problem = missile_ai_manager.problem_with()
         if problem is not None:
             raise MissingModelError(problem)
 
-        self.player = PlayerPlay(
-            self.screen_width, self.screen_height, model_choice=model_choice
-        )
+        self.player = PlayerPlay(self.screen_width, self.screen_height)
         self.player.reset()
         self.play_learning_mode_manager = PlayLearningMode(self)
         self.enemy = self.play_learning_mode_manager.learning_enemy
         spawn_entities(self)
 
     def check_menu_selection(self, action: str, payload: Optional[dict] = None) -> None:
-        """Handle a menu choice. For "play", payload has the "model_choice"."""
+        """Handle a menu choice. The payload is unused: Play always starts the same game."""
         if action == "exit":
             logging.info("Exit selected from the menu.")
             self.running = False
         elif action == "play":
+            self.start_game()
             self.menu_active = False
-            self.start_game((payload or {}).get("model_choice", "sac"))
 
     def _toggle_fullscreen(self) -> None:
         """Switch between window and fullscreen, keeping the current game going."""

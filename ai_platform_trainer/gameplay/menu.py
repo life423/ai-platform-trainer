@@ -3,7 +3,7 @@ from typing import Optional
 
 import pygame
 
-from ai_platform_trainer.ai.missile_ai_loader import MODEL_CHOICES, missile_ai_manager
+from ai_platform_trainer.ai.missile_ai_loader import missile_ai_manager
 from ai_platform_trainer.entities.enemy_agent import enemy_agent_problem
 
 
@@ -13,14 +13,7 @@ class Menu:
         self.main_menu_options = ["Play", "Help", "Exit"]
         self.selected_option = 0
 
-        # Submenu shown after choosing "Play": which AI guides your missiles.
-        # The opponent is always the AI Agent.
-        self.show_model_menu = False
-        self.model_keys = list(MODEL_CHOICES.keys())  # ["sac", "ppo"]
-        self.selected_model_index = 0
-        self.model_option_rects = {}
-
-        # Shown on the submenu when a required model is missing
+        # Shown on the main menu when Play cannot start because a model is missing
         self.error_message: Optional[str] = None
 
         # Flag to show help screen
@@ -38,7 +31,6 @@ class Menu:
         self.color_title = (0, 51, 102)
         self.color_option = (245, 245, 245)
         self.color_selected = (255, 223, 0)
-        self.color_unavailable = (120, 120, 120)
         self.color_error = (180, 0, 0)
         self.color_highlight = (20, 30, 70, 215)  # the pill behind the selection
         self.option_rects = {}  # Store clickable rects for each menu option
@@ -47,10 +39,8 @@ class Menu:
         """
         Handle user input for the menu.
 
-        Returns None, or an (action, payload) tuple where action is one of
-        "play" / "exit". For "play", payload is
-        a dict with "model_choice" ("sac"/"ppo"); otherwise
-        payload is None.
+        Returns None, or an (action, payload) tuple where action is "play" or
+        "exit". The payload is always None.
         """
         # If the help screen is currently displayed
         if self.show_help:
@@ -60,10 +50,6 @@ class Menu:
             ]:
                 self.show_help = False
             return None
-
-        # If the "choose your missile AI" submenu is currently displayed
-        if self.show_model_menu:
-            return self._handle_model_menu_event(event)
 
         # If user presses ENTER on the menu
         if event.type == pygame.KEYDOWN and event.key in [
@@ -99,11 +85,7 @@ class Menu:
         """Handle the current main menu selection."""
         chosen = self.main_menu_options[self.selected_option]
         if chosen == "Play":
-            # Don't start the game yet - pick the missile AI first.
-            self.show_model_menu = True
-            self.selected_model_index = 0
-            self.error_message = None
-            return None
+            return self._handle_play()
         elif chosen == "Help":
             self.show_help = True
             return None
@@ -111,55 +93,18 @@ class Menu:
             return ("exit", None)
         return None
 
-    def _handle_model_menu_event(self, event):
-        """Handle input while the "choose your missile AI" submenu is shown."""
-        if event.type == pygame.KEYDOWN and event.key in [
-            pygame.K_RETURN,
-            pygame.K_KP_ENTER,
-        ]:
-            return self._handle_model_selection()
-
-        if event.type == pygame.KEYDOWN:
-            if event.key in [pygame.K_UP, pygame.K_w]:
-                self.selected_model_index = (self.selected_model_index - 1) % len(
-                    self.model_keys
-                )
-            elif event.key in [pygame.K_DOWN, pygame.K_s]:
-                self.selected_model_index = (self.selected_model_index + 1) % len(
-                    self.model_keys
-                )
-            elif event.key == pygame.K_ESCAPE:
-                # Back to the main menu instead of exiting the game.
-                self.show_model_menu = False
-
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            for index, rect in self.model_option_rects.items():
-                if rect.collidepoint(mouse_x, mouse_y):
-                    self.selected_model_index = index
-                    return self._handle_model_selection()
-
-        return None
-
-    def _missing_model_problem(self, model_choice: str) -> Optional[str]:
-        """What is missing for this game to start, or None if everything is there."""
-        enemy_problem = enemy_agent_problem()
-        if enemy_problem is not None:
-            return enemy_problem
-        return missile_ai_manager.problem_with(model_choice)
-
-    def _handle_model_selection(self):
-        """Start the game with the highlighted missile AI, or explain what is missing."""
-        model_choice = self.model_keys[self.selected_model_index]
-        problem = self._missing_model_problem(model_choice)
+    def _handle_play(self):
+        """Start the game, or say on this menu what is missing."""
+        problem = enemy_agent_problem()
+        if problem is None:
+            problem = missile_ai_manager.problem_with()
         if problem is not None:
             self.error_message = problem
             logging.error(problem)
             return None
 
-        self.show_model_menu = False
         self.error_message = None
-        return ("play", {"model_choice": model_choice})
+        return ("play", None)
 
     def draw(self, screen):
         """
@@ -168,10 +113,6 @@ class Menu:
         """
         if self.show_help:
             self.draw_help(screen)
-            return
-
-        if self.show_model_menu:
-            self.draw_model_menu(screen)
             return
 
         screen.fill(self.color_background)
@@ -199,6 +140,15 @@ class Menu:
                 self._draw_highlight(screen, option_rect)
             screen.blit(option_surface, option_rect)
 
+        if self.error_message:
+            error_surface = self.font_small.render(
+                self.error_message, True, self.color_error
+            )
+            error_rect = error_surface.get_rect(
+                center=(self.screen_width // 2, self.screen_height - 100)
+            )
+            screen.blit(error_surface, error_rect)
+
         self._draw_hint(screen, "Up/Down to choose    Enter to select    Esc to quit")
 
     def _draw_highlight(self, screen, option_rect) -> None:
@@ -220,67 +170,6 @@ class Menu:
             center=(self.screen_width // 2, self.screen_height - 40)
         )
         screen.blit(hint, hint_rect)
-
-    def draw_model_menu(self, screen):
-        """Draw the "choose your missile AI" submenu shown after selecting Play."""
-        screen.fill(self.color_background)
-
-        title_surface = self.font_title.render(
-            "Choose Missile AI", True, self.color_title
-        )
-        title_rect = title_surface.get_rect(
-            center=(self.screen_width // 2, self.screen_height // 4)
-        )
-        screen.blit(title_surface, title_rect)
-
-        opponent = (
-            "Opponent: AI Agent (PPO)"
-            if enemy_agent_problem() is None
-            else "Opponent: AI Agent - not ready"
-        )
-        opponent_surface = self.font_small.render(opponent, True, self.color_title)
-        opponent_rect = opponent_surface.get_rect(
-            center=(self.screen_width // 2, self.screen_height // 4 + 60)
-        )
-        screen.blit(opponent_surface, opponent_rect)
-
-        start_y = self.screen_height // 2
-        spacing = 70
-
-        for index, key in enumerate(self.model_keys):
-            label = MODEL_CHOICES[key]
-            available = missile_ai_manager.is_model_available(key)
-            if not available:
-                label += " (not trained yet)"
-
-            selected = index == self.selected_model_index
-            if selected:
-                color = self.color_selected
-            elif not available:
-                color = self.color_unavailable
-            else:
-                color = self.color_option
-
-            font = self.font_option if available else self.font_small
-            option_surface = font.render(label, True, color)
-            option_rect = option_surface.get_rect(
-                center=(self.screen_width // 2, start_y + index * spacing)
-            )
-            self.model_option_rects[index] = option_rect
-            if selected:
-                self._draw_highlight(screen, option_rect)
-            screen.blit(option_surface, option_rect)
-
-        if self.error_message:
-            error_surface = self.font_small.render(
-                self.error_message, True, self.color_error
-            )
-            error_rect = error_surface.get_rect(
-                center=(self.screen_width // 2, self.screen_height - 100)
-            )
-            screen.blit(error_surface, error_rect)
-
-        self._draw_hint(screen, "Up/Down to choose    Enter to start    Esc to go back")
 
     def draw_help(self, screen):
         """
@@ -339,9 +228,9 @@ class Menu:
 
         # Text explaining the game modes
         modes_text = [
-            "• Play: the enemy is the AI Agent; pick the AI that guides your missiles",
+            "• Play: the enemy is the AI Agent; the SAC AI guides your missiles",
             "• AI Agent: a PPO reinforcement-learning policy",
-            "• SAC / PPO: reinforcement-learning missile AIs",
+            "• SAC: the reinforcement-learning missile AI",
         ]
 
         # Draw modes text

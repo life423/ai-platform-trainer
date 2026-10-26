@@ -21,14 +21,12 @@ class MissingModelError(RuntimeError):
 MODEL_NAMES = {
     "enemy": "AI Agent",
     "sac": "SAC",
-    "ppo": "PPO",
 }
 
 # The command that produces each model, shown when one is missing.
 TRAINING_COMMANDS = {
     "enemy": "python -m ai_platform_trainer train-enemy",
     "sac": "python -m ai_platform_trainer.ai.training.train_missile_sac",
-    "ppo": "python -m ai_platform_trainer.ai.training.train_missile_rl",
 }
 
 

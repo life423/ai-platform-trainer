@@ -70,7 +70,6 @@ def straight_missile(**kwargs) -> SmartMissile:
         birth_time=kwargs["birth_time"],
         lifespan=kwargs["lifespan"],
         rl_model=ZeroTurnModel(),
-        rl_algorithm="sac",
     )
 
 

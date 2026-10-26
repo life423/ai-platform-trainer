@@ -130,7 +130,7 @@ def enemy_action_to_displacement(
 # The SAC missile model is trained with these scales (ai/envs/missile_env.py)
 SAC_MAX_MISSILE_SPEED = 10.0
 SAC_TARGET_SPEED_SCALE = 5.0
-# SmartMissile.RL_TURN_SCALES["sac"]: degrees per step at an action of 1.0
+# Degrees per step at an action of 1.0; SmartMissile turns by this too
 SAC_TURN_SCALE_DEG = 20.0
 
 
