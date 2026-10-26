@@ -11,16 +11,36 @@ from unittest.mock import patch
 
 import pygame
 import pytest
+import torch
 
 from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.arena.sim import CAUGHT, HIT, ArenaSim
 from ai_platform_trainer.arena.state import MissileState
+from ai_platform_trainer.core.screen_context import ScreenContext
 from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.entities.smart_missile import SmartMissile
 from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
 
 W, H = 1470, 956
 CONFIG = ArenaConfig(width=W, height=H)
+
+
+@pytest.fixture(autouse=True)
+def screen_context():
+    """The game's model input is normalized to the screen, so one must exist."""
+    ScreenContext.initialize(W, H)
+
+
+class ZeroTurnModel(torch.nn.Module):
+    """A guidance model that never turns the missile."""
+
+    def forward(self, x):
+        return torch.zeros(x.shape[0], 1)
+
+
+def no_turn(missile, target_x, target_y, config):
+    """Arena guidance that never turns the missile, matching ZeroTurnModel."""
+    return None
 
 
 def ticks(frame: int) -> int:
@@ -37,8 +57,8 @@ def pressed(dx: int, dy: int):
     return keys
 
 
-def basic_missile(**kwargs) -> SmartMissile:
-    """A SmartMissile with no guidance model, i.e. the basic homing fallback."""
+def straight_missile(**kwargs) -> SmartMissile:
+    """A SmartMissile whose model never turns it, so it flies straight."""
     return SmartMissile(
         kwargs["x"],
         kwargs["y"],
@@ -49,6 +69,7 @@ def basic_missile(**kwargs) -> SmartMissile:
         vy=kwargs["vy"],
         birth_time=kwargs["birth_time"],
         lifespan=kwargs["lifespan"],
+        ai_model=ZeroTurnModel(),
     )
 
 
@@ -56,7 +77,7 @@ def test_player_movement_and_wrap_match_play_mode():
     rng = random.Random(0)
     player = PlayerPlay(W, H)
     player.position["x"], player.position["y"] = W - 12, 7
-    sim = ArenaSim(CONFIG, random.Random(0))
+    sim = ArenaSim(CONFIG, random.Random(0), guidance=no_turn)
     sim.reset(player_xy=(W - 12.0, 7.0), enemy_xy=(500.0, 500.0))
     move, hold = (0, 0), 0
     for _ in range(4000):
@@ -79,7 +100,7 @@ def test_missile_homing_expiry_and_wrap_match_play_mode():
         x, y = rng.uniform(0.0, W), rng.uniform(0.0, H)
         angle = rng.uniform(-math.pi, math.pi)
         vx, vy = 5.0 * math.cos(angle), 5.0 * math.sin(angle)
-        sim = ArenaSim(CONFIG, random.Random(0))
+        sim = ArenaSim(CONFIG, random.Random(0), guidance=no_turn)
         sim.reset(
             player_xy=(0.0, 0.0),
             enemy_xy=(rng.uniform(0, W - 50), rng.uniform(0, H - 50)),
@@ -92,7 +113,7 @@ def test_missile_homing_expiry_and_wrap_match_play_mode():
         ]
         player = PlayerPlay(W, H)
         player.missiles = [
-            basic_missile(
+            straight_missile(
                 x=x,
                 y=y,
                 target_x=enemy.x,
@@ -128,13 +149,13 @@ def test_shooting_rules_match_play_mode():
     made, launched = [], []
 
     def factory(**kwargs):
-        made.append(basic_missile(**kwargs))
+        made.append(straight_missile(**kwargs))
         return made[-1]
 
     player = PlayerPlay(W, H)
     player.position["x"], player.position["y"] = 400, 300
     enemy = {"x": 900.0, "y": 650.0}
-    sim = ArenaSim(CONFIG, random.Random(1))
+    sim = ArenaSim(CONFIG, random.Random(1), guidance=no_turn)
     sim.reset(player_xy=(400.0, 300.0), enemy_xy=(900.0, 650.0))
     with patch(
         "ai_platform_trainer.entities.player_play.create_smart_missile",
@@ -181,7 +202,7 @@ def test_collision_rules_match_play_mode():
             expected = HIT
         else:
             expected = ""
-        sim = ArenaSim(CONFIG)
+        sim = ArenaSim(CONFIG, guidance=no_turn)
         sim.reset(player_xy=(px, py), enemy_xy=(ex, ey))
         sim.state.missiles = [MissileState(mx, my, 5.0, 0.0, 170)]
         assert sim.collision_phase() == expected

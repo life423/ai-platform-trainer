@@ -1,17 +1,15 @@
 """
-Play mode: the player against the selected enemy, the trained AI agent by
-default or the scripted baseline, with a panel showing what drives the enemy.
+Play mode: the player against the AI Agent, with a panel showing what drives
+the enemy.
 """
 import logging
 import math
 import random
-from typing import Union
 
 import pygame
 
 from ai_platform_trainer.entities.enemy_agent import create_trained_enemy
-from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
-from ai_platform_trainer.entities.enemy_play import DEFAULT_ENEMY_CHOICE, EnemyPlay
+from ai_platform_trainer.entities.enemy_play import EnemyPlay
 
 # Color constants
 COLOR_TEXT_PRIMARY = (255, 255, 255)  # White
@@ -22,31 +20,20 @@ COLOR_SELECTED = (255, 215, 0)  # Gold
 class PlayLearningMode:
     """Play mode against the selected enemy."""
 
-    def __init__(self, game, enemy_choice: str = DEFAULT_ENEMY_CHOICE):
+    def __init__(self, game):
         """
-        Initialize learning play mode.
+        Initialize Play mode against the AI Agent.
 
-        Args:
-            enemy_choice: "adaptive" for the scripted staged-difficulty AI
-                (AdaptiveStagedEnemyAI), or "trained" for the best trained
-                enemy (the arena PPO agent).
-                Falls back to "adaptive" if "trained" was
-                requested but no model has been trained yet.
+        Raises:
+            MissingModelError: if the AI Agent has not been trained yet.
         """
         self.game = game
         self.space_pressed_last_frame = False
-        self.enemy_choice = enemy_choice
 
-        self.learning_enemy: Union[AdaptiveStagedEnemyAI, EnemyPlay]
-        trained = None
-        if enemy_choice == "trained":
-            trained = create_trained_enemy(
-                self.game.screen_width,
-                self.game.screen_height,
-                player_provider=lambda: self.game.player,
-            )
-        self.learning_enemy = trained or AdaptiveStagedEnemyAI(
-            self.game.screen_width, self.game.screen_height
+        self.learning_enemy: EnemyPlay = create_trained_enemy(
+            self.game.screen_width,
+            self.game.screen_height,
+            player_provider=lambda: self.game.player,
         )
 
         # Replace the regular enemy with our learning AI

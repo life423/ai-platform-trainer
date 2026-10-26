@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from ai_platform_trainer.arena.config import ArenaConfig, ms_to_frames
+from ai_platform_trainer.arena.sim import Guidance
 from ai_platform_trainer.arena.player_bots import PlayerAction, PlayerBot
 from ai_platform_trainer.arena.sim import ArenaSim
 from ai_platform_trainer.arena.state import ArenaState
@@ -33,8 +34,13 @@ class ArenaEpisode:
         bot: PlayerBot,
         rng: random.Random,
         max_frames: int = DEFAULT_MAX_FRAMES,
+        guidance: Optional[Guidance] = None,
     ) -> None:
-        self.sim = ArenaSim(config, rng)
+        # Training and benchmarks pass the game's SAC guidance explicitly. The
+        # default is only for the arena's own low-level tests.
+        self.sim = ArenaSim(config, rng) if guidance is None else ArenaSim(
+            config, rng, guidance=guidance
+        )
         self.bot = bot
         self.rng = rng
         self.max_frames = max_frames

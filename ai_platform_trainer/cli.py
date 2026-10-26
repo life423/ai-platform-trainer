@@ -27,6 +27,22 @@ def _add_arena_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--seed", type=int, default=0, help="first round seed")
     parser.add_argument("--width", type=int, default=DEFAULT_SCREEN[0])
     parser.add_argument("--height", type=int, default=DEFAULT_SCREEN[1])
+    parser.add_argument(
+        "--missile",
+        choices=["sac", "basic"],
+        default="sac",
+        help="missile guidance: sac (the game's model) or basic (the old arena homing)",
+    )
+
+
+def _guidance(name: str):
+    """The arena's missile guidance: the game's SAC model, or None for basic homing."""
+    if name == "basic":
+        return None
+    from ai_platform_trainer.ai.model_paths import MISSILE_SAC_MODEL
+    from ai_platform_trainer.arena.missile_policies import SacGuidance
+
+    return SacGuidance(MISSILE_SAC_MODEL)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -94,7 +110,13 @@ def _benchmark(args: argparse.Namespace) -> int:
             return 2
         policies = [p for p in policies if p.name in wanted]
     config = ArenaConfig(width=args.width, height=args.height)
-    report = run_benchmark(policies, config, args.rounds, seed=args.seed)
+    report = run_benchmark(
+        policies,
+        config,
+        args.rounds,
+        seed=args.seed,
+        guidance=_guidance(args.missile),
+    )
     print(format_table(report))
     for path in save_report(report, args.out):
         print("wrote", path)
@@ -114,7 +136,11 @@ def _evaluate(args: argparse.Namespace) -> int:
         return 2
     config = ArenaConfig(width=args.width, height=args.height)
     summary = evaluate_policy(
-        SB3Enemy.load(args.model), config, args.rounds, seed=args.seed
+        SB3Enemy.load(args.model),
+        config,
+        args.rounds,
+        seed=args.seed,
+        guidance=_guidance(args.missile),
     )
     print(format_table({"policies": {"ppo": summary}}))
     for style, rates in summary["by_bot"].items():

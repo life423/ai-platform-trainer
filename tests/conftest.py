@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 import pytest
 import torch
 
-from ai_platform_trainer.ai.models.simple_missile_model import SimpleMissileModel
+from ai_platform_trainer.ai.models.missile_model import MissileModel
 
 
 @pytest.fixture
@@ -20,30 +20,23 @@ def sample_training_data() -> List[Dict[str, Any]]:
     Create a small sample of training data for testing.
 
     Returns:
-        List of dictionaries with game state data
+        List of schema-2 rows: the nine model features as the game builds
+        them, plus the label and collision flag
     """
     return [
         {
-            "player_x": 100.0,
-            "player_y": 100.0,
-            "enemy_x": 300.0,
-            "enemy_y": 300.0,
-            "missile_x": 120.0,
-            "missile_y": 120.0,
-            "missile_angle": 0.785,  # 45 degrees in radians
+            "schema": 2,
+            "features": [0.1, 0.1, 0.3, 0.3, 0.12, 0.12, 0.785, 0.25, 0.0],
             "missile_action": 5.0,
             "missile_collision": False,
+            "timestamp": 1000,
         },
         {
-            "player_x": 150.0,
-            "player_y": 150.0,
-            "enemy_x": 350.0,
-            "enemy_y": 350.0,
-            "missile_x": 170.0,
-            "missile_y": 170.0,
-            "missile_angle": 0.785,
+            "schema": 2,
+            "features": [0.15, 0.15, 0.35, 0.35, 0.17, 0.17, 0.785, 0.2, 0.0],
             "missile_action": -2.0,
             "missile_collision": True,
+            "timestamp": 1016,
         },
     ]
 
@@ -69,14 +62,14 @@ def sample_training_json_path(
 
 
 @pytest.fixture
-def simple_missile_model() -> SimpleMissileModel:
+def missile_model() -> MissileModel:
     """
-    Create a SimpleMissileModel instance with deterministic weights.
+    Create a MissileModel instance with deterministic weights.
 
     Returns:
-        Initialized SimpleMissileModel with preset weights
+        Initialized MissileModel with preset weights
     """
-    model = SimpleMissileModel(input_size=9, hidden_size=64, output_size=1)
+    model = MissileModel(input_size=9, hidden_size=64, output_size=1)
 
     # Set seed for reproducibility
     torch.manual_seed(42)
@@ -86,26 +79,3 @@ def simple_missile_model() -> SimpleMissileModel:
         param.data.fill_(0.01)
 
     return model
-
-
-@pytest.fixture
-def mock_game_state() -> Dict[str, Any]:
-    """
-    Create a mock game state for testing.
-
-    Returns:
-        Dictionary with game state information
-    """
-    return {
-        "player": {"x": 100, "y": 100},
-        "enemy": {"x": 300, "y": 300},
-        "missiles": [
-            {
-                "pos": {"x": 120, "y": 120},
-                "vx": 5.0,
-                "vy": 5.0,
-                "speed": 7.07,  # sqrt(5^2 + 5^2)
-                "last_action": 0.0,
-            }
-        ],
-    }

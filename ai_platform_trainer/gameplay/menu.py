@@ -1,8 +1,10 @@
+import logging
+from typing import Optional
+
 import pygame
 
 from ai_platform_trainer.ai.missile_ai_loader import MODEL_CHOICES, missile_ai_manager
-from ai_platform_trainer.entities.enemy_agent import trained_enemy_description
-from ai_platform_trainer.entities.enemy_play import ENEMY_CHOICES
+from ai_platform_trainer.entities.enemy_agent import enemy_agent_problem
 
 
 class Menu:
@@ -11,21 +13,15 @@ class Menu:
         self.main_menu_options = ["Play", "Train", "Help", "Exit"]
         self.selected_option = 0
 
-        # Submenu shown after choosing "Play", letting the player pick which
-        # enemy behavior to face: the scripted staged-difficulty AI, or the
-        # trained (supervised NN, optionally RL) EnemyPlay model.
-        self.show_enemy_menu = False
-        self.enemy_keys = list(ENEMY_CHOICES.keys())  # ["trained", "adaptive"]
-        self.selected_enemy_index = 0
-        self.selected_enemy_choice = "adaptive"
-        self.enemy_option_rects = {}
-
-        # Submenu shown after choosing the enemy, letting the player pick
-        # which missile guidance model to play against.
+        # Submenu shown after choosing "Play": which AI guides your missiles.
+        # The opponent is always the AI Agent.
         self.show_model_menu = False
         self.model_keys = list(MODEL_CHOICES.keys())  # ["sac", "ppo", "supervised"]
         self.selected_model_index = 0
         self.model_option_rects = {}
+
+        # Shown on the submenu when a required model is missing
+        self.error_message: Optional[str] = None
 
         # Flag to show help screen
         self.show_help = False
@@ -43,6 +39,7 @@ class Menu:
         self.color_option = (245, 245, 245)
         self.color_selected = (255, 223, 0)
         self.color_unavailable = (120, 120, 120)
+        self.color_error = (180, 0, 0)
         self.option_rects = {}  # Store clickable rects for each menu option
 
     def handle_menu_events(self, event):
@@ -51,8 +48,8 @@ class Menu:
 
         Returns None, or an (action, payload) tuple where action is one of
         "play_learning" / "train" / "exit". For "play_learning", payload is
-        a dict with "enemy_choice" ("adaptive"/"trained") and "model_choice"
-        ("sac"/"ppo"/"supervised"); otherwise payload is None.
+        a dict with "model_choice" ("sac"/"ppo"/"supervised"); otherwise
+        payload is None.
         """
         # If the help screen is currently displayed
         if self.show_help:
@@ -63,13 +60,9 @@ class Menu:
                 self.show_help = False
             return None
 
-        # If the "choose your opponent" submenu is currently displayed
+        # If the "choose your missile AI" submenu is currently displayed
         if self.show_model_menu:
             return self._handle_model_menu_event(event)
-
-        # If the "choose your enemy" submenu is currently displayed
-        if self.show_enemy_menu:
-            return self._handle_enemy_menu_event(event)
 
         # If user presses ENTER on the menu
         if event.type == pygame.KEYDOWN and event.key in [
@@ -105,10 +98,10 @@ class Menu:
         """Handle the current main menu selection."""
         chosen = self.main_menu_options[self.selected_option]
         if chosen == "Play":
-            # Don't start the game yet - let the player pick an enemy, then
-            # a missile model, first.
-            self.show_enemy_menu = True
-            self.selected_enemy_index = 0
+            # Don't start the game yet - pick the missile AI first.
+            self.show_model_menu = True
+            self.selected_model_index = 0
+            self.error_message = None
             return None
         elif chosen == "Train":
             return ("train", None)
@@ -119,46 +112,8 @@ class Menu:
             return ("exit", None)
         return None
 
-    def _handle_enemy_menu_event(self, event):
-        """Handle input while the "choose your enemy" submenu is shown."""
-        if event.type == pygame.KEYDOWN and event.key in [
-            pygame.K_RETURN,
-            pygame.K_KP_ENTER,
-        ]:
-            return self._handle_enemy_selection()
-
-        if event.type == pygame.KEYDOWN:
-            if event.key in [pygame.K_UP, pygame.K_w]:
-                self.selected_enemy_index = (self.selected_enemy_index - 1) % len(
-                    self.enemy_keys
-                )
-            elif event.key in [pygame.K_DOWN, pygame.K_s]:
-                self.selected_enemy_index = (self.selected_enemy_index + 1) % len(
-                    self.enemy_keys
-                )
-            elif event.key == pygame.K_ESCAPE:
-                # Back out to the main menu instead of exiting the game.
-                self.show_enemy_menu = False
-
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            for index, rect in self.enemy_option_rects.items():
-                if rect.collidepoint(mouse_x, mouse_y):
-                    self.selected_enemy_index = index
-                    return self._handle_enemy_selection()
-
-        return None
-
-    def _handle_enemy_selection(self):
-        """Confirm the highlighted enemy, then move on to the missile submenu."""
-        self.selected_enemy_choice = self.enemy_keys[self.selected_enemy_index]
-        self.show_enemy_menu = False
-        self.show_model_menu = True
-        self.selected_model_index = 0
-        return None
-
     def _handle_model_menu_event(self, event):
-        """Handle input while the "choose your opponent" submenu is shown."""
+        """Handle input while the "choose your missile AI" submenu is shown."""
         if event.type == pygame.KEYDOWN and event.key in [
             pygame.K_RETURN,
             pygame.K_KP_ENTER,
@@ -175,9 +130,8 @@ class Menu:
                     self.model_keys
                 )
             elif event.key == pygame.K_ESCAPE:
-                # Back one level, to the enemy submenu, not all the way out.
+                # Back to the main menu instead of exiting the game.
                 self.show_model_menu = False
-                self.show_enemy_menu = True
 
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -188,17 +142,25 @@ class Menu:
 
         return None
 
+    def _missing_model_problem(self, model_choice: str) -> Optional[str]:
+        """What is missing for this game to start, or None if everything is there."""
+        enemy_problem = enemy_agent_problem()
+        if enemy_problem is not None:
+            return enemy_problem
+        return missile_ai_manager.problem_with(model_choice)
+
     def _handle_model_selection(self):
-        """Confirm the highlighted opponent model and start the game."""
+        """Start the game with the highlighted missile AI, or explain what is missing."""
         model_choice = self.model_keys[self.selected_model_index]
+        problem = self._missing_model_problem(model_choice)
+        if problem is not None:
+            self.error_message = problem
+            logging.error(problem)
+            return None
+
         self.show_model_menu = False
-        return (
-            "play_learning",
-            {
-                "model_choice": model_choice,
-                "enemy_choice": self.selected_enemy_choice,
-            },
-        )
+        self.error_message = None
+        return ("play_learning", {"model_choice": model_choice})
 
     def draw(self, screen):
         """
@@ -211,10 +173,6 @@ class Menu:
 
         if self.show_model_menu:
             self.draw_model_menu(screen)
-            return
-
-        if self.show_enemy_menu:
-            self.draw_enemy_menu(screen)
             return
 
         screen.fill(self.color_background)
@@ -243,65 +201,28 @@ class Menu:
             self.option_rects[index] = option_rect
             screen.blit(option_surface, option_rect)
 
-    def draw_enemy_menu(self, screen):
-        """Draw the "choose your enemy" submenu shown after selecting Play."""
-        screen.fill(self.color_background)
-
-        title_surface = self.font_title.render(
-            "Choose Your Enemy", True, self.color_title
-        )
-        title_rect = title_surface.get_rect(
-            center=(self.screen_width // 2, self.screen_height // 4)
-        )
-        screen.blit(title_surface, title_rect)
-
-        start_y = self.screen_height // 2
-        spacing = 70
-
-        for index, key in enumerate(self.enemy_keys):
-            label = ENEMY_CHOICES[key]
-            trained = trained_enemy_description() if key == "trained" else None
-            available = key != "trained" or trained is not None
-
-            if trained is not None:
-                label += f" ({trained})"
-            if not available:
-                label += " (not trained yet - falls back to Scripted Baseline)"
-
-            if index == self.selected_enemy_index:
-                color = self.color_selected
-            elif not available:
-                color = self.color_unavailable
-            else:
-                color = self.color_option
-
-            font = self.font_option if available else self.font_small
-            option_surface = font.render(label, True, color)
-            option_rect = option_surface.get_rect(
-                center=(self.screen_width // 2, start_y + index * spacing)
-            )
-            self.enemy_option_rects[index] = option_rect
-            screen.blit(option_surface, option_rect)
-
-        hint_surface = self.font_small.render(
-            "Press ESC to go back", True, self.color_title
-        )
-        hint_rect = hint_surface.get_rect(
-            center=(self.screen_width // 2, self.screen_height - 50)
-        )
-        screen.blit(hint_surface, hint_rect)
-
     def draw_model_menu(self, screen):
-        """Draw the "choose your opponent" submenu shown after selecting Play."""
+        """Draw the "choose your missile AI" submenu shown after selecting Play."""
         screen.fill(self.color_background)
 
         title_surface = self.font_title.render(
-            "Choose Your Opponent", True, self.color_title
+            "Choose Missile AI", True, self.color_title
         )
         title_rect = title_surface.get_rect(
             center=(self.screen_width // 2, self.screen_height // 4)
         )
         screen.blit(title_surface, title_rect)
+
+        opponent = (
+            "Opponent: AI Agent (PPO)"
+            if enemy_agent_problem() is None
+            else "Opponent: AI Agent - not ready"
+        )
+        opponent_surface = self.font_small.render(opponent, True, self.color_title)
+        opponent_rect = opponent_surface.get_rect(
+            center=(self.screen_width // 2, self.screen_height // 4 + 60)
+        )
+        screen.blit(opponent_surface, opponent_rect)
 
         start_y = self.screen_height // 2
         spacing = 70
@@ -310,7 +231,7 @@ class Menu:
             label = MODEL_CHOICES[key]
             available = missile_ai_manager.is_model_available(key)
             if not available:
-                label += " (not trained yet - falls back to SAC)"
+                label += " (not trained yet)"
 
             if index == self.selected_model_index:
                 color = self.color_selected
@@ -326,6 +247,15 @@ class Menu:
             )
             self.model_option_rects[index] = option_rect
             screen.blit(option_surface, option_rect)
+
+        if self.error_message:
+            error_surface = self.font_small.render(
+                self.error_message, True, self.color_error
+            )
+            error_rect = error_surface.get_rect(
+                center=(self.screen_width // 2, self.screen_height - 100)
+            )
+            screen.blit(error_surface, error_rect)
 
         hint_surface = self.font_small.render(
             "Press ESC to go back", True, self.color_title
@@ -392,12 +322,11 @@ class Menu:
 
         # Text explaining the game modes
         modes_text = [
-            "• Train: Collect gameplay data for AI training",
-            "• Play: pick your enemy, then which AI guides your missiles",
-            "• Adaptive Staged: hand-tuned enemy that ramps up difficulty",
-            "• Trained AI: enemy driven by a trained network (+ RL if available)",
-            "• SAC / PPO: reinforcement learning (self-taught by trial and error)",
-            "• Supervised NN: neural net trained by imitating logged missile data",
+            "• Train: Collect gameplay data for the supervised missile model",
+            "• Play: the enemy is the AI Agent; pick the AI that guides your missiles",
+            "• AI Agent: a PPO reinforcement-learning policy",
+            "• SAC / PPO: reinforcement-learning missile AIs",
+            "• Supervised NN: a neural net trained by imitating logged missile data",
         ]
 
         # Draw modes text
@@ -409,21 +338,17 @@ class Menu:
             )
             screen.blit(mode_surface, mode_rect)
 
-        # AI Training section
-        ai_title = self.font_option.render("AI Training:", True, self.color_selected)
+        # Missing models section
+        ai_title = self.font_option.render("Missing models:", True, self.color_selected)
         ai_rect = ai_title.get_rect(
             topleft=(self.screen_width // 10, y_offset + len(modes_text) * 30 + 20)
         )
         screen.blit(ai_title, ai_rect)
 
-        # Text explaining the AI training
+        # Text explaining what happens when a model has not been trained
         ai_text = [
-            "• Supervised AI: Pre-trained neural network with fixed behavior",
-            "• Learning AI: Starts dumb and learns every frame during gameplay",
-            "• Watch the Learning AI evolve from simple chase to smart tactics",
-            "• Learning AI gets better at avoiding missiles and catching player",
-            "• Each session starts fresh - AI learns from scratch every time",
-            "• Real-time learning creates unique and engaging gameplay",
+            "• Play refuses to start until every AI it needs is trained",
+            "• The menu names the command that trains the missing model",
         ]
 
         # Draw AI text

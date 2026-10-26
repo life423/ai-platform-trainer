@@ -8,14 +8,17 @@ from ai_platform_trainer.utils.sprite_manager import SpriteManager
 
 
 class Renderer:
-    def __init__(self, screen: pygame.Surface) -> None:
+    def __init__(self, world: pygame.Surface, display) -> None:
         """
         Initialize the Renderer.
 
         Args:
-            screen: Pygame display surface
+            world: The fixed-size surface the game world is drawn on
+            display: DisplayManager, used to scale the world onto the window
+                and to draw the menu straight onto the window
         """
-        self.screen = screen
+        self.screen = world
+        self.display = display
         self.BACKGROUND_COLOR = (135, 206, 235)  # Light blue
 
         # Initialize sprite manager
@@ -47,18 +50,19 @@ class Renderer:
             learning_mode_manager: Learning mode manager for UI rendering
         """
         try:
-            # Clear screen with background color
-            self.screen.fill(self.BACKGROUND_COLOR)
-
             # Update frame counter for animations
             self.frame_count += 1
 
             if menu_active:
-                # Draw menu
-                menu.draw(self.screen)
+                # The menu is drawn straight onto the window
+                window = self.display.get_screen()
+                window.fill(self.BACKGROUND_COLOR)
+                menu.draw(window)
                 logging.debug("Menu rendered.")
+                self.display.flip()
             else:
-                # Render game elements
+                # The game world is drawn at its fixed size, then scaled to the window
+                self.screen.fill(self.BACKGROUND_COLOR)
                 self._render_game(player, enemy)
 
                 # Render mode-specific UI overlay, if this mode has one
@@ -66,9 +70,7 @@ class Renderer:
                     learning_mode_manager.draw_mode_info(self.screen)
 
                 logging.debug("Game elements rendered.")
-
-            # Update display
-            pygame.display.flip()
+                self.display.present(self.screen)
             logging.debug("Frame updated on display.")
 
         except Exception as e:

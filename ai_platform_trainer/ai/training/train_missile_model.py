@@ -1,5 +1,5 @@
 """
-Train a missile trajectory prediction model using the SimpleMissileModel architecture.
+Train a missile trajectory prediction model using the MissileModel architecture.
 
 This module provides a training pipeline for the missile trajectory prediction model,
 including data loading, training loop, optimization, and model saving.
@@ -11,7 +11,7 @@ import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
-from ai_platform_trainer.ai.models.simple_missile_model import SimpleMissileModel
+from ai_platform_trainer.ai.models.missile_model import MissileModel
 from ai_platform_trainer.ai.training.missile_dataset import MissileDataset
 
 
@@ -19,7 +19,7 @@ class MissileTrainer:
     """
     Trainer for the missile trajectory prediction model.
 
-    Encapsulates the training logic for SimpleMissileModel, including dataset handling,
+    Encapsulates the training logic for MissileModel, including dataset handling,
     optimization, and training loop execution. The class structure allows for easy extension
     with features like custom callbacks, advanced logging, or checkpointing.
     """
@@ -51,12 +51,20 @@ class MissileTrainer:
         # Initialize dataset and loader
         self.dataset = MissileDataset(json_file=self.filename)
 
+        # With no usable rows there is nothing to learn from, and saving would
+        # replace the existing trained model with untrained weights.
+        if len(self.dataset) == 0:
+            raise ValueError(
+                f"No usable training rows in '{self.filename}'; "
+                f"keeping the existing model at '{self.model_save_path}'."
+            )
+
         self.dataloader = DataLoader(
             self.dataset, batch_size=self.batch_size, shuffle=True
         )
 
         # Initialize model and optimizer
-        self.model = SimpleMissileModel(input_size=9, hidden_size=64, output_size=1)
+        self.model = MissileModel(input_size=9, hidden_size=64, output_size=1)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
 
     def run_training(self) -> Optional[Dict[str, List[float]]]:
@@ -98,13 +106,12 @@ class MissileTrainer:
             avg_loss = running_loss / total_batches if total_batches > 0 else 0
             print(f"Epoch {epoch}/{self.epochs - 1}, Avg Loss: {avg_loss:.4f}")
 
-        # Optionally remove old file
-        if os.path.exists(self.model_save_path):
-            os.remove(self.model_save_path)
-            print(f"Removed old file at '{self.model_save_path}'.")
-
-        # Save the model
-        torch.save(self.model.state_dict(), self.model_save_path)
+        # Write to a temporary file first, then swap it in, so a failed save
+        # leaves the previous model in place.
+        os.makedirs(os.path.dirname(self.model_save_path) or ".", exist_ok=True)
+        tmp_path = self.model_save_path + ".tmp"
+        torch.save(self.model.state_dict(), tmp_path)
+        os.replace(tmp_path, self.model_save_path)
         print(f"Saved new model to '{self.model_save_path}'.")
 
         return None

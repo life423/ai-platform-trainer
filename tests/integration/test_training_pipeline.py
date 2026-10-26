@@ -11,7 +11,7 @@ from pathlib import Path  # noqa: F401 - May be used in future tests
 import pytest
 import torch
 
-from ai_platform_trainer.ai.models.simple_missile_model import SimpleMissileModel
+from ai_platform_trainer.ai.models.missile_model import MissileModel
 from ai_platform_trainer.ai.training.missile_dataset import MissileDataset
 from ai_platform_trainer.ai.training.train_missile_model import MissileTrainer
 
@@ -52,7 +52,7 @@ class TestTrainingPipeline:
             assert os.path.getsize(model_path) > 0
 
             # Load the saved model and verify it works
-            model = SimpleMissileModel()
+            model = MissileModel()
             model.load_state_dict(torch.load(model_path))
 
             # Test inference
@@ -113,7 +113,7 @@ class TestTrainingPipeline:
             )
 
             # Verify model was initialized correctly
-            assert isinstance(trainer.model, SimpleMissileModel)
+            assert isinstance(trainer.model, MissileModel)
             assert trainer.model.fc1.in_features == 9
             assert trainer.model.fc3.out_features == 1
 

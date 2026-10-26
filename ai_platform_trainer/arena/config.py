@@ -5,7 +5,7 @@ tests/unit/arena check the pygame entities against them. Training, evaluation
 and gameplay all read this one definition, so a model can never be trained on
 a different game than the one it is deployed into.
 """
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Tuple
 
 FPS = 60
@@ -13,7 +13,11 @@ FRAME_MS = 1000.0 / FPS
 
 # Fullscreen size of the machine this project is developed on; evaluation
 # defaults to it, training randomizes around it.
-DEFAULT_SCREEN = (1470, 956)
+# The arena is always 800x600. The game draws this world onto whatever window
+# it has, and the SAC missile was trained at this size, so every model sees
+# the same coordinates in training, in the arena and in the game.
+WORLD_WIDTH, WORLD_HEIGHT = 800, 600
+DEFAULT_SCREEN = (WORLD_WIDTH, WORLD_HEIGHT)
 
 
 def ms_to_frames(ms: float) -> int:
@@ -67,7 +71,3 @@ class ArenaConfig:
     @property
     def max_missile_life_frames(self) -> int:
         return ms_to_frames(self.missile_life_ms[1])
-
-    def with_size(self, width: int, height: int) -> "ArenaConfig":
-        """The same rules on a different screen size."""
-        return replace(self, width=int(width), height=int(height))

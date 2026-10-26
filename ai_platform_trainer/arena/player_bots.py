@@ -34,11 +34,6 @@ class PlayerAction:
     dy: int = 0
     shoot: bool = False
 
-    @property
-    def move_index(self) -> int:
-        """Class id 0-8 of the movement keys (4 means standing still)."""
-        return (self.dy + 1) * 3 + (self.dx + 1)
-
 
 class PlayerBot:
     """Base bot: human reaction time, key holding, lapses and a firing habit."""

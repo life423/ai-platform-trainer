@@ -20,8 +20,10 @@ import gymnasium
 import numpy as np
 from gymnasium import spaces
 
+from ai_platform_trainer.ai.model_paths import MISSILE_SAC_MODEL
 from ai_platform_trainer.arena.config import DEFAULT_SCREEN, ArenaConfig
 from ai_platform_trainer.arena.episode import DEFAULT_MAX_FRAMES, ArenaEpisode
+from ai_platform_trainer.arena.missile_policies import SacGuidance
 from ai_platform_trainer.arena.observations import (
     ENEMY_DECISION_FRAMES,
     ENEMY_OBS_SIZE,
@@ -60,14 +62,13 @@ def round_return(outcome: str, frames: int) -> float:
 
 
 def sample_training_config(rng: random.Random) -> ArenaConfig:
-    """Canonical rules on a random screen size, with randomized missile guidance."""
-    return ArenaConfig(
-        width=rng.randint(1100, 1920),
-        height=rng.randint(650, 1200),
-        missile_turn_deg=rng.uniform(8.0, 20.0),
-        missile_prediction=rng.uniform(0.0, 1.0),
-        missile_aim_jitter=rng.uniform(0.0, 0.2),
-    )
+    """Canonical rules on the fixed world, with randomized player aim.
+
+    The world is always 800x600, the size the enemy and the SAC missile see in
+    the game. The missile turn and prediction settings only drive basic homing,
+    which the game no longer uses, so they are not randomized.
+    """
+    return ArenaConfig(missile_aim_jitter=rng.uniform(0.0, 0.2))
 
 
 class EnemyArenaEnv(gymnasium.Env):
@@ -83,9 +84,13 @@ class EnemyArenaEnv(gymnasium.Env):
         max_frames: int = DEFAULT_MAX_FRAMES,
         shaping: float = 1.0,
         preload_prob: float = 0.5,
+        guidance_model: str = MISSILE_SAC_MODEL,
     ) -> None:
         super().__init__()
         self.randomize = randomize
+        # The game's SAC missile steers the simulated missiles, so the enemy
+        # learns against the same missiles the player faces.
+        self.guidance = SacGuidance(guidance_model)
         self.screen = (int(screen[0]), int(screen[1]))
         self.bot_styles = tuple(bot_styles)
         self.max_frames = max_frames
@@ -110,7 +115,11 @@ class EnemyArenaEnv(gymnasium.Env):
         style = rng.choice(self.bot_styles)
         bot = make_bot(style, random.Random(rng.getrandbits(32)))
         self.episode = ArenaEpisode(
-            config, bot, random.Random(rng.getrandbits(32)), self.max_frames
+            config,
+            bot,
+            random.Random(rng.getrandbits(32)),
+            self.max_frames,
+            guidance=self.guidance,
         )
         preload = rng.randint(1, 2) if rng.random() < self.preload_prob else 0
         state = self.episode.reset(preload_missiles=preload)
@@ -136,7 +145,13 @@ class EnemyArenaEnv(gymnasium.Env):
         potential = 0.0 if result.terminated else self._phi(state)
         reward += self.shaping * (GAMMA * potential - self._potential)
         self._potential = potential
-        info = {"event": result.event, "missiles_expired": expired}
+        # A round cut off by the clock is not a death. Stable-Baselines3 only
+        # bootstraps the future value of a truncated round when this key is set.
+        info = {
+            "event": result.event,
+            "missiles_expired": expired,
+            "TimeLimit.truncated": bool(result.truncated and not result.terminated),
+        }
         return (
             build_enemy_observation(state),
             float(reward),

@@ -37,16 +37,3 @@ def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
     )
 
     logging.info("Logging configured successfully")
-
-
-def get_logger(name: str) -> logging.Logger:
-    """
-    Get a logger with the specified name.
-
-    Args:
-        name: Logger name (typically __name__)
-
-    Returns:
-        Configured logger instance
-    """
-    return logging.getLogger(name)

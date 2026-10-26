@@ -57,19 +57,6 @@ def respawn_enemy_at_position(game):
     return new_pos
 
 
-def respawn_enemy(game):
-    """
-    Respawn the enemy at a valid position and show it immediately, without fade-in.
-    """
-    if not game.enemy or not game.player:
-        return
-
-    new_pos = respawn_enemy_at_position(game)
-    game.enemy.visible = True  # Use visible property instead of show() method
-    game.is_respawning = False
-    logging.info(f"Enemy respawned at {new_pos}.")
-
-
 def respawn_enemy_with_fade_in(game, current_time):
     """
     Respawn the enemy at a valid position and show it with a fade-in effect.

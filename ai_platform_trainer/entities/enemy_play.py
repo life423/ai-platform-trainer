@@ -5,19 +5,14 @@ This module defines the enemy entity used in play mode, which uses AI models
 for movement decisions.
 """
 import logging
-import math
 from typing import List, Optional, Tuple
 
 import pygame
 import torch
 
+from ai_platform_trainer.ai.model_paths import MissingModelError
 from ai_platform_trainer.ai.models.enemy_movement_model import EnemyMovementModel
 from ai_platform_trainer.core.screen_context import ScreenContext
-
-# Display names for the two selectable enemy behaviors, keyed the same way
-# as enemy_choice throughout this module and the menu.
-ENEMY_CHOICES = {"trained": "AI Agent", "adaptive": "Scripted Baseline"}
-DEFAULT_ENEMY_CHOICE = "trained"  # falls back to the scripted baseline if untrained
 
 
 class EnemyPlay:
@@ -52,9 +47,7 @@ class EnemyPlay:
         self.fade_start_time = 0
         self.fade_duration = 1000  # 1 second fade-in
 
-        # Simple counters so this class can report the same "learning
-        # stats" shape PlayLearningMode's UI panel expects, regardless of
-        # whether it's hosting AdaptiveStagedEnemyAI or this class.
+        # Simple counters for the stats panel.
         self.hits_on_player = 0
         self.times_hit_by_missile = 0
 
@@ -74,36 +67,26 @@ class EnemyPlay:
             player_y: Player's y position
             player_speed: Player's movement speed
             current_time: Current game time in milliseconds
-            missiles: Active missiles (accepted for interface parity with
-                AdaptiveStagedEnemyAI; this class's models don't take
-                missile positions as input, so it's unused here).
+            missiles: Active missiles (accepted for interface parity with the
+                other enemies; this class's models don't take missile
+                positions as input, so it's unused here).
+
+        Raises:
+            MissingModelError: if this enemy was built without a model. There
+                is no scripted fallback.
         """
+        if self.model is None:
+            raise MissingModelError(
+                "This enemy has no model. Play uses the AI Agent only."
+            )
         if not self.visible:
             return
 
-        if self.model is not None:
-            self._update_with_nn(player_x, player_y, player_speed)
-        else:
-            self._update_with_basic_chase(player_x, player_y)
+        self._update_with_nn(player_x, player_y, player_speed)
 
         # Update fade-in effect if active
         if self.fading_in:
             self.update_fade_in(current_time)
-
-    def _update_with_basic_chase(self, player_x: float, player_y: float) -> None:
-        """Direct chase, used only if no model at all was loaded."""
-        dx = player_x - self.pos["x"]
-        dy = player_y - self.pos["y"]
-
-        distance = math.sqrt(dx * dx + dy * dy)
-        if distance > 1:  # Avoid division by zero
-            move_x = (dx / distance) * self.speed
-            move_y = (dy / distance) * self.speed
-
-            self.pos["x"] += move_x
-            self.pos["y"] += move_y
-
-            self._wrap_position()
 
     def on_hit_player(self) -> None:
         """Called when this enemy successfully hits the player."""

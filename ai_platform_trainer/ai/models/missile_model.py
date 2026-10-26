@@ -48,7 +48,3 @@ class MissileModel(nn.Module):
         x = torch.relu(self.fc2(x))
         x = self.fc3(x)
         return x
-
-
-# For backward compatibility
-SimpleMissileModel = MissileModel

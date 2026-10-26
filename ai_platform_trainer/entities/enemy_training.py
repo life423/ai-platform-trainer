@@ -27,7 +27,6 @@ class EnemyTrain(Enemy):
         "diagonal_move",
         "pursue",
     ]  # Added "pursue"
-    WALL_MARGIN = 20
     PURSUIT_SPEED_FACTOR = 0.8  # Relative speed factor when pursuing the player
 
     def __init__(self, screen_width: int, screen_height: int):
@@ -47,13 +46,6 @@ class EnemyTrain(Enemy):
         # Timers and states controlling pattern selection
         self.state_timer = 0
         self.current_pattern = None
-
-        # Wall escape logic
-        self.wall_stall_counter = 0
-        self.wall_stall_threshold = 10
-        self.forced_escape_timer = 0
-        self.forced_angle = None
-        self.forced_speed = None
 
         # Circle-move parameters
         self.circle_center = (self.pos["x"], self.pos["y"])
@@ -76,9 +68,6 @@ class EnemyTrain(Enemy):
         Switch to a new movement pattern from PATTERNS, ensuring it's different
         from the current pattern. Also resets state_timer for the new pattern.
         """
-        if self.forced_escape_timer > 0:
-            return  # If we're forcing escape from a wall, don't switch
-
         new_pattern = self.current_pattern
         while new_pattern == self.current_pattern:
             new_pattern = random.choice(self.PATTERNS)
@@ -101,24 +90,19 @@ class EnemyTrain(Enemy):
         Primary movement logic, choosing from the current pattern:
         random_walk, circle_move, diagonal_move, or pursue.
         """
-        if self.forced_escape_timer > 0:
-            # Forced escape mode takes precedence over pattern-based movement
-            self.forced_escape_timer -= 1
-            self.apply_forced_escape_movement()
-        else:
-            # Decrement timer and possibly switch patterns
-            self.state_timer -= 1
-            if self.state_timer <= 0:
-                self.switch_pattern()
+        # Decrement timer and possibly switch patterns
+        self.state_timer -= 1
+        if self.state_timer <= 0:
+            self.switch_pattern()
 
-            if self.current_pattern == "random_walk":
-                self.random_walk_pattern()
-            elif self.current_pattern == "circle_move":
-                self.circle_pattern()
-            elif self.current_pattern == "diagonal_move":
-                self.diagonal_pattern()
-            elif self.current_pattern == "pursue":
-                self.pursue_pattern(player_x, player_y, player_speed)
+        if self.current_pattern == "random_walk":
+            self.random_walk_pattern()
+        elif self.current_pattern == "circle_move":
+            self.circle_pattern()
+        elif self.current_pattern == "diagonal_move":
+            self.diagonal_pattern()
+        elif self.current_pattern == "pursue":
+            self.pursue_pattern(player_x, player_y, player_speed)
 
         # Wrap around screen edges
         self.pos["x"], self.pos["y"] = wrap_position(
@@ -147,56 +131,6 @@ class EnemyTrain(Enemy):
             speed = player_speed * self.PURSUIT_SPEED_FACTOR
             self.pos["x"] += dx * speed
             self.pos["y"] += dy * speed
-
-    def initiate_forced_escape(self):
-        """
-        Determine shortest distance to a wall and move away from it
-        to prevent stalling near edges. Overrides normal patterns.
-        """
-        dist_left = self.pos["x"]
-        dist_right = (self.screen_width - self.size) - self.pos["x"]
-        dist_top = self.pos["y"]
-        dist_bottom = (self.screen_height - self.size) - self.pos["y"]
-
-        min_dist = min(dist_left, dist_right, dist_top, dist_bottom)
-
-        if min_dist == dist_left:
-            base_angle = 0.0
-        elif min_dist == dist_right:
-            base_angle = math.pi
-        elif min_dist == dist_top:
-            base_angle = math.pi / 2
-        else:
-            base_angle = math.pi * 3 / 2
-
-        angle_variation = math.radians(30)
-        self.forced_angle = base_angle + random.uniform(
-            -angle_variation, angle_variation
-        )
-        self.forced_speed = self.base_speed * 1.0
-        self.forced_escape_timer = random.randint(1, 30)
-        self.wall_stall_counter = 0
-        self.state_timer = self.forced_escape_timer * 2
-
-    def apply_forced_escape_movement(self):
-        """
-        Execute forced escape movement to unstick from a wall.
-        """
-        dx = math.cos(self.forced_angle) * self.forced_speed
-        dy = math.sin(self.forced_angle) * self.forced_speed
-        self.pos["x"] += dx
-        self.pos["y"] += dy
-
-    def is_hugging_wall(self) -> bool:
-        """
-        Check if the enemy is near the wall boundary within WALL_MARGIN.
-        """
-        return (
-            self.pos["x"] < self.WALL_MARGIN
-            or self.pos["x"] > (self.screen_width - self.size - self.WALL_MARGIN)
-            or self.pos["y"] < self.WALL_MARGIN
-            or self.pos["y"] > (self.screen_height - self.size - self.WALL_MARGIN)
-        )
 
     def random_walk_pattern(self):
         """

@@ -15,9 +15,6 @@ import logging  # noqa: E402 - must come after the sys.path setup above
 
 import pygame  # noqa: E402
 
-from ai_platform_trainer.ai.missile_ai_loader import (  # noqa: E402
-    check_and_train_missile_ai,
-)
 from ai_platform_trainer.gameplay.game_core import GameCore  # noqa: E402
 
 
@@ -34,9 +31,6 @@ def main():
     try:
         # Initialize pygame
         pygame.init()
-
-        # Check and train missile AI if needed
-        check_and_train_missile_ai()
 
         # Create and run the game
         game = GameCore()

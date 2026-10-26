@@ -117,14 +117,6 @@ class Enemy:
         """Set the enemy's position."""
         self.pos["x"], self.pos["y"] = x, y
 
-    def start_fade_in(self, current_time: int):
-        """Initiate fade-in effect."""
-        self.fading_in = True
-        self.fade_start_time = current_time
-        self.alpha = 0
-        self.image.set_alpha(self.alpha)
-        logging.info("Enemy fade-in started.")
-
     def update_fade_in(self, current_time: int, fade_duration: int = 300):
         """Update fade-in effect based on elapsed time."""
         if self.fading_in:

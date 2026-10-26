@@ -17,7 +17,6 @@ setup(
         "numpy>=1.19.0",
         "gymnasium>=0.28.0",
         "stable-baselines3>=1.6.0",
-        "noise>=1.2.2",
     ],
     extras_require={
         "dev": [

@@ -2,13 +2,14 @@
 Core Game class for AI Platform Trainer.
 """
 import logging
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import pygame
-import torch
 
 # AI imports
 from ai_platform_trainer.ai.missile_ai_loader import missile_ai_manager
+from ai_platform_trainer.arena.config import WORLD_HEIGHT, WORLD_WIDTH
+from ai_platform_trainer.ai.model_paths import MissingModelError
 from ai_platform_trainer.core.config_manager import get_config_manager
 
 # Data logger and entity imports
@@ -17,8 +18,7 @@ from ai_platform_trainer.core.data_logger import DataLogger
 # Logging setup
 from ai_platform_trainer.core.logging_config import setup_logging
 from ai_platform_trainer.core.screen_context import ScreenContext
-from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
-from ai_platform_trainer.entities.enemy_play import DEFAULT_ENEMY_CHOICE, EnemyPlay
+from ai_platform_trainer.entities.enemy_play import EnemyPlay
 from ai_platform_trainer.entities.player_play import PlayerPlay
 
 # Gameplay imports
@@ -49,31 +49,29 @@ class GameCore:
         # Get configuration manager
         self.config_manager = get_config_manager()
 
-        # Use fullscreen mode for the game
-        self.config_manager.set("display.fullscreen", True)
-        self.config_manager.save()
-
+        # Start in a window; press F to switch to fullscreen
         # Initialize display - DisplayManager calls pygame.init()
         self.display_manager = DisplayManager(
-            fullscreen=self.config_manager.get("display.fullscreen", True)
+            fullscreen=self.config_manager.get("display.fullscreen", False)
         )
+        # The window is whatever the display gives us. The game world is always
+        # WORLD_WIDTH x WORLD_HEIGHT and is scaled onto the window, so every
+        # model sees the coordinates it was trained on.
         self.screen = self.display_manager.get_screen()
-        (
-            self.screen_width,
-            self.screen_height,
-        ) = self.display_manager.get_dimensions()
+        self.window_width, self.window_height = self.display_manager.get_dimensions()
+        self.screen_width, self.screen_height = WORLD_WIDTH, WORLD_HEIGHT
+        self.world = pygame.Surface((self.screen_width, self.screen_height))
 
-        # Initialize ScreenContext with actual screen dimensions
         ScreenContext.initialize(self.screen_width, self.screen_height)
 
         # Create clock, menu, and renderer
         self.clock = pygame.time.Clock()
-        self.menu = Menu(self.screen_width, self.screen_height)
-        self.renderer = Renderer(self.screen)
+        self.menu = Menu(self.window_width, self.window_height)
+        self.renderer = Renderer(self.world, self.display_manager)
 
         # Entities and managers
         self.player: Optional[PlayerPlay] = None
-        self.enemy: Optional[Union[EnemyPlay, AdaptiveStagedEnemyAI]] = None
+        self.enemy: Optional[EnemyPlay] = None
         self.data_logger: Optional[DataLogger] = None
 
         self.play_learning_mode_manager: Optional[PlayLearningMode] = None
@@ -90,9 +88,6 @@ class GameCore:
         self.respawn_delay = 1000
         self.respawn_timer = 0
         self.is_respawning = False
-
-        # Reusable tensor for missile AI input
-        self._missile_input = torch.zeros((1, 9), dtype=torch.float32)
 
         logging.info("Game initialized.")
 
@@ -176,12 +171,7 @@ class GameCore:
         pygame.quit()
         logging.info("Game loop exited and Pygame quit.")
 
-    def start_game(
-        self,
-        mode: str,
-        model_choice: str = "sac",
-        enemy_choice: str = DEFAULT_ENEMY_CHOICE,
-    ) -> None:
+    def start_game(self, mode: str, model_choice: str = "sac") -> None:
         """
         Start the game in the specified mode.
 
@@ -190,20 +180,21 @@ class GameCore:
             model_choice: Which missile guidance model to play against
                 ("sac", "ppo", or "supervised") - only relevant for
                 "play_learning".
-            enemy_choice: Which enemy behavior to face ("adaptive" for the
-                scripted staged-difficulty AI, or "trained" for the
-                supervised/RL EnemyPlay model) - only relevant for
-                "play_learning".
+
+        Raises:
+            MissingModelError: if the chosen missile model or the AI Agent
+                has not been trained.
         """
         self.mode = mode
         self.model_choice = model_choice
-        self.enemy_choice = enemy_choice
-        logging.info(
-            f"Starting game in '{mode}' mode "
-            f"(missile: {model_choice}, enemy: {enemy_choice})."
-        )
+        logging.info(f"Starting game in '{mode}' mode (missile: {model_choice}).")
 
         if mode == "play_learning":
+            # Refuse up front rather than failing when the first missile is fired
+            problem = missile_ai_manager.problem_with(model_choice)
+            if problem is not None:
+                raise MissingModelError(problem)
+
             # Play against real-time learning AI
             self.player = PlayerPlay(
                 self.screen_width, self.screen_height, model_choice=model_choice
@@ -211,9 +202,7 @@ class GameCore:
             self.player.reset()
 
             # Create learning mode manager which will handle enemy creation
-            self.play_learning_mode_manager = PlayLearningMode(
-                self, enemy_choice=enemy_choice
-            )
+            self.play_learning_mode_manager = PlayLearningMode(self)
 
             # Set the enemy reference for compatibility with other systems
             self.enemy = self.play_learning_mode_manager.learning_enemy
@@ -234,8 +223,7 @@ class GameCore:
         Args:
             selected_action: The selected menu action
             payload: For "play_learning", a dict with "model_choice"
-                ("sac"/"ppo"/"supervised") and "enemy_choice"
-                ("adaptive"/"trained")
+                ("sac"/"ppo"/"supervised")
         """
         if selected_action == "exit":
             logging.info("Exit action selected from menu.")
@@ -247,13 +235,11 @@ class GameCore:
         elif selected_action == "play_learning":
             payload = payload or {}
             model_choice = payload.get("model_choice", "sac")
-            enemy_choice = payload.get("enemy_choice", DEFAULT_ENEMY_CHOICE)
             logging.info(
-                "'play_learning' selected from menu "
-                f"(missile: {model_choice}, enemy: {enemy_choice})."
+                f"'play_learning' selected from menu (missile: {model_choice})."
             )
             self.menu_active = False
-            self.start_game("play_learning", model_choice, enemy_choice)
+            self.start_game("play_learning", model_choice)
 
     def _toggle_fullscreen(self) -> None:
         """Toggle between windowed and fullscreen modes."""
@@ -266,20 +252,16 @@ class GameCore:
         self.config_manager.save()
 
         self.screen = self.display_manager.get_screen()
-        self.screen_width, self.screen_height = self.display_manager.get_dimensions()
-        self.menu = Menu(self.screen_width, self.screen_height)
-
-        # Update ScreenContext with new dimensions
-        ScreenContext.update_dimensions(self.screen_width, self.screen_height)
+        self.window_width, self.window_height = self.display_manager.get_dimensions()
+        self.menu = Menu(self.window_width, self.window_height)
 
         if not self.menu_active:
             current_mode = self.mode
+            # Keep this session's samples before its state is thrown away.
+            if self.training_mode_manager:
+                self.training_mode_manager.finalize(retrain=False)
             self.reset_game_state()
-            self.start_game(
-                current_mode,
-                getattr(self, "model_choice", "sac"),
-                getattr(self, "enemy_choice", DEFAULT_ENEMY_CHOICE),
-            )
+            self.start_game(current_mode, getattr(self, "model_choice", "sac"))
 
     def update(self, current_time: int) -> None:
         """

@@ -38,10 +38,12 @@ from ai_platform_trainer.ai.model_paths import (
     ENEMY_PPO_DIR,
     ENEMY_PPO_LOG_DIR,
     ENEMY_PPO_MODEL,
+    MISSILE_SAC_MODEL,
     model_card_path,
 )
 from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import SB3Enemy
+from ai_platform_trainer.arena.missile_policies import SacGuidance
 from ai_platform_trainer.arena.observations import (
     ENEMY_DECISION_FRAMES,
     ENEMY_OBS_FEATURES,
@@ -84,6 +86,7 @@ def write_metadata(
         "timesteps": int(model.num_timesteps),
         "seed": seed,
         "eval_arena": asdict(ArenaConfig()),
+        "missile_guidance": "sac",
         "evaluation": evaluation,
         "git_commit": git_commit(),
         "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -106,7 +109,13 @@ class ArenaEvalCallback(BaseCallback):
     """Fixed-seed evaluation every N steps; logs eval/* metrics and keeps the best model."""
 
     def __init__(
-        self, every: int, rounds: int, out_dir: str, log_dir: str, seed: int
+        self,
+        every: int,
+        rounds: int,
+        out_dir: str,
+        log_dir: str,
+        seed: int,
+        resume: bool = False,
     ) -> None:
         super().__init__()
         self.every = every
@@ -118,8 +127,12 @@ class ArenaEvalCallback(BaseCallback):
         self.best_score = -math.inf
         self.best_eval: Optional[Dict[str, Any]] = None
         self._last = 0
+        # Evaluate against the same SAC missiles the game uses.
+        self.guidance = SacGuidance(MISSILE_SAC_MODEL)
+        # Only a resumed run continues the previous best. A fresh run must not
+        # inherit an older policy's score or deploy its model.
         meta_path = model_card_path(self.best_path)
-        if os.path.exists(meta_path) and os.path.exists(self.best_path):
+        if resume and os.path.exists(meta_path) and os.path.exists(self.best_path):
             with open(meta_path, encoding="utf-8") as fh:
                 self.best_eval = json.load(fh)["evaluation"]
             self.best_score = self.best_eval[SELECTION_METRIC]
@@ -135,7 +148,11 @@ class ArenaEvalCallback(BaseCallback):
 
     def evaluate(self) -> Dict[str, Any]:
         summary = evaluate_policy(
-            SB3Enemy(self.model), ArenaConfig(), self.rounds, seed=EVAL_SEED
+            SB3Enemy(self.model),
+            ArenaConfig(),
+            self.rounds,
+            seed=EVAL_SEED,
+            guidance=self.guidance,
         )
         for key in (
             "objective",
@@ -211,7 +228,9 @@ def train(
         )
     model.set_logger(configure(log_dir, ["stdout", "csv"]))
 
-    evaluator = ArenaEvalCallback(eval_every, eval_rounds, out_dir, log_dir, seed)
+    evaluator = ArenaEvalCallback(
+        eval_every, eval_rounds, out_dir, log_dir, seed, resume=bool(start_from)
+    )
     checkpoints = CheckpointCallback(
         save_freq=max(checkpoint_every // n_envs, 1),
         save_path=ckpt_dir,

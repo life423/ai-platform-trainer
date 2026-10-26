@@ -110,6 +110,21 @@ class DisplayManager:
         """Update the full display Surface to the screen."""
         pygame.display.flip()
 
+    def present(self, world: pygame.Surface) -> None:
+        """
+        Scale the fixed-size game world onto the window, keeping its shape
+        (black bars fill the rest), and show it.
+        """
+        win_w, win_h = self.screen.get_size()
+        world_w, world_h = world.get_size()
+        scale = min(win_w / world_w, win_h / world_h)
+        draw_w, draw_h = int(world_w * scale), int(world_h * scale)
+        offset = ((win_w - draw_w) // 2, (win_h - draw_h) // 2)
+
+        self.screen.fill((0, 0, 0))
+        self.screen.blit(pygame.transform.smoothscale(world, (draw_w, draw_h)), offset)
+        pygame.display.flip()
+
     def update(self, *args) -> None:
         """
         Update portions of the screen for software displays.

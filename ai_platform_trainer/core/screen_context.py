@@ -125,11 +125,6 @@ class ScreenContext:
         """Get the larger of width or height."""
         return self.dimensions.max_dimension
 
-    @property
-    def scale_factor(self) -> float:
-        """Get the current scale factor relative to reference resolution."""
-        return self._scale_factor
-
     def normalize_position(self, x: float, y: float) -> Tuple[float, float]:
         """
         Normalize pixel coordinates to [0,1] range.
@@ -144,69 +139,6 @@ class ScreenContext:
         norm_x = x / self.dimensions.width if self.dimensions.width > 0 else 0.0
         norm_y = y / self.dimensions.height if self.dimensions.height > 0 else 0.0
         return norm_x, norm_y
-
-    def denormalize_position(self, norm_x: float, norm_y: float) -> Tuple[float, float]:
-        """
-        Convert normalized coordinates back to pixel coordinates.
-
-        Args:
-            norm_x: Normalized X coordinate [0,1]
-            norm_y: Normalized Y coordinate [0,1]
-
-        Returns:
-            Tuple of (x, y) in pixel coordinates
-        """
-        x = norm_x * self.dimensions.width
-        y = norm_y * self.dimensions.height
-        return x, y
-
-    def normalize_distance(self, distance: float) -> float:
-        """
-        Normalize a distance relative to screen size.
-
-        Args:
-            distance: Distance in pixels
-
-        Returns:
-            Normalized distance relative to screen diagonal
-        """
-        diagonal = (self.dimensions.width**2 + self.dimensions.height**2) ** 0.5
-        return distance / diagonal if diagonal > 0 else 0.0
-
-    def denormalize_distance(self, norm_distance: float) -> float:
-        """
-        Convert normalized distance back to pixels.
-
-        Args:
-            norm_distance: Normalized distance
-
-        Returns:
-            Distance in pixels
-        """
-        diagonal = (self.dimensions.width**2 + self.dimensions.height**2) ** 0.5
-        return norm_distance * diagonal
-
-    def scale_value(self, value: float, reference_value: float = 1.0) -> float:
-        """
-        Scale a value based on the current resolution.
-
-        Args:
-            value: Value to scale
-            reference_value: Reference value at reference resolution
-
-        Returns:
-            Scaled value
-        """
-        return value * self._scale_factor * reference_value
-
-    def get_ai_observation_dims(self) -> Tuple[int, int]:
-        """
-        Get standardized dimensions for AI observations.
-
-        Returns:
-            Tuple of (width, height) for AI training consistency
-        """
-        return self.dimensions.width, self.dimensions.height
 
     def create_missile_observation(
         self,
@@ -327,25 +259,6 @@ class ScreenContext:
             "min_y": 0.0,
             "max_y": float(self.dimensions.height - entity_size),
         }
-
-    def clamp_position(
-        self, x: float, y: float, entity_size: int
-    ) -> Tuple[float, float]:
-        """
-        Clamp a position to stay within screen bounds.
-
-        Args:
-            x: X position
-            y: Y position
-            entity_size: Size of the entity
-
-        Returns:
-            Tuple of (clamped_x, clamped_y)
-        """
-        bounds = self.get_bounds_for_entity(entity_size)
-        clamped_x = max(bounds["min_x"], min(bounds["max_x"], x))
-        clamped_y = max(bounds["min_y"], min(bounds["max_y"], y))
-        return clamped_x, clamped_y
 
     def __str__(self) -> str:
         """String representation of screen context."""

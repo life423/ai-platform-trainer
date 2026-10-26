@@ -123,3 +123,58 @@ def enemy_action_to_displacement(
     ax = max(-1.0, min(1.0, float(action[0])))
     ay = max(-1.0, min(1.0, float(action[1])))
     return ax * config.enemy_speed, ay * config.enemy_speed
+
+
+# -- missile guidance observation (SAC) --------------------------------------
+
+# The SAC missile model was trained with these scales (train_missile_sac.py)
+SAC_MAX_MISSILE_SPEED = 10.0
+SAC_TARGET_SPEED_SCALE = 5.0
+# SmartMissile.RL_TURN_SCALES["sac"]: degrees per step at an action of 1.0
+SAC_TURN_SCALE_DEG = 20.0
+SAC_MISSILE_FEATURES = 11
+
+
+def sac_missile_observation(
+    x: float,
+    y: float,
+    vx: float,
+    vy: float,
+    target_x: float,
+    target_y: float,
+    target_vx: float,
+    target_vy: float,
+    width: float,
+    height: float,
+) -> np.ndarray:
+    """The 11 inputs the SAC missile model was trained on.
+
+    The game (SmartMissile) and the arena both build the missile's input here,
+    with the same formula as train_missile_sac.py. Positions are scaled to
+    [-1, 1] by the screen size, which is why the world is fixed at 800x600.
+    """
+    dx = target_x - x
+    dy = target_y - y
+    distance = math.hypot(dx, dy)
+    angle_to_target = math.atan2(dy, dx)
+    missile_angle = math.atan2(vy, vx)
+    relative_angle = angle_to_target - missile_angle
+    relative_angle_norm = (
+        math.atan2(math.sin(relative_angle), math.cos(relative_angle)) / math.pi
+    )
+    return np.array(
+        [
+            (x / width) * 2 - 1,
+            (y / height) * 2 - 1,
+            vx / SAC_MAX_MISSILE_SPEED,
+            vy / SAC_MAX_MISSILE_SPEED,
+            (target_x / width) * 2 - 1,
+            (target_y / height) * 2 - 1,
+            target_vx / SAC_TARGET_SPEED_SCALE,
+            target_vy / SAC_TARGET_SPEED_SCALE,
+            distance / math.hypot(width, height),
+            angle_to_target / math.pi,
+            relative_angle_norm,
+        ],
+        dtype=np.float32,
+    )

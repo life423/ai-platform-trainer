@@ -9,8 +9,14 @@ each step of that path to the headless training arena.
 import os
 from typing import Any, Callable, List, Optional
 
-from ai_platform_trainer.ai.model_paths import ENEMY_PPO_MODEL, load_model_card
-from ai_platform_trainer.arena.config import ArenaConfig
+from ai_platform_trainer.ai.model_paths import (
+    ENEMY_PPO_MODEL,
+    TRAINING_COMMANDS,
+    MissingModelError,
+    load_model_card,
+    missing_model_message,
+)
+from ai_platform_trainer.arena.config import WORLD_HEIGHT, WORLD_WIDTH, ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import SB3Enemy
 from ai_platform_trainer.arena.game_bridge import MotionTracker, snapshot_from_game
 from ai_platform_trainer.arena.geometry import wrapped_move
@@ -22,18 +28,40 @@ def is_enemy_agent_available(model_path: str = ENEMY_PPO_MODEL) -> bool:
     return os.path.exists(model_path)
 
 
-def trained_enemy_description() -> Optional[str]:
-    """What the AI Agent menu option will run, or None if nothing is trained yet."""
-    return "PPO" if is_enemy_agent_available() else None
+def enemy_agent_problem(model_path: str = ENEMY_PPO_MODEL) -> Optional[str]:
+    """Why the AI Agent cannot play right now, or None if it can.
+
+    A policy trained in a different arena size sees coordinates it never
+    learned from, so it is refused rather than run.
+    """
+    if not is_enemy_agent_available(model_path):
+        return missing_model_message("enemy")
+
+    card = load_model_card(model_path)
+    if card is None:
+        return (
+            "The AI Agent has no model card, so its arena size cannot be checked. "
+            f"Retrain it with: {TRAINING_COMMANDS['enemy']}"
+        )
+
+    trained = card.get("eval_arena", {})
+    size = (trained.get("width"), trained.get("height"))
+    if size != (WORLD_WIDTH, WORLD_HEIGHT):
+        return (
+            f"The AI Agent was trained in a {size[0]}x{size[1]} arena, not "
+            f"{WORLD_WIDTH}x{WORLD_HEIGHT}. Retrain it with: {TRAINING_COMMANDS['enemy']}"
+        )
+    return None
 
 
 def create_trained_enemy(
     screen_width: int, screen_height: int, player_provider: Callable[[], Any]
-) -> Optional[EnemyPlay]:
-    """The arena PPO agent, or None if train-enemy has not deployed one yet."""
-    if is_enemy_agent_available():
-        return ArenaEnemyAgent(screen_width, screen_height, player_provider)
-    return None
+) -> EnemyPlay:
+    """The arena PPO agent. Raises MissingModelError if it cannot play."""
+    problem = enemy_agent_problem()
+    if problem is not None:
+        raise MissingModelError(problem)
+    return ArenaEnemyAgent(screen_width, screen_height, player_provider)
 
 
 def model_card_summary(model_path: str) -> List[str]:

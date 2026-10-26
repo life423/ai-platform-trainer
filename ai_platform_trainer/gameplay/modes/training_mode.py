@@ -6,14 +6,17 @@ patterns so their interactions can be logged as supervised training data
 for the missile guidance model (see ai/training/train_missile_model.py),
 with the whole session visible in the GUI rather than running headless.
 """
+
 import logging
-import math
 import os
+from typing import Dict, List, Tuple
 
 import pygame
 import torch
 
-from ai_platform_trainer.ai.inference.missile_controller import update_missile_ai
+from ai_platform_trainer.ai.inference.missile_controller import steer_toward
+from ai_platform_trainer.ai.missile_features import missile_features
+from ai_platform_trainer.ai.training.missile_dataset import SCHEMA_VERSION
 from ai_platform_trainer.core.data_logger import DataLogger
 from ai_platform_trainer.entities.enemy_training import EnemyTrain
 from ai_platform_trainer.entities.player_training import PlayerTraining
@@ -36,11 +39,17 @@ class TrainingMode:
     # How often (ms) the scripted player fires a missile at the enemy.
     FIRE_INTERVAL_MS = 1500
 
-    # DataLogger deletes any existing file at its target path, so this
-    # session's samples are captured in a scratch file - never directly in
-    # data/raw/training_data.json - and only merged into the real dataset
-    # by finalize(), which is safe to call repeatedly and backs up the
-    # existing file first.
+    # Largest turn (degrees per frame) the training labels can contain. The
+    # data collector steers at this rate. It is separate from the in-game cap.
+    LABEL_MAX_TURN_DEG = 5.0
+
+    # How often (ms) the session is written to its scratch file, so a crash
+    # loses at most this much.
+    SAVE_INTERVAL_MS = 5000
+
+    # The in-memory session is written here as it goes. Samples only reach
+    # data/raw/training_data.json through the validator. Leftovers from a
+    # session that did not finish are merged on the next start.
     SESSION_DATA_PATH = os.path.join(
         os.path.dirname(config.DATA_PATH), "_training_session.json"
     )
@@ -56,11 +65,25 @@ class TrainingMode:
 
         spawn_entities(game)
 
+        self.validator = DataValidatorAndTrainer(
+            training_data_path=config.DATA_PATH,
+            missile_model_path=config.MISSILE_MODEL_PATH,
+            backup_dir=os.path.join(os.path.dirname(config.DATA_PATH), "backups"),
+        )
+
+        # DataLogger replaces the scratch file, so recover any leftover first.
+        recovered = self.validator.recover_session_file(self.SESSION_DATA_PATH)
+        if recovered:
+            logging.info(
+                f"Training mode: recovered {recovered} samples from an unfinished session."
+            )
+
         self.data_logger = DataLogger(self.SESSION_DATA_PATH)
         game.data_logger = self.data_logger
         self.finalized = False
 
         self.last_fire_time = 0
+        self.last_save_time = 0
 
         logging.info("Training data collection mode initialized")
 
@@ -80,21 +103,10 @@ class TrainingMode:
 
         self.player.update_missiles()
 
-        # Guide missiles with pure deterministic targeting (model_blend_factor=0)
-        # rather than the current (still-learning) model's own guesses - this
-        # is what fills in missile.last_action, the supervised training label,
-        # so it needs to be a clean "correct" signal to imitate, not the model
-        # grading its own homework. It also keeps missile flight paths
-        # realistic successful intercepts, giving good state coverage.
-        if self.game.missile_model and self.player.missiles:
-            update_missile_ai(
-                self.player.missiles,
-                self.player.position,
-                self.enemy.pos,
-                self.game._missile_input,
-                self.game.missile_model,
-                model_blend_factor=0.0,
-            )
+        # Record each missile's state before it turns, and the turn that
+        # labels it. Logged before collision resolution so each missile keeps
+        # its decision for the frame it hits.
+        decisions = self._steer_missiles()
 
         # Snapshot before collision resolution: handle_missile_collisions
         # removes any missile that hits, so this is the only way to still
@@ -109,7 +121,12 @@ class TrainingMode:
         hit_missiles = [m for m in missiles_before if m not in self.player.missiles]
 
         for missile in missiles_before:
-            self._log_frame(missile, current_time, missile in hit_missiles)
+            features, action = decisions[id(missile)]
+            self._log_frame(features, action, missile in hit_missiles, current_time)
+
+        if current_time - self.last_save_time >= self.SAVE_INTERVAL_MS:
+            self.data_logger.save()
+            self.last_save_time = current_time
 
         if self.game.is_respawning and current_time >= self.game.respawn_timer:
             self.game.handle_respawn(current_time)
@@ -117,29 +134,53 @@ class TrainingMode:
         if self.enemy.fading_in:
             self.enemy.update_fade_in(current_time)
 
-    def _log_frame(self, missile, current_time: int, collided: bool) -> None:
-        """Log one training data point for the given missile's current state."""
+    def _steer_missiles(self) -> Dict[int, Tuple[List[float], float]]:
+        """
+        Steer every missile straight at the enemy.
+
+        Returns, keyed by id(missile), the feature vector the supervised model
+        would have seen before this turn, and the turn that was applied. The
+        turn is the label. Steering is deterministic and needs no model, so
+        data can be collected before a supervised model exists.
+        """
+        decisions = {}
+        for missile in self.player.missiles:
+            features = missile_features(
+                self.player.position,
+                self.enemy.pos,
+                missile.pos,
+                {"x": missile.vx, "y": missile.vy},
+            )
+            action = steer_toward(
+                missile, self.enemy.pos, max_turn_rate=self.LABEL_MAX_TURN_DEG
+            )
+            decisions[id(missile)] = (features, action)
+        return decisions
+
+    def _log_frame(
+        self, features: List[float], action: float, collided: bool, current_time: int
+    ) -> None:
+        """Log one training sample, in the schema the dataset reads."""
         self.data_logger.log(
             {
-                "player_x": self.player.position["x"],
-                "player_y": self.player.position["y"],
-                "enemy_x": self.enemy.pos["x"],
-                "enemy_y": self.enemy.pos["y"],
-                "missile_x": missile.pos["x"],
-                "missile_y": missile.pos["y"],
-                "missile_angle": math.atan2(missile.vy, missile.vx),
+                "schema": SCHEMA_VERSION,
+                "features": features,
+                "missile_action": action,
                 "missile_collision": collided,
-                "missile_action": missile.last_action,
                 "timestamp": current_time,
             }
         )
 
-    def finalize(self) -> bool:
+    def finalize(self, retrain: bool = True) -> bool:
         """
-        Merge this session's collected samples into the master dataset and
-        retrain the missile model from it. Called when leaving Training
-        mode (menu return or app exit) - safe to call more than once, and
-        a no-op if nothing was collected.
+        Merge this session's samples into the master dataset and, if asked,
+        retrain the missile model from it. Called when leaving Training mode.
+
+        Safe to call more than once. If the merge fails, the samples stay in
+        the session file so nothing is lost.
+
+        Args:
+            retrain: Whether to retrain the missile model after merging.
         """
         if self.finalized:
             return False
@@ -150,35 +191,38 @@ class TrainingMode:
             logging.info("Training mode: no samples collected this session.")
             return False
 
-        validator = DataValidatorAndTrainer(
-            training_data_path=config.DATA_PATH,
-            missile_model_path=config.MISSILE_MODEL_PATH,
-        )
-        valid, error_msg = validator.validate_data_format(new_data)
-        if not valid:
+        # Keep the session file current, so it holds everything if the merge fails.
+        self.data_logger.save()
+        if not self.validator.commit_samples(new_data):
             logging.error(
-                f"Training mode: collected data failed validation: {error_msg}"
+                "Training mode: samples were not merged; they remain in "
+                f"{self.SESSION_DATA_PATH}."
             )
             return False
 
-        validator.backup_existing_data()
-        existing_data = validator.load_existing_data()
-        if not validator.merge_and_save_data(existing_data, new_data):
-            logging.error("Training mode: failed to merge session data into dataset.")
-            return False
+        self._discard_session_file()
+        logging.info(f"Training mode: merged {len(new_data)} new samples.")
 
-        total = len(existing_data) + len(new_data)
-        logging.info(
-            f"Training mode: merged {len(new_data)} new samples "
-            f"({total} total). Retraining missile model..."
-        )
-        if validator.train_missile_model():
+        if not retrain:
+            return True
+
+        if self.validator.train_missile_model():
             logging.info("Training mode: missile model retrained successfully.")
             self._reload_missile_model()
         else:
-            logging.error("Training mode: missile model retraining failed.")
+            logging.error("Training mode: missile model retraining failed (see above).")
 
         return True
+
+    def _discard_session_file(self) -> None:
+        """Remove the scratch file once its samples are in the dataset."""
+        try:
+            if os.path.exists(self.SESSION_DATA_PATH):
+                os.remove(self.SESSION_DATA_PATH)
+        except OSError as e:
+            logging.error(
+                f"Training mode: could not remove {self.SESSION_DATA_PATH}: {e}"
+            )
 
     def _reload_missile_model(self) -> None:
         """

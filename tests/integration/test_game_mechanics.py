@@ -17,21 +17,6 @@ from ai_platform_trainer.gameplay.collisions import handle_missile_collisions
 
 
 @pytest.fixture
-def mock_pygame_setup():
-    """Mock pygame setup to avoid actual window creation during tests."""
-    # Mock pygame.init
-    with patch("pygame.init"):
-        # Mock display setup
-        with patch("pygame.display.set_mode") as mock_set_mode:
-            # Mock display.set_caption
-            with patch("pygame.display.set_caption"):
-                # Mock Surface
-                mock_surface = Mock(spec=pygame.Surface)
-                mock_set_mode.return_value = mock_surface
-                yield mock_surface
-
-
-@pytest.fixture
 def mock_model():
     """Create a mock enemy AI model."""
     model = Mock()

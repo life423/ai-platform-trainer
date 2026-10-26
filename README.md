@@ -16,9 +16,7 @@ python run_game.py
 (equivalently: `pip install -e .` then `ai-trainer`, or `python -m ai_platform_trainer`)
 
 From the main menu:
-- **Play** - pick an enemy (scripted "Adaptive Staged AI" or the trained
-  network) and a missile guidance model (SAC, PPO, or a Supervised NN),
-  then fight.
+- **Play** - the opponent is the AI Agent (a PPO policy trained by `train-enemy`). Pick the missile AI (SAC, PPO, or Supervised NN) and fight. Play refuses to start if a model it needs is missing, and the menu names the command that trains it.
 - **Train** - runs scripted player/enemy patterns and logs gameplay data,
   used to retrain the Supervised NN missile model.
 
@@ -30,7 +28,6 @@ ai_platform_trainer/
 │   ├── inference/         # runtime missile guidance controller
 │   ├── models/             # neural net / RL model definitions
 │   ├── training/           # standalone training scripts (SAC, PPO, supervised)
-│   ├── visualization/       # training progress monitor
 │   └── missile_ai_loader.py # loads/selects the 3 missile guidance models
 ├── core/                   # config manager, data logger, screen context
 ├── entities/                # Player, Enemy, Missile classes
@@ -70,6 +67,4 @@ submenu:
   simulated environments (`ai/training/train_missile_sac.py` and
   `train_missile_rl.py`), with no dependency on logged gameplay data.
 
-The enemy can also use a supervised movement network (`models/enemy_ai_model.pth`),
-optionally layered with an RL policy from `ai/training/train_enemy_rl.py`
-if one has been trained to `models/enemy_rl/final_model.zip`.
+The opponent is the AI Agent: a PPO policy trained by `train-enemy` and saved to `models/enemy_ppo/enemy_ppo.zip`. Play has no scripted fallback.

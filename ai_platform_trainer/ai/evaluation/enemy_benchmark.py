@@ -19,6 +19,7 @@ from ai_platform_trainer.arena.enemy_policies import POLICY_NAMES, EnemyPolicy
 from ai_platform_trainer.arena.episode import DEFAULT_MAX_FRAMES, ArenaEpisode
 from ai_platform_trainer.arena.observations import enemy_player_distance
 from ai_platform_trainer.arena.player_bots import BOT_STYLES, make_bot
+from ai_platform_trainer.arena.sim import Guidance
 
 
 @dataclass(frozen=True)
@@ -38,11 +39,14 @@ def play_round(
     bot_style: str,
     seed: int,
     max_frames: int = DEFAULT_MAX_FRAMES,
+    guidance: Optional[Guidance] = None,
 ) -> RoundResult:
     """Play one round with independent, seeded RNG streams for bot, sim and policy."""
     rng = random.Random(seed)
     bot = make_bot(bot_style, random.Random(rng.getrandbits(32)))
-    episode = ArenaEpisode(config, bot, random.Random(rng.getrandbits(32)), max_frames)
+    episode = ArenaEpisode(
+        config, bot, random.Random(rng.getrandbits(32)), max_frames, guidance=guidance
+    )
     state = episode.reset()
     policy.reset(state, random.Random(rng.getrandbits(32)))
     start = enemy_player_distance(state)
@@ -106,10 +110,18 @@ def evaluate_policy(
     seed: int = 0,
     styles: Sequence[str] = BOT_STYLES,
     max_frames: int = DEFAULT_MAX_FRAMES,
+    guidance: Optional[Guidance] = None,
 ) -> Dict[str, Any]:
     started = time.perf_counter()
     results = [
-        play_round(policy, config, styles[i % len(styles)], seed + i, max_frames)
+        play_round(
+            policy,
+            config,
+            styles[i % len(styles)],
+            seed + i,
+            max_frames,
+            guidance=guidance,
+        )
         for i in range(rounds)
     ]
     summary = summarize(results)
@@ -130,10 +142,12 @@ def run_benchmark(
     seed: int = 0,
     styles: Sequence[str] = BOT_STYLES,
     max_frames: int = DEFAULT_MAX_FRAMES,
+    guidance: Optional[Guidance] = None,
 ) -> Dict[str, Any]:
     report: Dict[str, Any] = {
         "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "arena": asdict(config),
+        "missile_guidance": getattr(guidance, "name", "basic"),
         "rounds_per_policy": rounds,
         "seed": seed,
         "max_round_s": max_frames / FPS,
@@ -142,7 +156,7 @@ def run_benchmark(
     }
     for policy in policies:
         report["policies"][policy.name] = evaluate_policy(
-            policy, config, rounds, seed, styles, max_frames
+            policy, config, rounds, seed, styles, max_frames, guidance=guidance
         )
     return report
 

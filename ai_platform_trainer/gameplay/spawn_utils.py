@@ -40,25 +40,3 @@ def find_valid_spawn_position(
                 return (x, y)
         else:
             return (x, y)
-
-
-def find_enemy_spawn_position(
-    screen_width: int,
-    screen_height: int,
-    enemy_size: int,
-    player_pos: Tuple[float, float],
-) -> Tuple[int, int]:
-    """
-    Specialized helper for spawning an enemy, ensuring min distance from the player.
-    """
-    wall_margin = config_manager.get("gameplay.wall_margin", 50)
-    min_distance = config_manager.get("gameplay.min_distance", 100)
-
-    return find_valid_spawn_position(
-        screen_width=screen_width,
-        screen_height=screen_height,
-        entity_size=enemy_size,
-        margin=wall_margin,
-        min_dist=min_distance,
-        other_pos=player_pos,
-    )
