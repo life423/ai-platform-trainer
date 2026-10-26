@@ -127,7 +127,7 @@ def enemy_action_to_displacement(
 
 # -- missile guidance observation (SAC) --------------------------------------
 
-# The SAC missile model was trained with these scales (train_missile_sac.py)
+# The SAC missile model is trained with these scales (ai/envs/missile_env.py)
 SAC_MAX_MISSILE_SPEED = 10.0
 SAC_TARGET_SPEED_SCALE = 5.0
 # SmartMissile.RL_TURN_SCALES["sac"]: degrees per step at an action of 1.0
@@ -149,7 +149,8 @@ def sac_missile_observation(
     """The 11 inputs the SAC missile model was trained on.
 
     The game (SmartMissile) and the arena both build the missile's input here,
-    with the same formula as train_missile_sac.py. Positions are scaled to
+    with the formula the SAC missile is trained on (ai/envs/missile_env.py).
+    Positions are scaled to
     [-1, 1] by the screen size, which is why the world is fixed at 800x600.
     """
     dx = target_x - x
