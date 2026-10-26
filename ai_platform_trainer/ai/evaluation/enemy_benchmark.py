@@ -12,7 +12,7 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
-from ai_platform_trainer.ai.envs.enemy_env import round_return
+from ai_platform_trainer.ai.envs.chaser_env import CATCH_REWARD, HIT_REWARD
 from ai_platform_trainer.arena.config import FPS, ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import POLICY_NAMES, EnemyPolicy
 from ai_platform_trainer.arena.episode import DEFAULT_MAX_FRAMES, ArenaEpisode
@@ -71,6 +71,10 @@ def play_round(
     )
 
 
+def _objective(round_result: RoundResult) -> float:
+    return CATCH_REWARD * round_result.catches + HIT_REWARD * round_result.hits
+
+
 def summarize(rounds: Sequence[RoundResult]) -> Dict[str, Any]:
     """Aggregate round results into per-minute rates and per-round averages.
 
@@ -89,8 +93,8 @@ def summarize(rounds: Sequence[RoundResult]) -> Dict[str, Any]:
         "rounds": n,
         "catches_per_round": catches / n,
         "hits_per_round": hits / n,
-        # The training objective, per round: catches minus hits minus the time cost.
-        "objective": sum(round_return(r.catches, r.hits, r.frames) for r in rounds) / n,
+        # The training objective per round, unshaped: what ChaserEnv pays per catch and hit.
+        "objective": sum(_objective(r) for r in rounds) / n,
         "catches_per_min": catches / seconds * 60.0,
         "hits_per_min": hits / seconds * 60.0,
         # The game score: catches minus missile hits per minute of play.

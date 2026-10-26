@@ -6,13 +6,13 @@ from types import SimpleNamespace
 import pygame
 import pytest
 
-from ai_platform_trainer.ai.model_paths import ENEMY_PPO_MODEL
+from ai_platform_trainer.ai.model_paths import ENEMY_MODEL
 from ai_platform_trainer.arena.config import ArenaConfig
 from ai_platform_trainer.entities.player_play import PlayerPlay
 from ai_platform_trainer.gameplay.modes.play_learning_mode import PlayLearningMode
 
 needs_agent = pytest.mark.skipif(
-    not os.path.exists(ENEMY_PPO_MODEL), reason="AI Agent model not on disk"
+    not os.path.exists(ENEMY_MODEL), reason="AI Agent model not on disk"
 )
 
 

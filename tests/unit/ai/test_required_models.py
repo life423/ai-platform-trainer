@@ -97,6 +97,15 @@ def test_model_that_fails_to_load_is_reported(no_disk_models, monkeypatch):
         no_disk_models.create_smart_missile(0, 0)
 
 
+def test_agent_model_lives_at_the_new_paths():
+    from ai_platform_trainer.ai import model_paths
+
+    assert model_paths.ENEMY_MODEL == "models/enemy/enemy.zip"
+    assert model_paths.ENEMY_DIR == "models/enemy"
+    assert model_paths.ENEMY_LOG_DIR == "logs/enemy"
+    assert TRAINING_COMMANDS["enemy"] == "python -m ai_platform_trainer train-enemy"
+
+
 def test_agent_enemy_is_required(monkeypatch):
     monkeypatch.setattr(enemy_agent, "is_enemy_agent_available", lambda *a, **k: False)
 

@@ -1,11 +1,11 @@
 """Command line interface.
 
     python -m ai_platform_trainer                  play the game (default)
-    python -m ai_platform_trainer train-enemy      train the PPO enemy (checkpointed)
+    python -m ai_platform_trainer train-enemy      train the AI Agent: chase copy, then PPO
     python -m ai_platform_trainer evaluate-enemy   fixed-seed evaluation of one enemy
     python -m ai_platform_trainer benchmark        every enemy on the same seeded rounds
 
-Training never runs inside the game; each job is an explicit, resumable command.
+Training never runs inside the game; each job is an explicit command.
 """
 import argparse
 import logging
@@ -13,12 +13,7 @@ import os
 import sys
 from typing import List, Optional
 
-from ai_platform_trainer.ai.model_paths import (
-    BENCHMARK_DIR,
-    ENEMY_PPO_DIR,
-    ENEMY_PPO_LOG_DIR,
-    ENEMY_PPO_MODEL,
-)
+from ai_platform_trainer.ai.model_paths import BENCHMARK_DIR, ENEMY_MODEL
 from ai_platform_trainer.arena.config import DEFAULT_SCREEN
 
 
@@ -45,27 +40,30 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("play", help="launch the game (default)")
 
     train = sub.add_parser(
-        "train-enemy", help="train the PPO enemy on the headless arena"
+        "train-enemy", help="train the AI Agent: copy the chase enemy, then PPO"
     )
-    train.add_argument("--timesteps", type=int, default=10_000_000)
-    train.add_argument("--envs", type=int, default=None, help="parallel environments")
-    train.add_argument("--seed", type=int, default=0)
-    train.add_argument(
-        "--resume", action="store_true", help="continue from the last checkpoint"
-    )
+    train.add_argument("--rounds", type=int, default=300, help="chase rounds to copy")
+    train.add_argument("--timesteps", type=int, default=1_000_000, help="PPO decisions")
     train.add_argument(
         "--out",
-        default=ENEMY_PPO_DIR,
-        help="model directory; the game loads models/enemy_ppo",
+        default=ENEMY_MODEL,
+        help="model zip; its JSON card is written beside it",
+    )
+    train.add_argument("--seed", type=int, default=0)
+    train.add_argument(
+        "--hit-reward", type=float, default=-2.0, help="reward per missile hit"
     )
     train.add_argument(
-        "--logs", default=ENEMY_PPO_LOG_DIR, help="training log directory"
+        "--threat-weight",
+        type=float,
+        default=1.0,
+        help="shaping weight on missiles closing on the enemy",
     )
 
     evaluate = sub.add_parser(
         "evaluate-enemy", help="fixed-seed evaluation of one enemy"
     )
-    evaluate.add_argument("--model", default=ENEMY_PPO_MODEL, help="SB3 model zip")
+    evaluate.add_argument("--model", default=ENEMY_MODEL, help="SB3 model zip")
     _add_arena_args(evaluate)
 
     bench = sub.add_parser("benchmark", help="every enemy on the same seeded rounds")
@@ -73,7 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--policies", default="all", help="comma separated names, or all (default)"
     )
     bench.add_argument(
-        "--model", default=ENEMY_PPO_MODEL, help="PPO model zip, if present"
+        "--model", default=ENEMY_MODEL, help="AI Agent model zip, if present"
     )
     bench.add_argument("--out", default=BENCHMARK_DIR, help="report directory")
     _add_arena_args(bench)
@@ -149,15 +147,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         return play()
     logging.basicConfig(level=logging.WARNING)
     if args.command == "train-enemy":
-        from ai_platform_trainer.ai.training.train_enemy_ppo import train
+        from ai_platform_trainer.ai.training.train_enemy import train
 
+        # Training logs its progress at INFO, so show it for this long job.
+        logging.getLogger().setLevel(logging.INFO)
         train(
-            timesteps=args.timesteps,
-            n_envs=args.envs,
-            seed=args.seed,
-            resume=args.resume,
-            out_dir=args.out,
-            log_dir=args.logs,
+            args.rounds,
+            args.timesteps,
+            args.out,
+            args.seed,
+            hit_reward=args.hit_reward,
+            threat_weight=args.threat_weight,
         )
         return 0
     if args.command == "evaluate-enemy":

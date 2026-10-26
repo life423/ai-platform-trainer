@@ -94,9 +94,9 @@ def test_arena_sac_guidance_steers_like_the_game():
 
 
 @needs_sac
-def test_sac_guidance_is_the_default_for_training_and_benchmarks():
-    from ai_platform_trainer.ai.envs.enemy_env import EnemyArenaEnv
+def test_chaser_env_uses_the_sac_guidance():
+    from ai_platform_trainer.ai.envs.chaser_env import ChaserEnv
 
-    env = EnemyArenaEnv()
+    env = ChaserEnv()
 
     assert env.guidance.name == "sac"

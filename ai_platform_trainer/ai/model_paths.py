@@ -3,9 +3,9 @@ import json
 import os
 from typing import Any, Dict, Optional
 
-ENEMY_PPO_DIR = "models/enemy_ppo"
-ENEMY_PPO_MODEL = "models/enemy_ppo/enemy_ppo.zip"
-ENEMY_PPO_LOG_DIR = "logs/enemy_ppo"
+ENEMY_DIR = "models/enemy"
+ENEMY_MODEL = "models/enemy/enemy.zip"
+ENEMY_LOG_DIR = "logs/enemy"
 MISSILE_SAC_MODEL = "models/missile_sac_model_final.zip"
 BENCHMARK_DIR = "reports/benchmarks"
 

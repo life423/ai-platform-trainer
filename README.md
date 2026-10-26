@@ -34,10 +34,10 @@ missing, and the menu names the command that trains it.
 ```
 ai_platform_trainer/
 ├── ai/
-│   ├── envs/enemy_env.py               # Gymnasium env the enemy PPO trains in
+│   ├── envs/chaser_env.py              # Gymnasium env the AI Agent trains in
 │   ├── evaluation/enemy_benchmark.py   # seeded benchmark of every enemy
-│   ├── training/                       # train-enemy, SAC and PPO missile trainers
-│   ├── missile_ai_loader.py            # loads the SAC and PPO missile models for the game
+│   ├── training/                       # train-enemy and the SAC missile trainer
+│   ├── missile_ai_loader.py            # loads the SAC missile model for the game
 │   └── model_paths.py                  # where models live, the missing-model error
 ├── arena/                              # headless simulation for training and benchmarks
 ├── core/                               # config manager, screen context, logging
@@ -71,12 +71,12 @@ to start.
 
 | Model | File | Trained by |
 |---|---|---|
-| AI Agent (enemy, PPO) | `models/enemy_ppo/enemy_ppo.zip` + JSON model card | `python -m ai_platform_trainer train-enemy` |
+| AI Agent (enemy, PPO) | `models/enemy/enemy.zip` + JSON card | `python -m ai_platform_trainer train-enemy` |
 | Missile AI: SAC | `models/missile_sac_model_final.zip` | `python -m ai_platform_trainer.ai.training.train_missile_sac` |
 
-The enemy trains in `arena/`, a simulation with no window, against the same
-missile guidance the game uses. `train-enemy` saves checkpoints as it goes;
-`--resume` continues from the last one.
+The AI Agent is trained by copying the chase enemy's moves, then fine-tuned with
+PPO on the arena's rules, a simulation with no window that uses the same missile
+guidance the game does. Its JSON card records how it was trained and the benchmark it scored.
 
 The model card next to the enemy records how it was trained. The game only loads
 an enemy whose card says it was trained on the game's 800×600 world.

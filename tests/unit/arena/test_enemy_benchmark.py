@@ -38,8 +38,8 @@ def test_summary_metrics():
     assert s["catches_per_min"] == pytest.approx(10.0)
     assert s["hits_per_min"] == pytest.approx(40 / 3)
     assert s["net_per_min"] == pytest.approx(-10 / 3)
-    # per round: (1 - 120/900), (-1 - 60/900), (2 - 3 - 900/900), averaged over 3
-    assert s["objective"] == pytest.approx(-2.2 / 3)
+    # per round: 1 catch = +1; 1 hit = -2; 2 catches and 3 hits = -4; averaged over 3
+    assert s["objective"] == pytest.approx(-5 / 3)
     assert s["closing_px_per_s"] == pytest.approx(510.0 / 18.0)
     # 6 missiles ran out of fuel, 4 hit; 6 / (6 + 4) of the missiles were evaded
     assert s["missile_evasion_rate"] == pytest.approx(0.6)

@@ -10,7 +10,7 @@ import os
 from typing import Any, Callable, List, Optional
 
 from ai_platform_trainer.ai.model_paths import (
-    ENEMY_PPO_MODEL,
+    ENEMY_MODEL,
     TRAINING_COMMANDS,
     MissingModelError,
     load_model_card,
@@ -23,16 +23,17 @@ from ai_platform_trainer.arena.geometry import wrapped_move
 from ai_platform_trainer.entities.enemy_play import EnemyPlay
 
 
-def is_enemy_agent_available(model_path: str = ENEMY_PPO_MODEL) -> bool:
+def is_enemy_agent_available(model_path: str = ENEMY_MODEL) -> bool:
     """Whether train-enemy has deployed a policy yet."""
     return os.path.exists(model_path)
 
 
-def enemy_agent_problem(model_path: str = ENEMY_PPO_MODEL) -> Optional[str]:
+def enemy_agent_problem(model_path: str = ENEMY_MODEL) -> Optional[str]:
     """Why the AI Agent cannot play right now, or None if it can.
 
     A policy trained in a different arena size sees coordinates it never
-    learned from, so it is refused rather than run.
+    learned from, so it is refused rather than run. A card without an
+    "algorithm" entry comes from an older training run and is refused too.
     """
     if not is_enemy_agent_available(model_path):
         return missing_model_message("enemy")
@@ -41,6 +42,12 @@ def enemy_agent_problem(model_path: str = ENEMY_PPO_MODEL) -> Optional[str]:
     if card is None:
         return (
             "The AI Agent has no model card, so its arena size cannot be checked. "
+            f"Retrain it with: {TRAINING_COMMANDS['enemy']}"
+        )
+
+    if "algorithm" not in card:
+        return (
+            "The AI Agent's model card is from an older training run. "
             f"Retrain it with: {TRAINING_COMMANDS['enemy']}"
         )
 
@@ -66,18 +73,20 @@ def create_trained_enemy(
 
 def model_card_summary(model_path: str) -> List[str]:
     """A short, honest description of a deployed policy, from its JSON model card."""
-    lines = ["Neural-network policy, no scripted rules"]
+    lines = ["Neural-network policy, trained by copying the chase enemy, then PPO"]
     card = load_model_card(model_path)
     if card is None:
         return lines
     millions = format(card["timesteps"] / 1e6, ".1f")
+    lines.append(f"Trained {millions}M decisions")
     rate = 60 // card["decision_frames"]
-    net = format(card["evaluation"]["net_per_min"], "+.2f")
-    lines.append(f"Trained {millions}M steps with PPO")
     lines.append(f"Decides {rate} times per second")
-    rounds = card["evaluation"].get("rounds")
-    scope = f" over {rounds} rounds" if rounds else ""
-    lines.append(f"Training score: {net} net catches/min{scope}")
+    evaluation = card.get("evaluation")
+    if evaluation and "net_per_min" in evaluation and "rounds" in evaluation:
+        net = format(evaluation["net_per_min"], "+.2f")
+        lines.append(
+            f"Benchmark: {net} net catches/min over {evaluation['rounds']} rounds"
+        )
     return lines
 
 
@@ -89,7 +98,7 @@ class ArenaEnemyAgent(EnemyPlay):
         screen_width: int,
         screen_height: int,
         player_provider: Callable[[], Any],
-        model_path: str = ENEMY_PPO_MODEL,
+        model_path: str = ENEMY_MODEL,
     ) -> None:
         super().__init__(screen_width, screen_height)
         self.controller = SB3Enemy.load(model_path)

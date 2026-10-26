@@ -1,12 +1,9 @@
 """Enemy controllers that act on an ArenaState: baselines and learned agents.
 
 Every policy returns a per-frame displacement in pixels. The sim clips capped
-policies to the arena enemy_speed per axis, the same cap for every enemy. The
-shipped Adaptive AI can opt out of the cap to reproduce its speed ramp to 10+ px
-per frame.
+policies to the arena enemy_speed per axis, the same cap for every enemy.
 """
 import random
-from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Tuple
 
 from ai_platform_trainer.ai.model_paths import load_model_card
@@ -71,40 +68,6 @@ class ChaseEnemy(EnemyPolicy):
         return dx / scale * speed, dy / scale * speed
 
 
-class AdaptiveEnemy(EnemyPolicy):
-    """The shipped AdaptiveStagedEnemyAI heuristics, driven on arena state.
-
-    It starts fully warmed up (nightmare stage), which is how it plays after
-    the first few seconds of a real session. capped=True holds it to the arena
-    enemy speed like every other enemy; capped=False keeps its own speed ramp
-    (up to 10 px per frame plus a chase boost), i.e. the enemy as shipped.
-    """
-
-    def __init__(self, capped: bool = True, warmup_frames: int = 900) -> None:
-        self.capped = capped
-        self.name = "adaptive" if capped else "adaptive_shipped"
-        self.warmup_frames = warmup_frames
-        self._ai: Any = None
-
-    def reset(self, state: ArenaState, rng: random.Random) -> None:
-        from ai_platform_trainer.entities.enemy_learning import AdaptiveStagedEnemyAI
-
-        # The legacy class draws from the global RNG; seed it per episode.
-        random.seed(rng.getrandbits(32))
-        cfg = state.config
-        self._ai = AdaptiveStagedEnemyAI(cfg.width, cfg.height)
-        self._ai.total_frames = self.warmup_frames
-
-    def act(self, state: ArenaState) -> Displacement:
-        ai = self._ai
-        ai.pos = {"x": state.enemy.x, "y": state.enemy.y}
-        ai.total_frames += 1
-        ai._update_behavior_stage()
-        # Play mode hands it every missile, including ones still exploding.
-        missiles = [SimpleNamespace(pos={"x": m.x, "y": m.y}) for m in state.missiles]
-        return ai._get_movement_decision(state.player.x, state.player.y, missiles)
-
-
 class SB3Enemy(EnemyPolicy):
     """A trained Stable-Baselines3 policy acting through the shared encoder.
 
@@ -160,18 +123,11 @@ class SB3Enemy(EnemyPolicy):
 
 def baseline_policies() -> List[EnemyPolicy]:
     """Scripted enemies every learned agent is compared against."""
-    return [
-        RandomEnemy(),
-        ChaseEnemy(),
-        AdaptiveEnemy(capped=True),
-        AdaptiveEnemy(capped=False),
-    ]
+    return [RandomEnemy(), ChaseEnemy()]
 
 
 POLICY_NAMES: Dict[str, str] = {
     "random": "Random movement",
     "chase": "Direct chase",
-    "adaptive": "Adaptive AI (scripted)",
-    "adaptive_shipped": "Adaptive AI (as shipped, speed 10+)",
     "ppo": "PPO agent",
 }
