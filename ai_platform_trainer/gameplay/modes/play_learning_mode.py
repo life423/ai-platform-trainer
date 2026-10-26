@@ -237,7 +237,7 @@ class PlayLearningMode:
 
         # Instructions with better spacing and colors
         instructions = [
-            "🎮 WASD/Arrows: Move  |  Space: Shoot  |  ESC: Menu",
+            "🎮 WASD/Arrows: Move  |  Space: Shoot  |  M: Menu  |  Esc: Quit",
             "🤖 What drives the enemy: top-right panel",
         ]
 

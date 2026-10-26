@@ -75,7 +75,9 @@ def model_card_summary(model_path: str) -> List[str]:
     net = format(card["evaluation"]["net_per_min"], "+.2f")
     lines.append(f"Trained {millions}M steps with PPO")
     lines.append(f"Decides {rate} times per second")
-    lines.append(f"Benchmark: {net} net catches/min")
+    rounds = card["evaluation"].get("rounds")
+    scope = f" over {rounds} rounds" if rounds else ""
+    lines.append(f"Training score: {net} net catches/min{scope}")
     return lines
 
 

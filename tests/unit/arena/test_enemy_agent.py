@@ -77,7 +77,7 @@ def test_panel_summarizes_the_model_card(tmp_path):
         "Neural-network policy, no scripted rules",
         "Trained 10.0M steps with PPO",
         "Decides 15 times per second",
-        "Benchmark: +1.23 net catches/min",
+        "Training score: +1.23 net catches/min",
     ]
 
 
