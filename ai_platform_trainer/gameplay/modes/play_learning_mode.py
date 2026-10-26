@@ -1,5 +1,5 @@
 """
-Play mode: the player against the AI Agent, with a panel showing what drives
+Play mode: the player against the AI Agent, with a card showing what drives
 the enemy.
 """
 import logging
@@ -15,8 +15,47 @@ from ai_platform_trainer.gameplay.spawn_utils import find_valid_spawn_position
 
 # Color constants
 COLOR_TEXT_PRIMARY = (255, 255, 255)  # White
-COLOR_TEXT_SECONDARY = (240, 248, 255)  # Alice blue
 COLOR_SELECTED = (255, 215, 0)  # Gold
+
+# The HUD: rounded, translucent navy cards
+CARD_FILL = (20, 30, 70, 215)
+CARD_BORDER = (200, 220, 255)
+CARD_RADIUS = 10
+CARD_PADDING = 14
+CARD_MARGIN = 12
+CARD_MIN_WIDTH = 240
+CARD_MAX_WIDTH = 330
+
+CONTROLS_TEXT = (
+    "Move: WASD or Arrows     Fire: Space     Menu: M     Fullscreen: F     Quit: Esc"
+)
+
+
+def draw_card(screen: pygame.Surface, rect) -> None:
+    """Draw a rounded, translucent card at rect (x, y, width, height)."""
+    card = pygame.Surface(rect[2:], pygame.SRCALPHA)
+    card_rect = card.get_rect()
+    pygame.draw.rect(card, CARD_FILL, card_rect, border_radius=CARD_RADIUS)
+    pygame.draw.rect(
+        card, CARD_BORDER, card_rect, width=2, border_radius=CARD_RADIUS
+    )
+    screen.blit(card, rect[:2])
+
+
+def wrap_text(text: str, font: pygame.font.Font, max_width: int) -> list:
+    """Split text into lines no wider than max_width. A long word stays whole."""
+    lines = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}" if current else word
+        if current and font.size(candidate)[0] > max_width:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current or not lines:
+        lines.append(current)
+    return lines
 
 
 class PlayLearningMode:
@@ -41,21 +80,12 @@ class PlayLearningMode:
         # Replace the regular enemy with our learning AI
         self.game.enemy = self.learning_enemy
 
-        # UI elements for learning feedback
-        self.font_large = pygame.font.Font(None, 42)
+        # Fonts for the HUD: pygame's default font, which has no emoji
         self.font_medium = pygame.font.Font(None, 32)
-        self.font_small = pygame.font.Font(None, 22)
+        self.font_small = pygame.font.Font(None, 24)
 
-        # Colors for UI - using accessible colors from settings
-        self.ui_bg_color = (
-            25,
-            25,
-            112,
-            180,
-        )  # Semi-transparent midnight blue for contrast
-        self.text_primary = COLOR_TEXT_PRIMARY  # White
-        self.text_secondary = COLOR_TEXT_SECONDARY  # Alice blue
-        self.highlight_color = COLOR_SELECTED  # Gold
+        self.text_primary = COLOR_TEXT_PRIMARY
+        self.highlight_color = COLOR_SELECTED
 
         logging.info("Play mode initialized")
 
@@ -211,67 +241,65 @@ class PlayLearningMode:
         logging.debug(f"Learning AI respawned at ({x}, {y})")
 
     def render_enemy_panel(self, screen: pygame.Surface) -> None:
-        """Top-right panel: what drives the enemy, and this session score."""
+        """Top-right card: what drives the enemy, and the score so far."""
         if not self.learning_enemy:
             return
         stats = self.learning_enemy.panel_stats()
-        hits, deaths = stats["hits"], stats["deaths"]
-        lines = list(stats["summary"]) + [f"Caught you: {hits}   Hit by you: {deaths}"]
-        panel_width = 380
-        line_height = 22
-        panel_height = 52 + line_height * len(lines)
-        panel_x = screen.get_width() - panel_width - 15
-        panel_y = 15
-        panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-        panel_surface.fill(self.ui_bg_color)
-        screen.blit(panel_surface, (panel_x, panel_y))
-        pygame.draw.rect(
-            screen,
-            self.text_secondary,
-            (panel_x, panel_y, panel_width, panel_height),
-            2,
-        )
-        title = self.font_medium.render(stats["title"], True, self.highlight_color)
-        screen.blit(title, (panel_x + 15, panel_y + 12))
-        for i, line in enumerate(lines):
-            text = self.font_small.render(line, True, self.text_primary)
-            screen.blit(text, (panel_x + 15, panel_y + 46 + i * line_height))
-
-    def draw_mode_info(self, screen: pygame.Surface):
-        """Draw mode information with improved styling."""
-        # Mode title with background for better visibility
-        title_text = self.font_large.render("PLAY MODE", True, self.highlight_color)
-        title_rect = title_text.get_rect()
-        title_bg = pygame.Surface(
-            (title_rect.width + 20, title_rect.height + 8), pygame.SRCALPHA
-        )
-        title_bg.fill((0, 0, 0, 140))
-
-        screen.blit(title_bg, (10, 10))
-        screen.blit(title_text, (20, 14))
-
-        # Instructions with better spacing and colors
-        instructions = [
-            "🎮 WASD/Arrows: Move  |  Space: Shoot  |  M: Menu  |  Esc: Quit",
-            "🤖 What drives the enemy: top-right panel",
+        lines = list(stats["summary"]) + [
+            f"Caught you: {stats['hits']}",
+            f"Your missiles hit it: {stats['deaths']}",
         ]
 
-        instruction_y_start = title_rect.height + 25
-        for i, instruction in enumerate(instructions):
-            instruction_text = self.font_small.render(
-                instruction, True, self.text_primary
-            )
-            instruction_rect = instruction_text.get_rect()
+        # Size the card to its text, then wrap the text to fit the card
+        title = self.font_medium.render(stats["title"], True, self.highlight_color)
+        widest = max(
+            [title.get_width()] + [self.font_small.size(line)[0] for line in lines]
+        )
+        card_width = min(
+            CARD_MAX_WIDTH, max(CARD_MIN_WIDTH, widest + 2 * CARD_PADDING)
+        )
+        text_width = card_width - 2 * CARD_PADDING
+        body = [
+            part
+            for line in lines
+            for part in wrap_text(line, self.font_small, text_width)
+        ]
 
-            # Background for each instruction
-            inst_bg = pygame.Surface(
-                (instruction_rect.width + 16, instruction_rect.height + 4),
-                pygame.SRCALPHA,
-            )
-            inst_bg.fill((0, 0, 0, 120))
+        line_height = self.font_small.get_linesize()
+        body_top = CARD_PADDING + title.get_height() + 8
+        card_height = body_top + line_height * len(body) + CARD_PADDING
+        x = screen.get_width() - card_width - CARD_MARGIN
+        y = CARD_MARGIN
+        draw_card(screen, (x, y, card_width, card_height))
 
-            y_pos = instruction_y_start + i * 22
-            screen.blit(inst_bg, (10, y_pos))
-            screen.blit(instruction_text, (18, y_pos + 2))
+        screen.blit(title, (x + CARD_PADDING, y + CARD_PADDING))
+        for i, line in enumerate(body):
+            text = self.font_small.render(line, True, self.text_primary)
+            screen.blit(text, (x + CARD_PADDING, y + body_top + i * line_height))
 
+    def draw_mode_info(self, screen: pygame.Surface):
+        """The Play HUD: a mode chip, a controls bar, and the enemy card."""
+        self._draw_mode_chip(screen)
+        self._draw_controls_bar(screen)
         self.render_enemy_panel(screen)
+
+    def _draw_mode_chip(self, screen: pygame.Surface) -> None:
+        label = self.font_medium.render("PLAY", True, self.highlight_color)
+        chip = (
+            CARD_MARGIN,
+            CARD_MARGIN,
+            label.get_width() + 2 * CARD_PADDING,
+            label.get_height() + 10,
+        )
+        draw_card(screen, chip)
+        screen.blit(label, (chip[0] + CARD_PADDING, chip[1] + 5))
+
+    def _draw_controls_bar(self, screen: pygame.Surface) -> None:
+        text = self.font_small.render(CONTROLS_TEXT, True, self.text_primary)
+        bar_height = text.get_height() + 16
+        bar = pygame.Surface((screen.get_width(), bar_height), pygame.SRCALPHA)
+        bar.fill(CARD_FILL)
+        y = screen.get_height() - bar_height
+        screen.blit(bar, (0, y))
+        centre = (screen.get_width() // 2, y + bar_height // 2)
+        screen.blit(text, text.get_rect(center=centre))

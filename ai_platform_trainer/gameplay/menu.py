@@ -40,6 +40,7 @@ class Menu:
         self.color_selected = (255, 223, 0)
         self.color_unavailable = (120, 120, 120)
         self.color_error = (180, 0, 0)
+        self.color_highlight = (20, 30, 70, 215)  # the pill behind the selection
         self.option_rects = {}  # Store clickable rects for each menu option
 
     def handle_menu_events(self, event):
@@ -187,17 +188,38 @@ class Menu:
         spacing = 70
 
         for index, option in enumerate(self.main_menu_options):
-            color = (
-                self.color_selected
-                if index == self.selected_option
-                else self.color_option
-            )
+            selected = index == self.selected_option
+            color = self.color_selected if selected else self.color_option
             option_surface = self.font_option.render(option, True, color)
             option_rect = option_surface.get_rect(
                 center=(self.screen_width // 2, start_y + index * spacing)
             )
             self.option_rects[index] = option_rect
+            if selected:
+                self._draw_highlight(screen, option_rect)
             screen.blit(option_surface, option_rect)
+
+        self._draw_hint(screen, "Up/Down to choose    Enter to select    Esc to quit")
+
+    def _draw_highlight(self, screen, option_rect) -> None:
+        """A dark pill behind the selected option."""
+        pill = option_rect.inflate(48, 16)
+        surface = pygame.Surface(pill.size, pygame.SRCALPHA)
+        pygame.draw.rect(
+            surface,
+            self.color_highlight,
+            surface.get_rect(),
+            border_radius=pill.height // 2,
+        )
+        screen.blit(surface, pill.topleft)
+
+    def _draw_hint(self, screen, text: str) -> None:
+        """One line of key hints along the bottom of the screen."""
+        hint = self.font_small.render(text, True, self.color_title)
+        hint_rect = hint.get_rect(
+            center=(self.screen_width // 2, self.screen_height - 40)
+        )
+        screen.blit(hint, hint_rect)
 
     def draw_model_menu(self, screen):
         """Draw the "choose your missile AI" submenu shown after selecting Play."""
@@ -231,7 +253,8 @@ class Menu:
             if not available:
                 label += " (not trained yet)"
 
-            if index == self.selected_model_index:
+            selected = index == self.selected_model_index
+            if selected:
                 color = self.color_selected
             elif not available:
                 color = self.color_unavailable
@@ -244,6 +267,8 @@ class Menu:
                 center=(self.screen_width // 2, start_y + index * spacing)
             )
             self.model_option_rects[index] = option_rect
+            if selected:
+                self._draw_highlight(screen, option_rect)
             screen.blit(option_surface, option_rect)
 
         if self.error_message:
@@ -255,13 +280,7 @@ class Menu:
             )
             screen.blit(error_surface, error_rect)
 
-        hint_surface = self.font_small.render(
-            "Press ESC to go back", True, self.color_title
-        )
-        hint_rect = hint_surface.get_rect(
-            center=(self.screen_width // 2, self.screen_height - 50)
-        )
-        screen.blit(hint_surface, hint_rect)
+        self._draw_hint(screen, "Up/Down to choose    Enter to start    Esc to go back")
 
     def draw_help(self, screen):
         """

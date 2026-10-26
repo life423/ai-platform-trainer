@@ -13,7 +13,7 @@ Reward per decision:
 - A cost per frame: 15 s without a catch costs as much as a missile hit. The
   enemy is a hunter, so a round it fails to win is a loss, not a safe draw.
 - Potential-based shaping, GAMMA * phi(next) - phi(now) with
-  phi = -distance / 1000, which speeds up learning without changing which
+  phi = -distance / 250, which speeds up learning without changing which
   policy is optimal (Ng, Harada and Russell, 1999).
 """
 import math
@@ -48,13 +48,13 @@ GAMMA = 1.0 - ENEMY_DECISION_FRAMES / PLANNING_HORIZON_FRAMES
 CATCH_REWARD = 1.0
 HIT_PENALTY = -1.0
 TIME_COST_PER_FRAME = 1.0 / DEFAULT_MAX_FRAMES
-POTENTIAL_SCALE = 1000.0
+POTENTIAL_SCALE = 250.0
 # A missile closer than this, and closing on the enemy, is a threat to dodge.
 THREAT_RADIUS_PX = 250.0
 THREAT_WEIGHT = 0.5
 REWARD_SPEC = (
     "+1 per catch, -1 per missile hit, -1 per 15 s, plus potential-based shaping "
-    "for distance to the player (phi = -distance / 1000) and for the closest "
+    "for distance to the player (phi = -distance / 250) and for the closest "
     "closing missile (phi -= 0.5 * threat, threat in [0, 1])"
 )
 

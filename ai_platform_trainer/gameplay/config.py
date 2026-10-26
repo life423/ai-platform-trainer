@@ -9,7 +9,7 @@ class Config:
     """Configuration constants for the game."""
 
     # Display settings
-    WINDOW_TITLE = "AI Platform Trainer"
+    WINDOW_TITLE = "Pixel Pursuit"
     SCREEN_SIZE = (1280, 720)
     FRAME_RATE = 60
 
