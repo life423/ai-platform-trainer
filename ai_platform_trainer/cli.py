@@ -51,12 +51,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     train.add_argument("--seed", type=int, default=0)
     train.add_argument(
-        "--hit-reward", type=float, default=-2.0, help="reward per missile hit"
+        "--hit-reward", type=float, default=-3.0, help="reward per missile hit"
     )
     train.add_argument(
         "--threat-weight",
         type=float,
-        default=1.0,
+        default=1.5,
         help="shaping weight on missiles closing on the enemy",
     )
 

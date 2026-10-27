@@ -29,6 +29,8 @@
   "clone_loss": 0.00021267494594212621,
   "timesteps": 2000896,
   "reward": "+1 per catch, -3 per missile hit, potential shaping for distance to the player and for closing missiles (threat weight 1.5); no time cost",
+  "hit_reward": -3.0,
+  "threat_weight": 1.5,
   "seed": 0,
   "minutes": 40.1,
   "evaluation": {
@@ -37,7 +39,7 @@
     "seed": 0,
     "missile_guidance": "sac (models/missile_sac_model_final.zip, trained on the arena's rules)",
     "objective": -10.181,
-    "objective_definition": "per round: +1 per catch, -3 per missile hit, no time cost",
+    "objective_definition": "per round: +1 per catch, -2 per missile hit (the benchmark's fixed yardstick), no time cost",
     "catches_per_min": 23.02,
     "hits_per_min": 31.88,
     "net_per_min": -8.85,

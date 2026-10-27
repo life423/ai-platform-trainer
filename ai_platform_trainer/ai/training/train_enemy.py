@@ -149,6 +149,8 @@ def train(
                 f"potential shaping for distance to the player and for closing "
                 f"missiles (threat weight {threat_weight:g}); no time cost"
             ),
+            "hit_reward": hit_reward,
+            "threat_weight": threat_weight,
             "seed": seed,
             "minutes": round((time.time() - started) / 60.0, 1),
         },

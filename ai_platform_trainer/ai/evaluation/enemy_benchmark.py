@@ -12,7 +12,6 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
-from ai_platform_trainer.ai.envs.chaser_env import CATCH_REWARD, HIT_REWARD
 from ai_platform_trainer.arena.config import FPS, ArenaConfig
 from ai_platform_trainer.arena.enemy_policies import POLICY_NAMES, EnemyPolicy
 from ai_platform_trainer.arena.episode import DEFAULT_MAX_FRAMES, ArenaEpisode
@@ -71,8 +70,17 @@ def play_round(
     )
 
 
+# The benchmark's yardstick is fixed, so every enemy is scored the same way whatever
+# reward it was trained with (the training hit penalty can change between models).
+OBJECTIVE_CATCH_REWARD = 1.0
+OBJECTIVE_HIT_REWARD = -2.0
+
+
 def _objective(round_result: RoundResult) -> float:
-    return CATCH_REWARD * round_result.catches + HIT_REWARD * round_result.hits
+    return (
+        OBJECTIVE_CATCH_REWARD * round_result.catches
+        + OBJECTIVE_HIT_REWARD * round_result.hits
+    )
 
 
 def summarize(rounds: Sequence[RoundResult]) -> Dict[str, Any]:
@@ -93,7 +101,8 @@ def summarize(rounds: Sequence[RoundResult]) -> Dict[str, Any]:
         "rounds": n,
         "catches_per_round": catches / n,
         "hits_per_round": hits / n,
-        # The training objective per round, unshaped: what ChaserEnv pays per catch and hit.
+        # The fixed yardstick per round: OBJECTIVE_CATCH_REWARD per catch and
+        # OBJECTIVE_HIT_REWARD per hit.
         "objective": sum(_objective(r) for r in rounds) / n,
         "catches_per_min": catches / seconds * 60.0,
         "hits_per_min": hits / seconds * 60.0,

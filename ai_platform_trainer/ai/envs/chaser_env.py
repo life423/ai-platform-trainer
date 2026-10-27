@@ -12,8 +12,8 @@ Reward per decision:
 There is no time cost: the objective is catches and hits. A catch or a hit moves
 the player or hides the enemy, so the shaping baseline is reset then.
 
-The deployed model (models/enemy/enemy.zip) was trained with hit_reward = -2.0 and
-threat_weight = 1.0, which are the defaults below.
+The deployed model (models/enemy/enemy.zip) was trained with hit_reward = -3.0 and
+threat_weight = 1.5, which are the defaults below.
 """
 import random
 from typing import Any, Dict, Optional, Tuple
@@ -40,10 +40,10 @@ from ai_platform_trainer.arena.state import ArenaState
 
 ROUND_FRAMES = 900  # 15 seconds at 60 FPS
 CATCH_REWARD = 1.0
-HIT_REWARD = -2.0
+HIT_REWARD = -3.0
 DISTANCE_SCALE = 200.0  # px: shaping for distance to the player
 THREAT_RADIUS_PX = 250.0  # a missile this close and closing is a threat
-THREAT_WEIGHT = 1.0
+THREAT_WEIGHT = 1.5
 MAX_PRELOADED_MISSILES = 2  # rounds may start with missiles already in flight
 
 
