@@ -1,9 +1,10 @@
 """Train the AI Agent (the enemy) on the canonical arena rules.
 
 Two stages:
-1. Behaviour cloning. The scripted chase enemy catches the player reliably, so the
-   policy first learns to copy its moves over many rounds and bots. This gives a
-   working chaser instead of one that has to discover chasing from nothing.
+1. Behaviour cloning. The scripted dodger (DodgeChaseEnemy) chases the player and
+   runs from missiles closing in on it, so the policy first learns to copy its moves
+   over many rounds and bots. This gives a chaser that already dodges, instead of one
+   that has to discover chasing and dodging from nothing.
 2. PPO fine-tuning in ai_platform_trainer.ai.envs.chaser_env. The reward pays for
    catches and charges for missile hits, so the fine-tuned enemy learns to dodge.
 
@@ -31,7 +32,7 @@ from ai_platform_trainer.ai.envs.chaser_env import (
     ChaserEnv,
 )
 from ai_platform_trainer.arena.config import ArenaConfig
-from ai_platform_trainer.arena.enemy_policies import ChaseEnemy
+from ai_platform_trainer.arena.enemy_policies import DODGE_RADIUS_PX, DodgeChaseEnemy
 
 ENEMY_OBS_NET = (128, 128)
 BC_EPOCHS = 30
@@ -44,16 +45,15 @@ FINE_TUNE_LOG_STD = math.log(0.3)  # exploration around the cloned moves
 def collect_demonstrations(
     env: ChaserEnv, rounds: int, seed: int = 0
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Observation and move pairs from the chase enemy, one per decision."""
-    chase = ChaseEnemy()
+    """Observation and move pairs from the scripted dodger, one per decision."""
+    teacher = DodgeChaseEnemy()
     speed = env.config.enemy_speed
     observations, actions = [], []
     for round_index in range(rounds):
         env.reset(seed=seed + round_index)
-        chase.reset(env.episode.state, env.rng)
         done = False
         while not done:
-            dx, dy = chase.act(env.episode.state)
+            dx, dy = teacher.decide(env.episode.state)
             target = np.clip([dx / speed, dy / speed], -1.0, 1.0).astype(np.float32)
             observations.append(env._observe())
             actions.append(target)
@@ -103,7 +103,7 @@ def train(
     """Behaviour-clone the chase enemy, fine-tune it with PPO, save model and card."""
     started = time.time()
     env = ChaserEnv(config=config, hit_reward=hit_reward, threat_weight=threat_weight)
-    logging.info(f"collecting {rounds} rounds of chase demonstrations")
+    logging.info(f"collecting {rounds} rounds of dodge demonstrations")
     observations, actions = collect_demonstrations(env, rounds, seed)
     logging.info(f"{len(observations)} decisions collected")
 
@@ -135,7 +135,11 @@ def train(
         os.path.splitext(out_path)[0] + ".json",
         {
             "name": "AI Agent",
-            "algorithm": "behaviour cloning of the chase enemy, then PPO",
+            "algorithm": "behaviour cloning of the scripted dodge, then PPO",
+            "teacher": (
+                "scripted dodge: chases the player, runs from missiles closing "
+                f"within {DODGE_RADIUS_PX:g} px"
+            ),
             "observation_size": int(env.observation_space.shape[0]),
             "decision_frames": 4,
             "round_frames": ROUND_FRAMES,

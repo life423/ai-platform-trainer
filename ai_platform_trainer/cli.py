@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("play", help="launch the game (default)")
 
     train = sub.add_parser(
-        "train-enemy", help="train the AI Agent: copy the chase enemy, then PPO"
+        "train-enemy", help="train the AI Agent: copy the scripted dodger, then PPO"
     )
     train.add_argument("--rounds", type=int, default=300, help="chase rounds to copy")
     train.add_argument("--timesteps", type=int, default=1_000_000, help="PPO decisions")

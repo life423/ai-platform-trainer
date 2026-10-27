@@ -103,12 +103,13 @@ class DodgeChaseEnemy(EnemyPolicy):
 
     def act(self, state: ArenaState) -> Displacement:
         if self._frames_left <= 0:
-            self._move = self._decide(state)
+            self._move = self.decide(state)
             self._frames_left = self.decision_frames
         self._frames_left -= 1
         return self._move
 
-    def _decide(self, state: ArenaState) -> Displacement:
+    def decide(self, state: ArenaState) -> Displacement:
+        """The move for this state. It has no decision clock, so the caller holds it."""
         away_x = away_y = 0.0
         for distance, dx, dy, missile in missile_threats(state):
             if distance > self.radius:

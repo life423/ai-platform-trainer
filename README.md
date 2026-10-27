@@ -74,9 +74,10 @@ to start.
 | AI Agent (enemy, PPO) | `models/enemy/enemy.zip` + JSON card | `python -m ai_platform_trainer train-enemy` |
 | Missile AI: SAC | `models/missile_sac_model_final.zip` | `python -m ai_platform_trainer.ai.training.train_missile_sac` |
 
-The AI Agent is trained by copying the chase enemy's moves, then fine-tuned with
-PPO on the arena's rules, a simulation with no window that uses the same missile
-guidance the game does. Its JSON card records how it was trained and the benchmark it scored.
+The AI Agent is trained by copying a scripted dodger's moves (it chases the player and
+runs from missiles closing in on it), then fine-tuned with PPO on the arena's rules, a
+simulation with no window that uses the same missile guidance the game does. Its JSON
+card records how it was trained and the benchmark it scored.
 
 The model card next to the enemy records how it was trained. The game only loads
 an enemy whose card says it was trained on the game's 800×600 world.
